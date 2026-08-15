@@ -1,0 +1,185 @@
+{
+  "course_namespace": "COMP330-F26",
+  "title": "COMP 330 Software Engineering",
+  "operating_model": {
+    "course_authority": "Sakai defines required course work, due dates, grading, and submission expectations.",
+    "evidence_authority": "GitHub preserves the team's authoritative engineering record.",
+    "professional_reference": "ETIS provides broader professional guidance without expanding course scope.",
+    "ai_rule": "AI-assisted output is proposed engineering material until humans review, verify, intentionally accept, and own it.",
+    "repository_rule": "The repository is an engineering control system, not a file dump or artifact-completion exercise.",
+    "workflow": "Issue -> Branch -> Commit -> Pull Request -> Review -> Checks -> Merge -> Evidence Updated"
+  },
+  "judgment_dimensions": [
+    {
+      "id": "business_value",
+      "label": "Business Value",
+      "question": "What outcome matters and for whom?"
+    },
+    {
+      "id": "cost_time",
+      "label": "Cost & Time",
+      "question": "What people, skills, money, calendar time, and opportunity cost does this choice consume?"
+    },
+    {
+      "id": "reliability",
+      "label": "Reliability",
+      "question": "How consistently must the system behave correctly?"
+    },
+    {
+      "id": "availability",
+      "label": "Availability",
+      "question": "How much downtime is tolerable and why?"
+    },
+    {
+      "id": "serviceability",
+      "label": "Serviceability",
+      "question": "Can engineers diagnose and repair the system efficiently?"
+    },
+    {
+      "id": "recoverability",
+      "label": "Recoverability",
+      "question": "How will the team restore service or compensate after failure?"
+    },
+    {
+      "id": "performance",
+      "label": "Performance",
+      "question": "What latency/throughput is actually required by the business outcome?"
+    },
+    {
+      "id": "scalability",
+      "label": "Scalability",
+      "question": "What growth is credible, and when would scaling investment become justified?"
+    },
+    {
+      "id": "security",
+      "label": "Security",
+      "question": "What assets, trust boundaries, identities, permissions, and abuse paths matter?"
+    },
+    {
+      "id": "privacy",
+      "label": "Privacy & Data Handling",
+      "question": "What data is necessary, permitted, retained, exposed, or avoidable?"
+    },
+    {
+      "id": "compliance",
+      "label": "Compliance & Policy",
+      "question": "What institutional, legal, contractual, or course constraints govern the choice?"
+    },
+    {
+      "id": "maintainability",
+      "label": "Maintainability",
+      "question": "Can the team understand, change, test, and evolve the system safely?"
+    },
+    {
+      "id": "operability",
+      "label": "Operability",
+      "question": "Can another engineer run, observe, diagnose, and support the system?"
+    },
+    {
+      "id": "observability",
+      "label": "Observability",
+      "question": "What signals prove behavior and expose degradation or failure?"
+    },
+    {
+      "id": "governability",
+      "label": "Governability",
+      "question": "Who can approve, constrain, revoke, audit, and escalate consequential actions?"
+    },
+    {
+      "id": "ai_governance",
+      "label": "AI Ethics & Governance",
+      "question": "What may AI propose or do, what must humans decide, and how is AI use verified and disclosed?"
+    },
+    {
+      "id": "traceability",
+      "label": "Traceability",
+      "question": "Can the claim be followed from intent to decision to change to evidence?"
+    },
+    {
+      "id": "accountability",
+      "label": "Accountability",
+      "question": "Who owns the decision, evidence, residual risk, and consequence?"
+    },
+    {
+      "id": "uncertainty",
+      "label": "Uncertainty",
+      "question": "What is unknown, assumed, or weakly evidenced, and what would reduce that uncertainty?"
+    },
+    {
+      "id": "reversibility",
+      "label": "Reversibility",
+      "question": "How expensive is it to change course if the assumption proves wrong?"
+    },
+    {
+      "id": "blast_radius",
+      "label": "Blast Radius",
+      "question": "Who or what is affected when this decision fails?"
+    },
+    {
+      "id": "technical_debt",
+      "label": "Technical Debt",
+      "question": "What future cost is intentionally being accepted now?"
+    },
+    {
+      "id": "sustainability",
+      "label": "Sustainability",
+      "question": "Is the solution proportional, supportable, and responsible over its expected lifetime?"
+    }
+  ],
+  "review_decisions": [
+    "approve",
+    "approve_with_conditions",
+    "defer",
+    "reject",
+    "constrain",
+    "request_evidence",
+    "escalate"
+  ],
+  "roles": [
+    {
+      "id": "chief_architect",
+      "label": "Chief Architect",
+      "lens": "Holistic system consequences, coherence, reversibility, and architectural judgment."
+    },
+    {
+      "id": "product_outcomes",
+      "label": "Product & Outcomes Reviewer",
+      "lens": "Stakeholder value, scope, requirements, acceptance criteria, and outcome clarity."
+    },
+    {
+      "id": "delivery",
+      "label": "Delivery & Engineering Manager",
+      "lens": "Capacity, estimates, dependencies, commitments, workflow, and execution risk."
+    },
+    {
+      "id": "evidence_auditor",
+      "label": "Evidence Auditor",
+      "lens": "Whether claims are supported by current, specific, linked, reviewable evidence."
+    },
+    {
+      "id": "security_governance",
+      "label": "Security & Governance Reviewer",
+      "lens": "Permissions, data, policy, approvals, AI/tool boundaries, and residual governance risk."
+    },
+    {
+      "id": "reliability_ops",
+      "label": "Reliability & Operations Reviewer",
+      "lens": "Failure, recovery, observability, supportability, and runtime consequences."
+    },
+    {
+      "id": "ai_governance",
+      "label": "AI Governance Reviewer",
+      "lens": "AI provenance, human verification, authority boundaries, failure modes, and accountability."
+    },
+    {
+      "id": "engineering_economics",
+      "label": "Engineering Economics Reviewer",
+      "lens": "Business tradeoffs among quality attributes, people, time, cost, and opportunity cost."
+    },
+    {
+      "id": "red_team",
+      "label": "Red Team Challenger",
+      "lens": "Adversarial challenge: weakest assumption, missing evidence, unintended consequence, and failure path."
+    }
+  ]
+}

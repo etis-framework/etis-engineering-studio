@@ -1,0 +1,56 @@
+[
+  {
+    "id": "A1",
+    "sakai_title": "Assignment 1 \u2014 Project Launch Evidence Package",
+    "opens": "2026-09-10T00:05:00-05:00",
+    "due": "2026-09-20T23:55:00-05:00",
+    "accept_until": "2026-09-27T23:55:00-05:00",
+    "points": 36,
+    "rubric_family": "phase_gate"
+  },
+  {
+    "id": "A2",
+    "sakai_title": "Assignment 2 \u2014 Planning and Estimation Package",
+    "opens": "2026-09-22T00:05:00-05:00",
+    "due": "2026-09-29T23:55:00-05:00",
+    "accept_until": "2026-10-08T23:55:00-05:00",
+    "points": 36,
+    "rubric_family": "phase_gate"
+  },
+  {
+    "id": "A3",
+    "sakai_title": "Assignment 3 - Architecture and Review Package",
+    "opens": "2026-10-01T00:05:00-05:00",
+    "due": "2026-10-15T23:55:00-05:00",
+    "accept_until": "2026-10-22T23:55:00-05:00",
+    "points": 36,
+    "rubric_family": "phase_gate"
+  },
+  {
+    "id": "A4",
+    "sakai_title": "Assignment 4 \u2014 Construction and AI Code Evidence Package",
+    "opens": "2026-10-22T00:05:00-05:00",
+    "due": "2026-10-29T23:55:00-05:00",
+    "accept_until": "2026-11-05T23:55:00-06:00",
+    "points": 36,
+    "rubric_family": "phase_gate"
+  },
+  {
+    "id": "A5",
+    "sakai_title": "Assignment 5 \u2014 Cycle 1 Release Evidence Package",
+    "opens": "2026-11-03T23:05:00-06:00",
+    "due": "2026-11-10T08:30:00-06:00",
+    "accept_until": "2026-11-10T23:55:00-06:00",
+    "points": 36,
+    "rubric_family": "release_readiness"
+  },
+  {
+    "id": "A6",
+    "sakai_title": "Assignment 6 \u2014 Final Cycle Release Package",
+    "opens": "2026-11-05T00:05:00-06:00",
+    "due": "2026-11-24T23:55:00-06:00",
+    "accept_until": "2026-12-01T08:40:00-06:00",
+    "points": 36,
+    "rubric_family": "release_readiness"
+  }
+]

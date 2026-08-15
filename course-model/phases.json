@@ -1,0 +1,529 @@
+[
+  {
+    "id": "A1",
+    "title": "Project Launch",
+    "etis_alignment": "ES-100 with selected ES-101 launch guidance",
+    "goal": "Establish a credible engineering organization and evidence system before implementation complexity accelerates.",
+    "gate_question": "Can the team operate with visible ownership, workflow discipline, AI governance, and repository structure before serious implementation begins?",
+    "expected_evidence": [
+      {
+        "path": "README.md",
+        "claim": "A reviewer can understand the project, current direction, and evidence map."
+      },
+      {
+        "path": "docs/team/team-charter.md",
+        "claim": "Team purpose, cadence, expectations, and operating rhythm are explicit."
+      },
+      {
+        "path": "docs/team/roles.md",
+        "claim": "Student identities, GitHub identities, primary/backup ownership, and acknowledgements are explicit."
+      },
+      {
+        "path": "docs/team/working-agreements.md",
+        "claim": "Communication, conflict handling, review, and definition-of-done expectations are explicit."
+      },
+      {
+        "path": "docs/ai/ai-policy.md",
+        "claim": "Allowed AI use, disclosure, verification, and human ownership are explicit."
+      },
+      {
+        "path": "docs/ai/ai-use-log.md",
+        "claim": "Meaningful AI assistance is disclosed with human review/verification."
+      },
+      {
+        "path": "docs/requirements/",
+        "claim": "Project direction, Cycle 1 slice, assumptions, acceptance intent, and open questions have begun."
+      },
+      {
+        "path": "docs/planning/",
+        "claim": "Initial scope, tasks, estimates, risks, schedule, and traceability have begun."
+      },
+      {
+        "path": "docs/decisions/",
+        "claim": "Consequential launch/scope/workflow decisions are durable and reviewable."
+      }
+    ],
+    "decisions_to_defend": [
+      "Why this project and why this bounded Cycle 1 vertical slice?",
+      "Why are the team's role and backup assignments credible rather than ceremonial?",
+      "What is the team's definition of meaningful review before merge?",
+      "What AI use is acceptable, what is not, and what evidence makes accepted AI output trustworthy?",
+      "What evidence must exist before the team starts serious implementation?",
+      "What is explicitly out of scope and what business/engineering reasoning supports that boundary?"
+    ],
+    "active_agents": [
+      "chief_architect",
+      "product_outcomes",
+      "evidence_auditor",
+      "delivery",
+      "ai_governance",
+      "engineering_economics",
+      "red_team"
+    ],
+    "priority_dimensions": [
+      "business_value",
+      "cost_time",
+      "traceability",
+      "accountability",
+      "ai_governance",
+      "uncertainty",
+      "reversibility",
+      "technical_debt",
+      "governability"
+    ],
+    "scenario_library": [
+      {
+        "id": "a1_scope_pressure",
+        "title": "Executive Scope Pressure",
+        "prompt": "A stakeholder asks the team to add authentication, notifications, and analytics before requirements are stable. Decide what you will do and defend the consequence.",
+        "signals": [
+          "scope",
+          "tradeoff",
+          "time",
+          "evidence"
+        ]
+      },
+      {
+        "id": "a1_ai_policy_gap",
+        "title": "AI Policy Under Pressure",
+        "prompt": "A teammate used AI to draft requirements and code scaffolding but did not log it because 'we changed most of it.' Decide whether this is acceptable and what evidence is required.",
+        "signals": [
+          "ai_governance",
+          "accountability",
+          "verification"
+        ]
+      },
+      {
+        "id": "a1_single_point_owner",
+        "title": "Single-Point-of-Failure Teammate",
+        "prompt": "One strong developer volunteers to own architecture, CI, deployment, and the database. The team says this is efficient. Decide whether to accept the model.",
+        "signals": [
+          "ownership",
+          "serviceability",
+          "continuity"
+        ]
+      },
+      {
+        "id": "a1_repo_theater",
+        "title": "Perfect-Looking Empty Repository",
+        "prompt": "The repository has every starter artifact completed with polished text, but there are almost no issues, decisions, questions, or review history. Is the team launch-ready? Defend your answer.",
+        "signals": [
+          "artifact_theater",
+          "evidence",
+          "workflow"
+        ]
+      }
+    ],
+    "anti_patterns": [
+      "Artifact presence treated as proof",
+      "Generic copied templates",
+      "Shared/generic team login",
+      "Important decisions only in chat",
+      "AI output accepted without disclosure/verification",
+      "Unbounded Cycle 1 scope",
+      "Ownership with no backup or acknowledgement"
+    ],
+    "rubric_family": "phase_gate"
+  },
+  {
+    "id": "A2",
+    "title": "Planning & Estimation",
+    "etis_alignment": "ES-102 Requirements & Constraints; ES-103 Planning & Work Breakdown",
+    "goal": "Convert reviewed requirements into visible, realistic, traceable, manageable work and explicit commitments.",
+    "gate_question": "Can the team convert requirements into visible, realistic, traceable, manageable work before implementation accelerates?",
+    "expected_evidence": [
+      {
+        "path": "docs/planning/README.md",
+        "claim": "The planning package is navigable and current."
+      },
+      {
+        "path": "docs/planning/scope.md",
+        "claim": "In-scope/out-of-scope boundaries and Cycle 1 vertical slice are explicit."
+      },
+      {
+        "path": "docs/planning/traceability.md",
+        "claim": "Requirements connect to tasks, owners, estimates, evidence, and later verification."
+      },
+      {
+        "path": "docs/planning/task-plan.md",
+        "claim": "Work is decomposed into reviewable units with ownership, dependencies, and completion evidence."
+      },
+      {
+        "path": "docs/planning/estimates.md",
+        "claim": "Estimates use ranges, assumptions, confidence, dependencies, and triggers."
+      },
+      {
+        "path": "docs/planning/risk-register.md",
+        "claim": "Risks have triggers, probability/impact reasoning, mitigation, owner, and status."
+      },
+      {
+        "path": "docs/planning/schedule.md",
+        "claim": "The plan reflects actual capacity, dependencies, integration points, reviews, tests, and buffer."
+      },
+      {
+        "path": "docs/planning/team-commitments.md",
+        "claim": "Commitments are explicit and distinguish targets from assumptions."
+      },
+      {
+        "path": "docs/planning/re-estimation.md",
+        "claim": "The team knows what evidence will trigger a planning change."
+      },
+      {
+        "path": "GitHub Issues",
+        "claim": "Meaningful work has repository-visible intent, owner, outcome, and completion evidence."
+      }
+    ],
+    "decisions_to_defend": [
+      "Why is this work decomposition small enough to estimate, review, and integrate?",
+      "What evidence supports the estimate range and confidence?",
+      "Which dependency has the highest schedule leverage and what happens if it slips?",
+      "What would cause the team to re-estimate or cut scope?",
+      "Which risk is most likely to invalidate the plan, and who owns the response?",
+      "What is a commitment versus an estimate, assumption, target, or optional item?",
+      "How does the plan preserve testing, review, and integration time rather than consuming it as buffer?"
+    ],
+    "active_agents": [
+      "delivery",
+      "product_outcomes",
+      "evidence_auditor",
+      "engineering_economics",
+      "chief_architect",
+      "ai_governance",
+      "red_team"
+    ],
+    "priority_dimensions": [
+      "cost_time",
+      "business_value",
+      "uncertainty",
+      "traceability",
+      "accountability",
+      "reversibility",
+      "technical_debt",
+      "reliability",
+      "maintainability"
+    ],
+    "scenario_library": [
+      {
+        "id": "a2_fixed_deadline",
+        "title": "Fixed Date, Uncertain Scope",
+        "prompt": "A stakeholder says the date cannot move, but the team has three high-uncertainty items and only one week of buffer. Decide what changes in the plan.",
+        "signals": [
+          "scope",
+          "schedule",
+          "uncertainty",
+          "tradeoff"
+        ]
+      },
+      {
+        "id": "a2_false_precision",
+        "title": "The 43-Hour Estimate",
+        "prompt": "A teammate proposes a single 43-hour estimate because 'management needs one number.' Defend whether the team should use it and what to provide instead.",
+        "signals": [
+          "estimate",
+          "confidence",
+          "risk"
+        ]
+      },
+      {
+        "id": "a2_hidden_dependency",
+        "title": "Dependency With No Owner",
+        "prompt": "A critical feature depends on an external library the team has never used. It appears in the schedule but has no spike, owner, fallback, or risk trigger. What do you do?",
+        "signals": [
+          "dependency",
+          "risk",
+          "reversibility"
+        ]
+      },
+      {
+        "id": "a2_ai_generated_plan",
+        "title": "AI Generated the Entire Plan",
+        "prompt": "An AI tool produced the task plan, estimates, risks, and schedule in minutes. The plan looks plausible. What must humans do before it becomes engineering evidence?",
+        "signals": [
+          "ai_governance",
+          "verification",
+          "capacity",
+          "assumptions"
+        ]
+      }
+    ],
+    "anti_patterns": [
+      "Single-point estimates with false precision",
+      "Schedule ignores review/testing/integration",
+      "Risks are vague nouns without triggers/owners",
+      "Issues disconnected from requirements",
+      "AI-created plan accepted as truth",
+      "Everything is high priority",
+      "No re-estimation triggers",
+      "Commitments exceed credible team capacity"
+    ],
+    "rubric_family": "phase_gate"
+  },
+  {
+    "id": "A3",
+    "title": "Architecture & Review",
+    "etis_alignment": "ES-104 Architecture; selected ES-105 Design",
+    "goal": "Make responsibilities, interfaces, data/context ownership, decisions, risks, governance, and failure boundaries reviewable before construction accelerates.",
+    "gate_question": "What will be hard, risky, expensive, or unsafe to change later if this architecture is accepted now?",
+    "expected_evidence": [
+      {
+        "path": "docs/architecture/",
+        "claim": "Architecture, boundaries, responsibilities, data/context, and contracts are explicit."
+      },
+      {
+        "path": "docs/decisions/",
+        "claim": "Important decisions show alternatives, consequences, risks, and ownership."
+      },
+      {
+        "path": "docs/reviews/architecture-review.md",
+        "claim": "Peer challenge and dispositions are visible."
+      },
+      {
+        "path": "docs/testing/test-strategy.md",
+        "claim": "Architecture risks and contracts map to planned verification."
+      }
+    ],
+    "decisions_to_defend": [
+      "Where does each behavior belong?",
+      "What crosses a trust or data boundary?",
+      "What is intentionally coupled or decoupled and why?",
+      "What failure or scale assumption would invalidate the design?",
+      "Where must humans approve or override AI/tool action?"
+    ],
+    "active_agents": [
+      "chief_architect",
+      "security_governance",
+      "reliability_ops",
+      "evidence_auditor",
+      "ai_governance",
+      "engineering_economics",
+      "red_team"
+    ],
+    "priority_dimensions": [
+      "reliability",
+      "availability",
+      "performance",
+      "scalability",
+      "security",
+      "privacy",
+      "maintainability",
+      "reversibility",
+      "governability",
+      "ai_governance"
+    ],
+    "scenario_library": [
+      {
+        "id": "a3_quality_tradeoff",
+        "title": "Quality Attribute Tradeoff",
+        "prompt": "The team can improve availability, security, or delivery speed this cycle, but not all three. Choose and defend a proportional architecture decision."
+      }
+    ],
+    "anti_patterns": [
+      "Architecture diagram with no decisions",
+      "Premature microservices",
+      "Quality attributes treated as free",
+      "AI/tool boundary undocumented",
+      "No failure/recovery thinking"
+    ],
+    "rubric_family": "phase_gate"
+  },
+  {
+    "id": "A4",
+    "title": "Construction & Integration",
+    "etis_alignment": "ES-106 Implementation Readiness; ES-107 Implementation; ES-108 Review & Integration",
+    "goal": "Prove controlled, reviewed, tested, traceable, AI-governed change.",
+    "gate_question": "Why is this change safe enough to merge, and what evidence would make you change that judgment?",
+    "expected_evidence": [
+      {
+        "path": "src/",
+        "claim": "Implementation corresponds to traceable intent."
+      },
+      {
+        "path": "tests/",
+        "claim": "Important behavior is challenged by tests."
+      },
+      {
+        "path": "GitHub Pull Requests",
+        "claim": "Meaningful changes have review, verification, risks, and merge decisions."
+      },
+      {
+        "path": ".github/workflows/",
+        "claim": "Configured checks prove specific things and their limits are understood."
+      },
+      {
+        "path": "docs/ai/ai-use-log.md",
+        "claim": "AI-assisted implementation is disclosed and verified."
+      }
+    ],
+    "decisions_to_defend": [
+      "Why is this change scoped this way?",
+      "What review changed the implementation?",
+      "What did CI prove and not prove?",
+      "What dependency risk was introduced?",
+      "What AI-generated work was rejected or materially changed?"
+    ],
+    "active_agents": [
+      "evidence_auditor",
+      "chief_architect",
+      "security_governance",
+      "reliability_ops",
+      "ai_governance",
+      "red_team"
+    ],
+    "priority_dimensions": [
+      "correctness",
+      "traceability",
+      "maintainability",
+      "security",
+      "reliability",
+      "ai_governance",
+      "technical_debt"
+    ],
+    "scenario_library": [
+      {
+        "id": "a4_green_ci",
+        "title": "Green CI, Weak Evidence",
+        "prompt": "All checks are green, but the new workflow has no negative or boundary tests. Is it merge-ready? Defend the decision."
+      }
+    ],
+    "anti_patterns": [
+      "LGTM-only review",
+      "Direct substantive commits to main",
+      "Green CI treated as complete proof",
+      "Large mixed-purpose PRs",
+      "Unreviewed AI-generated code"
+    ],
+    "rubric_family": "phase_gate"
+  },
+  {
+    "id": "A5",
+    "title": "Cycle 1 Release",
+    "etis_alignment": "ES-109 Testing & Validation; ES-110 Release Readiness",
+    "goal": "Close Cycle 1 with a controlled, evidence-backed, honest release baseline and evidence-derived Cycle 2 handoff.",
+    "gate_question": "What changed, what works, what evidence proves it, what risks remain, who owns them, and why is this release ready to present?",
+    "expected_evidence": [
+      {
+        "path": "docs/release/",
+        "claim": "Release scope, baseline, notes, limitations, traceability, and presentation evidence are reviewable."
+      },
+      {
+        "path": "docs/testing/",
+        "claim": "Final tests and CI evidence support release claims."
+      },
+      {
+        "path": "docs/quality/",
+        "claim": "Defects are classified and dispositioned."
+      },
+      {
+        "path": "test-evidence/",
+        "claim": "Manual/runtime evidence supports important claims where useful."
+      }
+    ],
+    "decisions_to_defend": [
+      "What exactly is in the release baseline?",
+      "Which claim is weakest?",
+      "What remains knowingly broken or limited?",
+      "Why is residual risk acceptable for Cycle 1?",
+      "What evidence should drive Cycle 2?"
+    ],
+    "active_agents": [
+      "chief_architect",
+      "evidence_auditor",
+      "reliability_ops",
+      "security_governance",
+      "ai_governance",
+      "engineering_economics",
+      "red_team"
+    ],
+    "priority_dimensions": [
+      "reliability",
+      "recoverability",
+      "observability",
+      "security",
+      "traceability",
+      "accountability",
+      "business_value",
+      "ai_governance"
+    ],
+    "scenario_library": [
+      {
+        "id": "a5_demo_vs_evidence",
+        "title": "The Demo Works",
+        "prompt": "The demo path works reliably, but two known defects and a missing regression test remain. Decide the release disposition and conditions."
+      }
+    ],
+    "anti_patterns": [
+      "Presentation used as proof",
+      "Known limitations hidden",
+      "Release baseline moves after submission",
+      "Cycle 2 becomes a feature wish list"
+    ],
+    "rubric_family": "release_readiness"
+  },
+  {
+    "id": "A6",
+    "title": "Final Release & Maturity",
+    "etis_alignment": "Evidence-selected ES-109 through ES-114, especially release, operations, monitoring, learning, and stewardship",
+    "goal": "Show evidence-driven maturity improvement, operational readiness, governance, observability, recovery, stewardship, and final release defensibility.",
+    "gate_question": "Can another engineer understand, operate, diagnose, recover, govern, and evolve the system within its documented limits?",
+    "expected_evidence": [
+      {
+        "path": "docs/operations/",
+        "claim": "Runbook, failure/recovery, postmortem, and supportability evidence are current."
+      },
+      {
+        "path": "docs/observability/",
+        "claim": "Runtime signals and limits are visible."
+      },
+      {
+        "path": "docs/security/",
+        "claim": "Permissions, data handling, governance, and residual security concerns are explicit."
+      },
+      {
+        "path": "docs/release/",
+        "claim": "Final release baseline, maturity changes, residual risks, and stewardship are defensible."
+      }
+    ],
+    "decisions_to_defend": [
+      "What evidence from Cycle 1 justified each maturity target?",
+      "What can fail and how will an engineer know?",
+      "How is recovery performed?",
+      "What residual risk remains and who owns it?",
+      "What would make you revoke or constrain the release?"
+    ],
+    "active_agents": [
+      "chief_architect",
+      "reliability_ops",
+      "security_governance",
+      "evidence_auditor",
+      "ai_governance",
+      "engineering_economics",
+      "red_team"
+    ],
+    "priority_dimensions": [
+      "operability",
+      "observability",
+      "recoverability",
+      "security",
+      "privacy",
+      "governability",
+      "accountability",
+      "sustainability",
+      "ai_governance"
+    ],
+    "scenario_library": [
+      {
+        "id": "a6_operational_failure",
+        "title": "Failure at 2 A.M.",
+        "prompt": "A new engineer sees elevated errors and user complaints. Using only repository evidence, can they diagnose, contain, recover, and know whom to notify? Defend the final readiness state."
+      }
+    ],
+    "anti_patterns": [
+      "Feature growth presented as maturity",
+      "Runbook cannot be executed by another engineer",
+      "Observability has no actionable signals",
+      "Residual risks have no owners",
+      "Postmortem learning not connected to Cycle 2 work"
+    ],
+    "rubric_family": "release_readiness"
+  }
+]

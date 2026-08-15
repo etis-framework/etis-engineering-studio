@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: etis_studio
+      POSTGRES_USER: etis
+      POSTGRES_PASSWORD: etis-local-only
+    ports:
+      - "5432:5432"
+    volumes:
+      - studio_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U etis -d etis_studio"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file: .env
+    environment:
+      ETIS_DATABASE_URL: postgresql+psycopg://etis:etis-local-only@db:5432/etis_studio
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  studio_pg:

@@ -1,0 +1,40 @@
+{
+  "phase_gate": {
+    "applies_to": [
+      "A1",
+      "A2",
+      "A3",
+      "A4"
+    ],
+    "areas": [
+      "Lifecycle / Phase Fit",
+      "Repository Organization",
+      "Engineering Evidence",
+      "Requirements / Scope / Planning",
+      "Architecture / Design Reasoning",
+      "Workflow / GitHub Discipline",
+      "AI Use and Verification",
+      "Team Ownership / Communication",
+      "Professional Quality"
+    ],
+    "note": "Interpret each area relative to the current lifecycle phase. The Studio surfaces evidence and learning signals; it does not autonomously assign the course grade."
+  },
+  "release_readiness": {
+    "applies_to": [
+      "A5",
+      "A6"
+    ],
+    "areas": [
+      "Release Story and Scope",
+      "Validation and Test Evidence",
+      "Defects and Known Limitations",
+      "Operational Readiness",
+      "Security / Governance / Data Handling",
+      "AI Accountability",
+      "Repository as Proof Source",
+      "Presentation and Professional Defense",
+      "Cycle Learning and Maturity"
+    ],
+    "note": "The Studio supports evidence-backed defense and instructor judgment; release readiness is not inferred from demo success or presentation polish."
+  }
+}

@@ -1,0 +1,60 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ETIS Engineering Studio</title><link rel="stylesheet" href="/assets/studio.css"></head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand"><div class="mark">E</div><div><b>ETIS</b><span>Engineering Studio</span></div></div>
+    <nav>
+      <button class="nav active" data-view="studio">◈ <span>Engineering Studio</span></button>
+      <button class="nav" data-view="evidence">⌁ <span>Evidence Map</span></button>
+      <button class="nav" data-view="instructor">▦ <span>Instructor</span></button>
+    </nav>
+    <div class="rail-bottom"><span class="dot"></span><div><b>COMP330-F26</b><small>Wave 1 · A1/A2</small></div></div>
+  </aside>
+  <main>
+    <header class="topbar"><div><span class="eyebrow">PROFESSIONAL REVIEW ENVIRONMENT</span><h1 id="viewTitle">Engineering Review Room</h1></div><div class="user"><div class="avatar">AR</div><div><b>Alex Rivera</b><small>Architecture & Integration Owner</small></div></div></header>
+
+    <section id="studio" class="view active-view">
+      <div class="contextbar">
+        <div><small>TEAM</small><b>Team Vector</b></div><div><small>PROJECT</small><b>CampusConnect</b></div>
+        <div><small>PHASE</small><select id="phase"><option>A1 · Project Launch</option><option>A2 · Planning & Estimation</option></select></div>
+        <div><small>REPOSITORY</small><b><span class="status amber"></span> Demo Evidence</b></div>
+        <button id="newReview" class="primary">Begin Review</button>
+      </div>
+      <div class="hero-grid">
+        <article class="mission">
+          <span class="eyebrow">CURRENT ENGINEERING QUESTION</span>
+          <h2 id="gateQuestion">Can the team operate with visible ownership, workflow discipline, AI governance, and repository structure before serious implementation begins?</h2>
+          <p>Do not optimize for a score. Make a decision another engineer could challenge, trace to evidence, and live with if it is wrong.</p>
+          <div class="chips"><span>Business Value</span><span>Evidence</span><span>Accountability</span><span>AI Governance</span><span>Uncertainty</span></div>
+        </article>
+        <article class="pulse"><div class="pulse-head"><span>ENGINEERING SIGNALS</span><b id="coverage">—</b></div><div class="meter"><i id="meter"></i></div><div class="signal-grid"><div><small>Evidence Coverage</small><b id="evCoverage">Not scanned</b></div><div><small>Decision Defense</small><b id="defense">Not started</b></div><div><small>Review Depth</small><b id="depth">—</b></div><div><small>Instructor Visibility</small><b>On</b></div></div><p class="quiet">Signals are learning/navigation aids, not an autonomous course grade.</p></article>
+      </div>
+      <div class="workspace">
+        <section class="review-room">
+          <div class="panel-title"><div><span class="eyebrow">LIVE REVIEW BOARD</span><h3 id="challengeTitle">Start a review to convene the board</h3></div><div class="board-lenses"><span>Chief Architect</span><span>Evidence Auditor</span><span>Red Team</span></div></div>
+          <div id="transcript" class="transcript"><div class="empty"><div class="glyph">⌬</div><h3>Your engineering review starts here.</h3><p>The board will challenge your current phase using the evidence your team actually has, not a generic question bank.</p></div></div>
+          <div class="composer">
+            <div class="decision-row"><label>Decision posture</label><select id="decision"><option value="">Select only if applicable</option><option>approve</option><option>approve_with_conditions</option><option>defer</option><option>reject</option><option>constrain</option><option>request_evidence</option><option>escalate</option></select></div>
+            <textarea id="response" placeholder="State your decision. Defend the tradeoff, evidence, uncertainty, consequence, owner, and what would change your position..."></textarea>
+            <div class="composer-bottom"><span>⌘ Enter to defend · Shift+Enter for newline</span><button id="send" disabled>Defend Decision →</button></div>
+          </div>
+        </section>
+        <aside class="evidence-rail">
+          <div class="panel-title"><div><span class="eyebrow">EVIDENCE RAIL</span><h3>What the board can see</h3></div></div>
+          <div id="evidenceList" class="evidence-list"><p class="quiet">Begin a review to freeze the current evidence snapshot.</p></div>
+          <div class="guardrail"><b>Guardrail</b><p>Artifact presence is not proof. The Studio never treats a polished template, green CI, or confident answer as sufficient evidence by itself.</p></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="evidence" class="view">
+      <div class="page-card"><span class="eyebrow">EVIDENCE MODEL</span><h2>Repository as an engineering control system</h2><p>The Studio distinguishes evidence location, evidence quality, workflow traceability, and engineering judgment. It does not reward folder completion.</p><div id="evidenceMatrix" class="matrix"></div></div>
+    </section>
+
+    <section id="instructor" class="view">
+      <div class="instructor-grid"><article class="page-card"><span class="eyebrow">INSTRUCTOR COMMAND CENTER</span><h2>Class engineering intelligence</h2><p>See who is practicing judgment, where teams are blocked, and which evidence gaps need instructor attention—without reducing students to commit counts.</p><div id="teamCards" class="team-cards"><button id="loadInstructor" class="primary">Load Course Overview</button></div></article><article class="page-card"><span class="eyebrow">DESIGN BOUNDARY</span><h3>What this surface will never do</h3><ul><li>Autonomously assign the final course grade.</li><li>Rank students by lines of code or commit count.</li><li>Expose confidential peer reviews to teammates.</li><li>Invent repository evidence.</li><li>Give students the “correct” engineering decision.</li></ul></article></div>
+    </section>
+  </main>
+</div>
+<script src="/assets/studio.js"></script></body></html>
