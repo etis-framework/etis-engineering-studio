@@ -13,9 +13,8 @@ from ..services.review_orchestrator import ReviewOrchestrator
 from ..services.evidence import snapshot_from_dict
 from ..services.evidence_package import EvidencePackageBuilder
 from ..services.usage_store import record_usage_events
-from ..services.seed import ensure_demo
 from ..services.course_admin import phase_access
-from ..services.auth import require_authenticated, auth_context, STAFF_ROLES
+from ..services.auth import require_authenticated, auth_context, STAFF_ROLES, require_team_access
 
 router = APIRouter(prefix="/api/v1/reviews", tags=["reviews"], dependencies=[Depends(require_authenticated)])
 
@@ -257,14 +256,31 @@ def _prior_student_review_context(db: Session, user_id: int, team_id: int, phase
 @router.post("/start")
 def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db)):
     ctx=auth_context(request)
-    student, demo_team = ensure_demo(db)
-    team = db.get(Team, req.team_id) or demo_team
+    team = require_team_access(db, ctx, req.team_id)
     if ctx.get("role") not in STAFF_ROLES|{"developer"}:
         req.user_id=ctx.get("uid")
         if not db.query(TeamMembership).filter_by(team_id=team.id,user_id=req.user_id).first(): raise HTTPException(403,"You are not assigned to this team")
-    user = db.get(User, req.user_id) if req.user_id else student
-    if not user:
-        user = student
+    user = db.get(User, req.user_id) if req.user_id else None
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+    subject_membership = (
+        db.query(TeamMembership)
+        .filter_by(
+            team_id=team.id,
+            user_id=user.id,
+        )
+        .first()
+    )
+    if not subject_membership:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
     prior_student_sessions = _prior_student_review_context(db, user.id, team.id, req.phase_id)
     section_link = db.query(TeamSection).filter_by(team_id=team.id).first()
     if section_link:
@@ -273,7 +289,16 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
         if req.phase_id not in allowed:
             raise HTTPException(423, f"{req.phase_id} is not released for this section yet. Students may review released or earlier phases only.")
 
-    repo_full_name = (req.repo_full_name or team.repo_full_name or "").strip()
+    authoritative_repo = (team.repo_full_name or "").strip()
+    requested_repo = (req.repo_full_name or "").strip()
+
+    if requested_repo and requested_repo.casefold() != authoritative_repo.casefold():
+        raise HTTPException(
+            status_code=409,
+            detail="Repository does not match the team's configured repository",
+        )
+
+    repo_full_name = authoritative_repo
     previous_snapshot = db.query(EvidenceSnapshot).filter_by(team_id=team.id).order_by(EvidenceSnapshot.created_at.desc()).first()
     previous_data = _safe_json(previous_snapshot.summary_json, {}) if previous_snapshot else None
     prior_categories = _prior_finding_categories(db, team.id, req.phase_id)
@@ -313,8 +338,6 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
     except RuntimeError as exc:
         raise HTTPException(502, str(exc)) from exc
     evidence.longitudinal = _longitudinal_summary(previous_data, evidence.to_dict())
-    if req.repo_full_name:
-        team.repo_full_name = req.repo_full_name.strip()
     # Reuse the exact same frozen snapshot when the repository commit and phase have not changed.
     # This preserves team-level finding corrections/disputes across multiple student sessions and
     # prevents duplicate snapshot rows for identical evidence.

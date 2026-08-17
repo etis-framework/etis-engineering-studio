@@ -146,3 +146,107 @@ def require_section_role(db,ctx:dict,section_id:int,allowed:set[str]) -> str:
         from ..models import SectionStaff
         if db.query(SectionStaff).filter_by(user_id=ctx["uid"],staff_role="course_owner",is_active=True).first(): return "course_owner"
     raise HTTPException(403,"You do not have the required authorization for this section")
+
+
+TEAM_READ_STAFF_ROLES = {"course_owner", "instructor", "ta", "reviewer"}
+
+
+def require_team_access(db, ctx: dict, team_id: int):
+    """
+    Resolve an active team only when the authenticated identity is authorized
+    to access it.
+
+    Authorization is derived from current database state rather than trusting
+    the role embedded in the session token.
+
+    Access is granted to:
+    - the local developer identity in development;
+    - an active student who is a member of the team and, when the team is
+      section-bound, remains actively enrolled in that section;
+    - an active course owner;
+    - active teaching staff assigned to the team's section.
+
+    Missing and unauthorized teams deliberately produce the same 404 response
+    so callers cannot use the API to enumerate protected teams.
+    """
+    from ..models import (
+        SectionEnrollment,
+        SectionStaff,
+        Team,
+        TeamMembership,
+        TeamSection,
+        User,
+    )
+
+    team = db.get(Team, team_id)
+    if not team or not team.is_active:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    if ctx.get("role") == "developer":
+        return team
+
+    user_id = ctx.get("uid")
+    if not user_id:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    user = db.get(User, user_id)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    # Course Owner is intentionally global across the course context.
+    course_owner = (
+        db.query(SectionStaff)
+        .filter_by(
+            user_id=user_id,
+            staff_role="course_owner",
+            is_active=True,
+        )
+        .first()
+    )
+    if course_owner:
+        return team
+
+    team_section = (
+        db.query(TeamSection)
+        .filter_by(team_id=team.id)
+        .first()
+    )
+
+    membership = (
+        db.query(TeamMembership)
+        .filter_by(team_id=team.id, user_id=user_id)
+        .first()
+    )
+
+    if membership:
+        # Older/local fixture teams may not yet be section-bound. Preserve
+        # that deterministic development behavior. Once section-bound,
+        # enrollment must still be active.
+        if team_section:
+            enrollment = (
+                db.query(SectionEnrollment)
+                .filter_by(
+                    section_id=team_section.section_id,
+                    user_id=user_id,
+                    status="active",
+                )
+                .first()
+            )
+            if not enrollment:
+                raise HTTPException(status_code=404, detail="Team not found")
+        return team
+
+    if team_section:
+        staff_rows = (
+            db.query(SectionStaff)
+            .filter_by(
+                section_id=team_section.section_id,
+                user_id=user_id,
+                is_active=True,
+            )
+            .all()
+        )
+        if any(row.staff_role in TEAM_READ_STAFF_ROLES for row in staff_rows):
+            return team
+
+    raise HTTPException(status_code=404, detail="Team not found")
