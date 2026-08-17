@@ -1424,7 +1424,7 @@ def test_revoked_staff_assignment_invalidates_existing_staff_session():
     from uuid import uuid4
 
     from apps.api.app.db import SessionLocal
-    from apps.api.app.models import CourseSection, CourseTerm, SectionStaff, User
+    from apps.api.app.models import CourseSection, CourseTerm, SectionEnrollment, SectionStaff, User
     from apps.api.app.services.auth import create_session_token
 
     suffix = uuid4().hex[:10]
@@ -1468,6 +1468,18 @@ def test_revoked_staff_assignment_invalidates_existing_staff_session():
             is_active=True,
         )
         db.add(assignment)
+
+        # Keep a legitimate non-staff course authorization after the
+        # instructor assignment is revoked. This isolates staff-role
+        # revocation from complete course/session revocation.
+        db.add(
+            SectionEnrollment(
+                section_id=section.id,
+                user_id=instructor.id,
+                status="active",
+            )
+        )
+
         db.commit()
 
         instructor_id = instructor.id
@@ -1522,6 +1534,7 @@ def test_revoked_staff_session_cannot_bind_team_repository(monkeypatch):
         CourseSection,
         CourseTerm,
         RepositoryConnection,
+        SectionEnrollment,
         SectionStaff,
         Team,
         TeamSection,
@@ -1572,6 +1585,16 @@ def test_revoked_staff_session_cannot_bind_team_repository(monkeypatch):
             is_active=True,
         )
         db.add(assignment)
+
+        # Preserve ordinary course authorization after staff revocation so
+        # this regression isolates removal of teaching-staff authority.
+        db.add(
+            SectionEnrollment(
+                section_id=section.id,
+                user_id=instructor.id,
+                status="active",
+            )
+        )
 
         team = Team(
             course_namespace=term.namespace,
@@ -1681,6 +1704,7 @@ def test_revoked_staff_session_cannot_validate_finding_state():
         EvidenceSnapshot,
         ReviewFindingState,
         ReviewSession,
+        SectionEnrollment,
         SectionStaff,
         Team,
         TeamMembership,
@@ -1738,6 +1762,16 @@ def test_revoked_staff_session_cannot_validate_finding_state():
             is_active=True,
         )
         db.add(assignment)
+
+        # Preserve ordinary course authorization after staff revocation so
+        # this regression isolates removal of teaching-staff authority.
+        db.add(
+            SectionEnrollment(
+                section_id=section.id,
+                user_id=instructor.id,
+                status="active",
+            )
+        )
 
         team = Team(
             course_namespace=term.namespace,
@@ -1875,6 +1909,7 @@ def test_revoked_staff_session_cannot_read_student_review():
         CourseTerm,
         ReviewSession,
         ReviewTurn,
+        SectionEnrollment,
         SectionStaff,
         Team,
         TeamMembership,
@@ -1931,6 +1966,16 @@ def test_revoked_staff_session_cannot_read_student_review():
             is_active=True,
         )
         db.add(assignment)
+
+        # Preserve ordinary course authorization after staff revocation so
+        # this regression isolates removal of teaching-staff authority.
+        db.add(
+            SectionEnrollment(
+                section_id=section.id,
+                user_id=instructor.id,
+                status="active",
+            )
+        )
 
         team = Team(
             course_namespace=term.namespace,
@@ -2044,6 +2089,7 @@ def test_revoked_staff_session_cannot_complete_student_review():
         CourseSection,
         CourseTerm,
         ReviewSession,
+        SectionEnrollment,
         SectionStaff,
         Team,
         TeamMembership,
@@ -2100,6 +2146,16 @@ def test_revoked_staff_session_cannot_complete_student_review():
             is_active=True,
         )
         db.add(assignment)
+
+        # Preserve ordinary course authorization after staff revocation so
+        # this regression isolates removal of teaching-staff authority.
+        db.add(
+            SectionEnrollment(
+                section_id=section.id,
+                user_id=instructor.id,
+                status="active",
+            )
+        )
 
         team = Team(
             course_namespace=term.namespace,
@@ -2200,6 +2256,7 @@ def test_revoked_staff_session_cannot_read_team_evidence():
         CourseSection,
         CourseTerm,
         EvidenceSnapshot,
+        SectionEnrollment,
         SectionStaff,
         Team,
         TeamMembership,
@@ -2256,6 +2313,16 @@ def test_revoked_staff_session_cannot_read_team_evidence():
             is_active=True,
         )
         db.add(assignment)
+
+        # Preserve ordinary course authorization after staff revocation so
+        # this regression isolates removal of teaching-staff authority.
+        db.add(
+            SectionEnrollment(
+                section_id=section.id,
+                user_id=instructor.id,
+                status="active",
+            )
+        )
 
         team = Team(
             course_namespace=term.namespace,
@@ -2358,6 +2425,7 @@ def test_revoked_staff_session_cannot_list_student_reviews():
         CourseSection,
         CourseTerm,
         ReviewSession,
+        SectionEnrollment,
         SectionStaff,
         Team,
         TeamMembership,
@@ -2414,6 +2482,16 @@ def test_revoked_staff_session_cannot_list_student_reviews():
             is_active=True,
         )
         db.add(assignment)
+
+        # Preserve ordinary course authorization after staff revocation so
+        # this regression isolates removal of teaching-staff authority.
+        db.add(
+            SectionEnrollment(
+                section_id=section.id,
+                user_id=instructor.id,
+                status="active",
+            )
+        )
 
         team = Team(
             course_namespace=term.namespace,
@@ -2513,6 +2591,7 @@ def test_revoked_staff_session_cannot_change_team_project_metadata():
     from apps.api.app.models import (
         CourseSection,
         CourseTerm,
+        SectionEnrollment,
         SectionStaff,
         Team,
         TeamSection,
@@ -2564,6 +2643,16 @@ def test_revoked_staff_session_cannot_change_team_project_metadata():
             is_active=True,
         )
         db.add(assignment)
+
+        # Preserve ordinary course authorization after staff revocation so
+        # this regression isolates removal of teaching-staff authority.
+        db.add(
+            SectionEnrollment(
+                section_id=section.id,
+                user_id=instructor.id,
+                status="active",
+            )
+        )
 
         team = Team(
             course_namespace=term.namespace,
@@ -2650,6 +2739,7 @@ def test_revoked_staff_session_cannot_verify_team_repository(monkeypatch):
         CourseSection,
         CourseTerm,
         RepositoryConnection,
+        SectionEnrollment,
         SectionStaff,
         Team,
         TeamSection,
@@ -2700,6 +2790,16 @@ def test_revoked_staff_session_cannot_verify_team_repository(monkeypatch):
             is_active=True,
         )
         db.add(assignment)
+
+        # Preserve ordinary course authorization after staff revocation so
+        # this regression isolates removal of teaching-staff authority.
+        db.add(
+            SectionEnrollment(
+                section_id=section.id,
+                user_id=instructor.id,
+                status="active",
+            )
+        )
 
         team = Team(
             course_namespace=term.namespace,
@@ -2810,6 +2910,7 @@ def test_revoked_staff_session_cannot_read_another_users_onboarding_context():
         CourseSection,
         CourseTerm,
         InstitutionalIdentity,
+        SectionEnrollment,
         SectionStaff,
         User,
     )
@@ -2866,6 +2967,16 @@ def test_revoked_staff_session_cannot_read_another_users_onboarding_context():
             is_active=True,
         )
         db.add(assignment)
+
+        # Preserve ordinary course authorization after staff revocation so
+        # this regression isolates removal of teaching-staff authority.
+        db.add(
+            SectionEnrollment(
+                section_id=section.id,
+                user_id=instructor.id,
+                status="active",
+            )
+        )
 
         db.add(
             InstitutionalIdentity(
@@ -2936,6 +3047,7 @@ def test_revoked_staff_role_cannot_impersonate_team_member_when_caller_retains_t
         CourseSection,
         CourseTerm,
         ReviewSession,
+        SectionEnrollment,
         SectionStaff,
         Team,
         TeamMembership,
@@ -2992,6 +3104,16 @@ def test_revoked_staff_role_cannot_impersonate_team_member_when_caller_retains_t
             is_active=True,
         )
         db.add(assignment)
+
+        # Preserve ordinary course authorization after staff revocation so
+        # this regression isolates removal of teaching-staff authority.
+        db.add(
+            SectionEnrollment(
+                section_id=section.id,
+                user_id=caller.id,
+                status="active",
+            )
+        )
 
         # Keep this team intentionally unsectioned so the caller's independent
         # TeamMembership remains the access path after staff revocation,
@@ -3084,3 +3206,352 @@ def test_revoked_staff_role_cannot_impersonate_team_member_when_caller_retains_t
         assert persisted.user_id != other_student_id
     finally:
         verify_db.close()
+
+
+def test_logout_revokes_presented_session_against_replay():
+    """
+    Logout must revoke the authenticated session server-side.
+
+    Deleting a browser cookie is insufficient: if the same session credential
+    has been copied and replayed as a bearer token after logout, it must no
+    longer authenticate.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import User
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    db = SessionLocal()
+    try:
+        user = User(
+            github_login=f"session-replay-{suffix}",
+            display_name="Session Replay Student",
+            role="student",
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        user_id = user.id
+    finally:
+        db.close()
+
+    token = create_session_token(
+        user_id,
+        f"session-replay-{suffix}@luc.edu",
+        "student",
+    )
+
+    before_logout = client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert before_logout.status_code == 200
+    assert before_logout.json()["authenticated"] is True
+
+    logout = client.post(
+        "/auth/logout",
+        headers={"Authorization": f"Bearer {token}"},
+        follow_redirects=False,
+    )
+
+    assert 300 <= logout.status_code < 400
+
+    # Simulate replay of a credential copied before logout.
+    replay = client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert replay.status_code == 200
+    assert replay.json()["authenticated"] is False
+
+
+def test_removing_course_authorization_invalidates_existing_session():
+    """
+    An authentication session must remain valid only while the user retains
+    current Engineering Studio course authorization.
+
+    Removing the user's last active section enrollment after login must
+    invalidate the already-issued session immediately rather than allowing the
+    credential to remain authenticated until its normal expiration.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        CourseSection,
+        CourseTerm,
+        SectionEnrollment,
+        User,
+    )
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    db = SessionLocal()
+    try:
+        term = CourseTerm(
+            course_code="COMP 330",
+            namespace=f"TEST-SESSION-AUTHZ-{suffix}",
+            term_label="Session Authorization Revocation Test",
+            starts_on="2026-08-01",
+            ends_on="2026-12-31",
+            timezone="America/Chicago",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key=f"A-{suffix}",
+            display_name="Session Authorization Section",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        user = User(
+            github_login=f"session-authz-{suffix}",
+            display_name="Session Authorization Student",
+            role="student",
+            is_active=True,
+        )
+        db.add(user)
+        db.flush()
+
+        enrollment = SectionEnrollment(
+            section_id=section.id,
+            user_id=user.id,
+            status="active",
+        )
+        db.add(enrollment)
+        db.commit()
+
+        user_id = user.id
+        enrollment_id = enrollment.id
+
+    finally:
+        db.close()
+
+    token = create_session_token(
+        user_id,
+        f"session-authz-{suffix}@luc.edu",
+        "student",
+    )
+
+    before_revocation = client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert before_revocation.status_code == 200
+    assert before_revocation.json()["authenticated"] is True
+
+    # Remove the user's last current course authorization while leaving the
+    # underlying User record active.
+    db = SessionLocal()
+    try:
+        enrollment = db.get(SectionEnrollment, enrollment_id)
+        enrollment.status = "inactive"
+        db.commit()
+    finally:
+        db.close()
+
+    after_revocation = client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert after_revocation.status_code == 200
+    assert after_revocation.json()["authenticated"] is False
+
+
+def test_revoked_session_cannot_fall_back_to_developer_identity():
+    """
+    Presenting an invalid or revoked credential must fail authentication.
+
+    Development-mode convenience fallback is permitted only when no credential
+    was presented. A revoked bearer token must never be transformed into the
+    privileged local developer identity.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import Team, User
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    db = SessionLocal()
+    try:
+        user = User(
+            github_login=f"revoked-no-fallback-{suffix}",
+            display_name="Revoked Session User",
+            role="student",
+            is_active=True,
+        )
+        db.add(user)
+
+        team = Team(
+            course_namespace=f"TEST-REVOKED-FALLBACK-{suffix}",
+            team_key=f"team-{suffix}",
+            name="Protected Revoked Session Team",
+            repo_full_name="",
+            project_name="Session Boundary Test",
+            current_phase="A1",
+        )
+        db.add(team)
+
+        db.commit()
+
+        user_id = user.id
+        team_id = team.id
+    finally:
+        db.close()
+
+    token = create_session_token(
+        user_id,
+        f"revoked-no-fallback-{suffix}@luc.edu",
+        "student",
+    )
+
+    logout = client.post(
+        "/auth/logout",
+        headers={"Authorization": f"Bearer {token}"},
+        follow_redirects=False,
+    )
+
+    assert 300 <= logout.status_code < 400
+
+    # This is a protected route. The revoked credential must produce an
+    # authentication failure rather than being treated as "no identity" and
+    # falling through to development's privileged developer context.
+    response = client.get(
+        "/api/v1/reviews/evidence/current",
+        headers={"Authorization": f"Bearer {token}"},
+        params={
+            "team_id": team_id,
+            "phase_id": "A1",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_course_authorization_revocation_permanently_invalidates_session():
+    """
+    Once a course-authorized session loses its final active course
+    authorization, that session must never become valid again.
+
+    Restoring the user's enrollment later must require a new authentication
+    session rather than resurrecting a previously issued credential.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        CourseSection,
+        CourseTerm,
+        SectionEnrollment,
+        User,
+    )
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    db = SessionLocal()
+    try:
+        term = CourseTerm(
+            course_code="COMP 330",
+            namespace=f"TEST-SESSION-NONRESURRECT-{suffix}",
+            term_label="Session Non-Resurrection Test",
+            starts_on="2026-08-01",
+            ends_on="2026-12-31",
+            timezone="America/Chicago",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key=f"A-{suffix}",
+            display_name="Session Non-Resurrection Section",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        user = User(
+            github_login=f"session-nonresurrect-{suffix}",
+            display_name="Session Non-Resurrection Student",
+            role="student",
+            is_active=True,
+        )
+        db.add(user)
+        db.flush()
+
+        enrollment = SectionEnrollment(
+            section_id=section.id,
+            user_id=user.id,
+            status="active",
+        )
+        db.add(enrollment)
+        db.commit()
+
+        user_id = user.id
+        enrollment_id = enrollment.id
+
+    finally:
+        db.close()
+
+    token = create_session_token(
+        user_id,
+        f"session-nonresurrect-{suffix}@luc.edu",
+        "student",
+    )
+
+    before_revocation = client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert before_revocation.status_code == 200
+    assert before_revocation.json()["authenticated"] is True
+
+    # Remove the final current course authorization.
+    db = SessionLocal()
+    try:
+        enrollment = db.get(SectionEnrollment, enrollment_id)
+        enrollment.status = "inactive"
+        db.commit()
+    finally:
+        db.close()
+
+    revoked = client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert revoked.status_code == 200
+    assert revoked.json()["authenticated"] is False
+
+    # Restore course authorization. The old credential must remain dead.
+    db = SessionLocal()
+    try:
+        enrollment = db.get(SectionEnrollment, enrollment_id)
+        enrollment.status = "active"
+        db.commit()
+    finally:
+        db.close()
+
+    replay_after_reauthorization = client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert replay_after_reauthorization.status_code == 200
+    assert replay_after_reauthorization.json()["authenticated"] is False

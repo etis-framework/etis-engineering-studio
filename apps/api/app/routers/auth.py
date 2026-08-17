@@ -7,7 +7,8 @@ from ..config import get_settings
 from ..models import User, InstitutionalIdentity, SectionEnrollment, GitHubIdentity, SectionStaff
 from ..services.auth import (github_authorize_url, github_exchange, entra_authorize_url, entra_exchange,
     create_session_token, request_identity, COOKIE_NAME, highest_staff_role,
-    create_flow_state, parse_flow_state)
+    create_flow_state, parse_flow_state, request_session_token,
+    revoke_session_token)
 from ..services.course_admin import ensure_term, ensure_section, generate_schedule
 
 router=APIRouter(prefix="/auth",tags=["auth"])
@@ -70,8 +71,14 @@ def github_callback(code:str,state:str,db:Session=Depends(get_db)):
     raise HTTPException(400,"Unsupported GitHub authorization flow")
 
 @router.post("/logout")
-def logout():
-    r=RedirectResponse("/"); r.delete_cookie(COOKIE_NAME,path="/"); return r
+def logout(request: Request, db: Session = Depends(get_db)):
+    token = request_session_token(request)
+    if token:
+        revoke_session_token(token, db)
+
+    response = RedirectResponse("/")
+    response.delete_cookie(COOKIE_NAME, path="/")
+    return response
 
 @router.get("/me")
 def me(request:Request,db:Session=Depends(get_db)):

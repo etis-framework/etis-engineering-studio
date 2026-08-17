@@ -1,5 +1,6 @@
 from __future__ import annotations
 import base64, hashlib, hmac, json, secrets, time
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 import httpx
 import jwt
@@ -7,7 +8,7 @@ from jwt import PyJWKClient
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from ..config import get_settings
-from ..db import get_db
+from ..db import SessionLocal, get_db
 
 COOKIE_NAME="etis_session"
 
@@ -15,21 +16,234 @@ def _sign(payload: str) -> str:
     secret=get_settings().etis_session_secret.encode()
     return hmac.new(secret,payload.encode(),hashlib.sha256).hexdigest()
 
-def create_session_token(user_id: int, login: str, role: str, ttl=43200) -> str:
-    data={"uid":user_id,"login":login,"role":role,"exp":int(time.time())+ttl,"nonce":secrets.token_hex(6)}
-    raw=base64.urlsafe_b64encode(json.dumps(data,separators=(",",":")).encode()).decode().rstrip("=")
-    return f"{raw}.{_sign(raw)}"
+def _session_token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _as_utc(value: datetime) -> datetime:
+    # SQLite may return timezone-aware columns as naive datetimes. Normalize
+    # explicitly so test and PostgreSQL behavior use the same UTC semantics.
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def create_session_token(
+    user_id: int,
+    login: str,
+    role: str,
+    ttl: int = 43200,
+) -> str:
+    """
+    Issue an opaque, database-backed authentication session.
+
+    `role` remains in the signature temporarily for compatibility with existing
+    callers, but it is not stored in or trusted from the session credential.
+    Authorization remains database-authoritative.
+    """
+    del role
+
+    from ..models import AuthSession, SectionEnrollment, SectionStaff, User
+
+    token = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+
+    db = SessionLocal()
+    try:
+        user = db.get(User, user_id)
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=401,
+                detail="Cannot create a session for an inactive user",
+            )
+
+        has_active_enrollment = (
+            db.query(SectionEnrollment)
+            .filter_by(
+                user_id=user_id,
+                status="active",
+            )
+            .first()
+            is not None
+        )
+        has_active_staff = (
+            db.query(SectionStaff)
+            .filter_by(
+                user_id=user_id,
+                is_active=True,
+            )
+            .first()
+            is not None
+        )
+
+        requires_course_authorization = (
+            has_active_enrollment or has_active_staff
+        )
+
+        # Production authentication must always correspond to current course
+        # authorization. Development-only sessions remain available for local
+        # deterministic fixtures that intentionally do not model a full roster.
+        if (
+            not requires_course_authorization
+            and get_settings().etis_env != "development"
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="Engineering Studio authorization is not active",
+            )
+
+        row = AuthSession(
+            user_id=user_id,
+            token_hash=_session_token_hash(token),
+            login=login,
+            requires_course_authorization=requires_course_authorization,
+            issued_at=now,
+            expires_at=now + timedelta(seconds=ttl),
+        )
+        db.add(row)
+        db.commit()
+    finally:
+        db.close()
+
+    return token
+
 
 def parse_session_token(token: str) -> dict:
+    from ..models import AuthSession, SectionEnrollment, SectionStaff, User
+
+    token_hash = _session_token_hash(token)
+    now = datetime.now(timezone.utc)
+
+    db = SessionLocal()
     try:
-        raw,sig=token.rsplit(".",1)
-        if not hmac.compare_digest(_sign(raw),sig): raise ValueError("bad signature")
-        padded=raw+"="*((4-len(raw)%4)%4)
-        data=json.loads(base64.urlsafe_b64decode(padded).decode())
-        if int(data["exp"])<int(time.time()): raise ValueError("expired")
-        return data
-    except Exception as e:
-        raise HTTPException(status_code=401,detail="Invalid or expired session") from e
+        row = (
+            db.query(AuthSession)
+            .filter_by(token_hash=token_hash)
+            .first()
+        )
+
+        if not row:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired session",
+            )
+
+        if row.revoked_at is not None:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired session",
+            )
+
+        if _as_utc(row.expires_at) <= now:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired session",
+            )
+
+        user = db.get(User, row.user_id)
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired session",
+            )
+
+        staff_rows = (
+            db.query(SectionStaff)
+            .filter_by(
+                user_id=user.id,
+                is_active=True,
+            )
+            .all()
+        )
+
+        active_enrollment = (
+            db.query(SectionEnrollment)
+            .filter_by(
+                user_id=user.id,
+                status="active",
+            )
+            .first()
+        )
+
+        # Sessions issued under real course authorization remain valid only
+        # while that authorization still exists. Removing the final active
+        # enrollment/staff assignment therefore takes effect immediately.
+        if (
+            row.requires_course_authorization
+            and not active_enrollment
+            and not staff_rows
+        ):
+            # Losing the final course authorization permanently invalidates
+            # this authenticated session. If the user is later reauthorized,
+            # they must authenticate again and receive a new credential.
+            row.revoked_at = now
+            db.commit()
+
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired session",
+            )
+
+        # An unbound session is a development-only compatibility mechanism.
+        # It must never become a valid production authentication path.
+        if (
+            not row.requires_course_authorization
+            and get_settings().etis_env != "development"
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired session",
+            )
+
+        current_staff_role = highest_staff_role(
+            [staff.staff_role for staff in staff_rows]
+        )
+
+        if row.requires_course_authorization:
+            current_role = current_staff_role or "student"
+        else:
+            current_role = user.role or "student"
+
+        return {
+            "uid": user.id,
+            "login": row.login,
+            "role": current_role,
+            "sid": row.id,
+            "exp": int(_as_utc(row.expires_at).timestamp()),
+        }
+    finally:
+        db.close()
+
+
+def request_session_token(request: Request) -> str | None:
+    token = request.cookies.get(COOKIE_NAME)
+    if token:
+        return token
+
+    auth = request.headers.get("Authorization", "")
+    if auth.lower().startswith("bearer "):
+        return auth.split(" ", 1)[1].strip()
+
+    return None
+
+
+def revoke_session_token(token: str, db: Session) -> bool:
+    from ..models import AuthSession
+
+    row = (
+        db.query(AuthSession)
+        .filter_by(token_hash=_session_token_hash(token))
+        .first()
+    )
+
+    if not row:
+        return False
+
+    if row.revoked_at is None:
+        row.revoked_at = datetime.now(timezone.utc)
+        db.commit()
+
+    return True
 
 def create_flow_state(kind:str, payload:dict|None=None, ttl:int=600) -> str:
     """Stateless, signed OAuth/OIDC flow state suitable for multiple app replicas."""
@@ -50,13 +264,14 @@ def parse_flow_state(token:str, expected_kind:str) -> dict:
         raise HTTPException(status_code=400,detail="Invalid or expired authorization state") from e
 
 def request_identity(request: Request) -> dict|None:
-    token=request.cookies.get(COOKIE_NAME)
+    token = request_session_token(request)
     if not token:
-        auth=request.headers.get("Authorization","")
-        if auth.lower().startswith("bearer "): token=auth.split(" ",1)[1].strip()
-    if not token: return None
-    try: return parse_session_token(token)
-    except HTTPException: return None
+        return None
+
+    try:
+        return parse_session_token(token)
+    except HTTPException:
+        return None
 
 def github_authorize_url(state: str) -> str:
     s=get_settings(); q=urlencode({"client_id":s.github_oauth_client_id,"redirect_uri":s.github_oauth_redirect_uri,"scope":"read:user user:email","state":state})
@@ -112,13 +327,29 @@ STAFF_ROLES={"course_owner","instructor","ta","reviewer"}
 STAFF_RANK={"reviewer":1,"ta":2,"instructor":3,"course_owner":4}
 
 def auth_context(request: Request) -> dict:
-    s=get_settings()
-    ident=request_identity(request)
-    if ident:
-        return ident
-    if s.etis_env=="development" and s.etis_dev_login:
-        return {"uid":None,"login":"development","role":"developer"}
-    raise HTTPException(401,"Sign in with Loyola to continue")
+    s = get_settings()
+
+    # A presented credential is an explicit authentication attempt. It must
+    # either resolve successfully or fail with 401. Never collapse an invalid,
+    # expired, or revoked credential into "no identity" and then upgrade the
+    # request to development's privileged developer context.
+    token = request_session_token(request)
+    if token:
+        return parse_session_token(token)
+
+    # The developer fallback exists only for requests that present no
+    # authentication credential at all.
+    if s.etis_env == "development" and s.etis_dev_login:
+        return {
+            "uid": None,
+            "login": "development",
+            "role": "developer",
+        }
+
+    raise HTTPException(
+        status_code=401,
+        detail="Sign in with Loyola to continue",
+    )
 
 def require_authenticated(request: Request) -> dict:
     return auth_context(request)
