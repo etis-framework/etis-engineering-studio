@@ -77,20 +77,20 @@ def _path_matches(expected: str, actual_paths: set[str]) -> bool:
 class GitHubEvidenceProvider:
     """Phase-aware, read-only GitHub evidence acquisition.
 
-    Public repositories can be inspected without a token. Private team repositories require
-    a configured token today and should use a GitHub App installation in production.
+    Public repositories can be inspected without authentication. Private team repositories
+    require a GitHub App installation. Personal access tokens are never used.
     """
 
-    def __init__(self, token: str | None = None, semantic_assessor: SemanticEvidenceAssessor | None = None):
+    def __init__(self, semantic_assessor: SemanticEvidenceAssessor | None = None):
         settings = get_settings()
         self.s = settings
-        self.token = token or settings.github_token
         self.semantic_assessor = semantic_assessor or SemanticEvidenceAssessor()
         self._cache: dict[tuple[str, str], tuple[float, EvidenceSnapshotData]] = {}
         self.base = 'https://api.github.com'
-        self.headers = {'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}
-        if self.token:
-            self.headers['Authorization'] = f'Bearer {self.token}'
+        self.headers = {
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+        }
 
     def _headers_for(self, repo_full_name: str):
         headers=dict(self.headers)
@@ -150,10 +150,11 @@ class GitHubEvidenceProvider:
     def head_sha(self, repo_full_name: str) -> str:
         if not repo_full_name or repo_full_name.startswith('demo/'):
             return 'demo-baseline'
-        with httpx.Client(base_url=self.base, headers=self._headers_for(repo_full_name), timeout=12.0, follow_redirects=True) as c:
+        headers = self._headers_for(repo_full_name)
+        with httpx.Client(base_url=self.base, headers=headers, timeout=12.0, follow_redirects=True) as c:
             repo = c.get(f'/repos/{repo_full_name}')
-            if repo.status_code == 404 and not self.token:
-                raise RuntimeError('Repository is private or not found. Configure GitHub repository read access.')
+            if repo.status_code == 404 and 'Authorization' not in headers:
+                raise RuntimeError('Repository is private or not found. Configure GitHub App repository access.')
             repo.raise_for_status()
             default_branch = repo.json().get('default_branch', 'main')
             ref = c.get(f'/repos/{repo_full_name}/git/ref/heads/{default_branch}')
@@ -175,10 +176,11 @@ class GitHubEvidenceProvider:
             )]
             return out
         try:
-            with httpx.Client(base_url=self.base, headers=self._headers_for(repo_full_name), timeout=25.0, follow_redirects=True) as c:
+            headers = self._headers_for(repo_full_name)
+            with httpx.Client(base_url=self.base, headers=headers, timeout=25.0, follow_redirects=True) as c:
                 repo = c.get(f'/repos/{repo_full_name}')
-                if repo.status_code == 404 and not self.token:
-                    raise RuntimeError('Repository is private or not found. Configure GitHub repository read access.')
+                if repo.status_code == 404 and 'Authorization' not in headers:
+                    raise RuntimeError('Repository is private or not found. Configure GitHub App repository access.')
                 repo.raise_for_status()
                 repo_json = repo.json()
                 default_branch = repo_json.get('default_branch', 'main')

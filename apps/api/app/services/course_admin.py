@@ -164,8 +164,7 @@ def suggest_project_name(repo_full_name: str) -> str:
     import httpx
     from ..config import get_settings
     settings=get_settings(); headers={"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"}
-    if settings.github_token: headers["Authorization"]=f"Bearer {settings.github_token}"
-    elif settings.github_app_id and settings.github_app_private_key:
+    if settings.github_app_id and settings.github_app_private_key:
         try:
             from .github_app import manager as github_app_manager
             headers["Authorization"]=f"Bearer {github_app_manager.token_for_repo(repo_full_name).token}"
