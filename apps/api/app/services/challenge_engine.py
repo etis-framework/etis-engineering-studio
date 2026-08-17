@@ -7,6 +7,7 @@ from dataclasses import dataclass, asdict
 from .course_model import get_phase
 from .ai_provider import OpenAIResponsesProvider
 from .guidance import guidance_for, verified_guidance
+from .model_disclosure import sanitize_model_text
 from ..config import get_settings
 
 REVIEWERS = {
@@ -933,10 +934,11 @@ If the draft fails any of these, set acceptable=false and write a complete revis
             for turn in (conversation_history or [])[-20:]
         )
         system = self._semantic_system_prompt(challenge, prior, memory, decision, student_name, target, guidance)
+        safe_evidence_context = sanitize_model_text(evidence_context[:9000]).text
         user = f"""
 Challenge context: {challenge.prompt}
 Why now: {challenge.why_now}
-Authoritative evidence snapshot (do not invent beyond it): {evidence_context[:9000]}
+Authoritative evidence snapshot (do not invent beyond it): {safe_evidence_context}
 Recent transcript:
 {transcript}
 

@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, asdict
 
+from .model_disclosure import sanitize_model_artifact
+
 
 @dataclass
 class CompactEvidencePackage:
@@ -32,6 +34,31 @@ class EvidencePackageBuilder:
     the review's epistemic boundary inspectable.
     """
 
+    @staticmethod
+    def _model_safe_artifact(artifact: dict, max_chars: int) -> dict:
+        path = artifact.get("path") or ""
+        disclosure = sanitize_model_artifact(
+            path,
+            (artifact.get("content_excerpt") or "")[:max_chars],
+        )
+
+        if "sensitive_file" in disclosure.redactions:
+            disclosure_status = "quarantined"
+        elif disclosure.redactions:
+            disclosure_status = "redacted"
+        else:
+            disclosure_status = "clear"
+
+        return {
+            "path": path,
+            "provenance": artifact.get("provenance"),
+            "quality": artifact.get("quality"),
+            "summary": artifact.get("summary"),
+            "content_excerpt": disclosure.text,
+            "disclosure_status": disclosure_status,
+            "disclosure_reasons": list(disclosure.redactions),
+        }
+
     def build(self, evidence: dict, challenge: dict) -> CompactEvidencePackage:
         refs = set(challenge.get("evidence_refs") or [])
         paths = {r[5:] for r in refs if isinstance(r, str) and r.startswith("PATH:")}
@@ -48,24 +75,16 @@ class EvidencePackageBuilder:
         for art in evidence.get("artifacts", []):
             path = art.get("path") or ""
             if path in paths or any(path.startswith(p.rstrip("/") + "/") for p in paths):
-                artifacts.append({
-                    "path": path,
-                    "provenance": art.get("provenance"),
-                    "quality": art.get("quality"),
-                    "summary": art.get("summary"),
-                    "content_excerpt": (art.get("content_excerpt") or "")[:1800],
-                })
+                artifacts.append(
+                    self._model_safe_artifact(art, max_chars=1800)
+                )
         if not artifacts:
             # Include only a few high-information artifacts, never the entire repository.
             ranked = [a for a in evidence.get("artifacts", []) if a.get("quality") not in {"empty", "binary", "unknown"}]
             for art in ranked[:5]:
-                artifacts.append({
-                    "path": art.get("path"),
-                    "provenance": art.get("provenance"),
-                    "quality": art.get("quality"),
-                    "summary": art.get("summary"),
-                    "content_excerpt": (art.get("content_excerpt") or "")[:1000],
-                })
+                artifacts.append(
+                    self._model_safe_artifact(art, max_chars=1000)
+                )
 
         metrics = evidence.get("repository_metrics") or {}
         github = {

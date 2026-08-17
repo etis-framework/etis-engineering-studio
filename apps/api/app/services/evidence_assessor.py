@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from .ai_provider import OpenAIResponsesProvider
 from .course_model import get_phase
+from .model_disclosure import sanitize_model_artifact
 
 
 @dataclass
@@ -34,16 +35,28 @@ class SemanticEvidenceAssessor:
             return SemanticAssessment([], [], [], [])
         phase = get_phase(phase_id)
         visible_paths = {a.get('path') for a in artifacts if a.get('path')}
-        artifact_context = [
-            {
+        artifact_context = []
+        for a in artifacts:
+            disclosure = sanitize_model_artifact(
+                a.get('path'),
+                (a.get('content_excerpt') or '')[:1200],
+            )
+            if 'sensitive_file' in disclosure.redactions:
+                disclosure_status = 'quarantined'
+            elif disclosure.redactions:
+                disclosure_status = 'redacted'
+            else:
+                disclosure_status = 'clear'
+
+            artifact_context.append({
                 'path': a.get('path'),
                 'provenance': a.get('provenance'),
                 'quality': a.get('quality'),
                 'summary': a.get('summary'),
-                'excerpt': (a.get('content_excerpt') or '')[:1200],
-            }
-            for a in artifacts
-        ]
+                'excerpt': disclosure.text,
+                'disclosure_status': disclosure_status,
+                'disclosure_reasons': list(disclosure.redactions),
+            })
         system = f"""
 You are the semantic evidence assessor for the ETIS Engineering Studio. You are NOT the conversational reviewer.
 Analyze only the supplied frozen repository evidence for COMP 330 phase {phase_id}.
