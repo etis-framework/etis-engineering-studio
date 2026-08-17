@@ -3836,3 +3836,106 @@ def test_csrf_rejection_still_includes_browser_security_headers():
 
     finally:
         client.cookies.delete(COOKIE_NAME)
+
+
+def test_auth_me_is_never_cacheable():
+    """
+    Authentication bootstrap data must never be cached by browsers or
+    intermediaries.
+
+    /auth/me can contain current identity, authorization context, and the
+    session-bound CSRF bootstrap value for cookie-authenticated browsers.
+    """
+    response = client.get("/auth/me")
+
+    assert response.status_code == 200
+
+    cache_control = response.headers["Cache-Control"].lower()
+
+    assert "no-store" in cache_control
+
+
+def test_session_cookie_is_hardened_in_production_and_local_http_compatible_in_development(monkeypatch):
+    """
+    Browser session cookies must preserve the production security contract.
+
+    Production requires Secure + HttpOnly + SameSite=Lax + Path=/ with the
+    defined 12-hour lifetime. Local development intentionally runs over HTTP,
+    so Secure is omitted there while the other protections remain.
+    """
+    from fastapi.responses import RedirectResponse
+
+    from apps.api.app.config import get_settings
+    from apps.api.app.models import User
+    from apps.api.app.routers import auth as auth_router
+
+    user = User(
+        id=999999,
+        github_login="cookie-contract",
+        display_name="Cookie Contract",
+        role="student",
+        is_active=True,
+    )
+
+    monkeypatch.setattr(
+        auth_router,
+        "create_session_token",
+        lambda *_args, **_kwargs: "test-session-token",
+    )
+
+    try:
+        monkeypatch.setenv("ETIS_ENV", "production")
+        get_settings.cache_clear()
+
+        production = RedirectResponse("/")
+        auth_router._set_session(
+            production,
+            user,
+            "cookie-contract@luc.edu",
+        )
+
+        prod_cookie = production.headers["set-cookie"].lower()
+
+        assert "etis_session=test-session-token" in prod_cookie
+        assert "httponly" in prod_cookie
+        assert "secure" in prod_cookie
+        assert "samesite=lax" in prod_cookie
+        assert "path=/" in prod_cookie
+        assert "max-age=43200" in prod_cookie
+        assert "domain=" not in prod_cookie
+
+        monkeypatch.setenv("ETIS_ENV", "development")
+        get_settings.cache_clear()
+
+        development = RedirectResponse("/")
+        auth_router._set_session(
+            development,
+            user,
+            "cookie-contract@luc.edu",
+        )
+
+        dev_cookie = development.headers["set-cookie"].lower()
+
+        assert "httponly" in dev_cookie
+        assert "secure" not in dev_cookie
+        assert "samesite=lax" in dev_cookie
+        assert "path=/" in dev_cookie
+        assert "max-age=43200" in dev_cookie
+        assert "domain=" not in dev_cookie
+
+    finally:
+        get_settings.cache_clear()
+
+
+def test_session_cookie_policy_is_centralized_in_auth_router():
+    """
+    Session-cookie issuance must have one implementation point so production
+    cookie protections cannot drift between authentication flows.
+    """
+    from pathlib import Path
+
+    auth_router = Path(
+        "apps/api/app/routers/auth.py"
+    ).read_text(encoding="utf-8")
+
+    assert auth_router.count("response.set_cookie(") == 1

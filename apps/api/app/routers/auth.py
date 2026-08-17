@@ -1,5 +1,5 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from ..db import get_db
@@ -47,7 +47,9 @@ def entra_callback(code:str,state:str,db:Session=Depends(get_db)):
     from datetime import datetime,timezone
     ident.last_verified_at=datetime.now(timezone.utc)
     db.commit()
-    response=RedirectResponse("/"); token=create_session_token(user.id,email,effective_role); response.set_cookie(COOKIE_NAME,token,httponly=True,secure=s.etis_env!="development",samesite="lax",max_age=43200,path="/"); return response
+    response=RedirectResponse("/")
+    _set_session(response,user,email)
+    return response
 
 @router.get("/github/link")
 def github_link(request:Request):
@@ -81,7 +83,11 @@ def logout(request: Request, db: Session = Depends(get_db)):
     return response
 
 @router.get("/me")
-def me(request:Request,db:Session=Depends(get_db)):
+def me(request:Request,response:Response,db:Session=Depends(get_db)):
+    # Authentication/bootstrap state, including the browser CSRF token, must
+    # never be stored by browsers or intermediary caches.
+    response.headers["Cache-Control"]="no-store"
+
     ident=request_identity(request)
     if not ident:
         return {"authenticated":False}
