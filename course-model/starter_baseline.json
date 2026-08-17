@@ -1,0 +1,302 @@
+{
+  "version": "2026-08-09",
+  "source": "COMP 330 Fall 2026 official starter kit",
+  "file_count": 59,
+  "files": [
+    {
+      "path": ".editorconfig",
+      "sha256": "483f585c07e071e7a5a01ca2b5315f70a72eeaa625a3ed66abd9200c23200b9d",
+      "size": 251
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "sha256": "c183a5b83b473529480aaf82009a983a2217722c43fe757c44e2c2b26d70e44b",
+      "size": 64
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/defect_report.md",
+      "sha256": "93932971bed1e5cb40e337016eb910bf655fd21a6c528a1ca086b24b66c35901",
+      "size": 522
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature_request.md",
+      "sha256": "3cdee1c56fa818ed99f36caa2d06a7a0a2444252c155eb70de616be9660f92f2",
+      "size": 52
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/task.md",
+      "sha256": "b0ff0e19e6638f0d5084ea1b082f51b85cf09d73da59af9393cc213067b9ff38",
+      "size": 33
+    },
+    {
+      "path": ".github/pull_request_template.md",
+      "sha256": "b040fbdbcb1b62ee8d538d006b5904c879bc67c2082cbc2f888de7495a581179",
+      "size": 643
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "a2e1f6817ce649a66dc073de70acb2c71412a3ecbeef7fe662131f4c47426d3f",
+      "size": 390
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "e939da37b5533ccae39ff2fcc49043cce195a5af2c756662b1fcea764e5fde74",
+      "size": 286
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "sha256": "d03406b6d9d0e9f2be76bfb0fd3a878d7b71c6b770de4ed5e2c3eac5ca5ba460",
+      "size": 1586
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "6853d661bd1b9b7e0a0e253ca47b2e543bb78b1311cb9b722af547d4e6367853",
+      "size": 4655
+    },
+    {
+      "path": "README.md",
+      "sha256": "2987a1da3fb9bb2b8de740d7732ad90cdd6c16a869eb524b3b039c5d1a1c5d48",
+      "size": 6370
+    },
+    {
+      "path": "data/README.md",
+      "sha256": "1bbae3497bf6e448b948851378d55b972f685aca3cca933c933391045c6fec7d",
+      "size": 49
+    },
+    {
+      "path": "docs/ai/ai-policy.md",
+      "sha256": "ce26f551bd1c0e3f3450a4c59502218175de8287bc85e86327866a141f49ca81",
+      "size": 167
+    },
+    {
+      "path": "docs/ai/ai-use-log.md",
+      "sha256": "fc1bf60f0f6d9bce50e245c7b1390eb5cd69154283c47ebb0c9ff532dc5d8155",
+      "size": 244
+    },
+    {
+      "path": "docs/ai/ai-verification-notes.md",
+      "sha256": "5aa42a563b358cd4ef6d58dc87733665fcac6e41ef0a3f9485b72c8ab9d672f3",
+      "size": 179
+    },
+    {
+      "path": "docs/architecture/api-contracts.md",
+      "sha256": "2d5f3a667762ee67e788261a4d6f2cdcfd79bb3641ca31abbd7e39226e8d4d30",
+      "size": 171
+    },
+    {
+      "path": "docs/architecture/architecture.md",
+      "sha256": "f9ee74cd9b67156426ab4143138126ddbdf2dfbcb0d2460cd1b9c955bbb68a8b",
+      "size": 322
+    },
+    {
+      "path": "docs/architecture/component-responsibilities.md",
+      "sha256": "339b8eec791034935400839e25f3f9bb3e3ab3b9091fd7f68ba1928ddca749cd",
+      "size": 184
+    },
+    {
+      "path": "docs/decisions/ADR-000-template.md",
+      "sha256": "37aa34cde769f11c292fb906e9e11d4d5e17fc5238a913fe53bf83ebcad85a44",
+      "size": 865
+    },
+    {
+      "path": "docs/decisions/README.md",
+      "sha256": "2df1eb9ff36d952b217961a9d4c1c869ee8b8d12c00ef8a2f33769ffdfad010c",
+      "size": 710
+    },
+    {
+      "path": "docs/observability/metrics-notes.md",
+      "sha256": "2b919f35ce0525c19e4c4e099cedfa24178a69c3cc607c028c3495d76df05517",
+      "size": 171
+    },
+    {
+      "path": "docs/observability/observability-plan.md",
+      "sha256": "7d545227e305db530455c06edcf38b943e0078ac11265ac0f8853f2898fc8814",
+      "size": 176
+    },
+    {
+      "path": "docs/observability/runtime-evidence.md",
+      "sha256": "b28d42e2daacee2e943eca0273546ca2cba36f0241ecddfe7aacb0e4a531a312",
+      "size": 174
+    },
+    {
+      "path": "docs/operations/incident-response-notes.md",
+      "sha256": "45356912bb4975ac9ddeef8c2b2021d417a9560383773b14f983d977b943b95a",
+      "size": 181
+    },
+    {
+      "path": "docs/operations/postmortem-template.md",
+      "sha256": "53c8a95d172379c1283546fb7fce22a8bb3f0eb53f1e69f88eb393bbd276cbda",
+      "size": 177
+    },
+    {
+      "path": "docs/operations/runbook.md",
+      "sha256": "dd0f3bd33b704b80886ff7d888b6ed32738ae69554b6ebee4200b33826880146",
+      "size": 165
+    },
+    {
+      "path": "docs/planning/estimates.md",
+      "sha256": "205a853f63766e5029fb93f415220ca6661ee92c445135297d765b1bd96ee240",
+      "size": 167
+    },
+    {
+      "path": "docs/planning/risk-register.md",
+      "sha256": "3837fd87c0ed5b328a718b747be907c111204248d70f3064598c0a925a20be28",
+      "size": 334
+    },
+    {
+      "path": "docs/planning/schedule.md",
+      "sha256": "1a1b47838308cf348914078b764f9c6920710b167000784bbf57ee6093e9aa53",
+      "size": 166
+    },
+    {
+      "path": "docs/planning/scope.md",
+      "sha256": "07243cc0beb42fe7e2a47bdb1ec93db33ef6ada2cbf8819cc1d4e11d0b519c90",
+      "size": 163
+    },
+    {
+      "path": "docs/planning/task-plan.md",
+      "sha256": "5a391d33b8a30cd4f535355a21dbb315d4ccccad7bffa2f5caa8062cfd0879e1",
+      "size": 167
+    },
+    {
+      "path": "docs/planning/traceability.md",
+      "sha256": "649eb2325b7a1dcbcf54eabdc08a319a43f78a9d9dfaa2bb7ffee01d28948c6a",
+      "size": 170
+    },
+    {
+      "path": "docs/quality/defect-log.md",
+      "sha256": "f2fd620aef610880576e24ceaf02a5b15c3edc311291686b369bda85eff68192",
+      "size": 168
+    },
+    {
+      "path": "docs/quality/defect-review.md",
+      "sha256": "205ecd0c59fa1c79f20b79501d95fed671c8c806402364a9712efbfe15926660",
+      "size": 171
+    },
+    {
+      "path": "docs/release/demo-script.md",
+      "sha256": "7ff1b8bb819d5259c8914cbb7638c28fb21d44c8114d4a69dc6337cd41798840",
+      "size": 169
+    },
+    {
+      "path": "docs/release/known-limitations.md",
+      "sha256": "4cd8078e3eb1ee4359117a5154c8b392145f35bfa3a2a7bebfcf728c4a65617b",
+      "size": 175
+    },
+    {
+      "path": "docs/release/release-notes.md",
+      "sha256": "a85d1d4cb736807f5d5aa5a063194d86dc4d99787795b548b847a396e02ad83c",
+      "size": 171
+    },
+    {
+      "path": "docs/release/traceability-summary.md",
+      "sha256": "20ef73010760e93446a2074ae27fede82d9f16517316fa1a98deb75fb069365e",
+      "size": 178
+    },
+    {
+      "path": "docs/requirements/acceptance-criteria.md",
+      "sha256": "ce9eecba31af3cf8245e82ecd7516b4d23785e04b5c9d49a1e2ad98f4b7f3144",
+      "size": 177
+    },
+    {
+      "path": "docs/requirements/assumptions-open-questions.md",
+      "sha256": "678683771182d62d871f004ebb8ee36d941a943e4de2b0a956078e952829691f",
+      "size": 184
+    },
+    {
+      "path": "docs/requirements/requirements.md",
+      "sha256": "91fbdc6dd692448a9b2a7c6da16a2bbbb3826ef34a50b5bd718ca9a1b83503ab",
+      "size": 268
+    },
+    {
+      "path": "docs/reviews/ai-code-review-example.md",
+      "sha256": "c398423fa2675e7bbf4ee65978d184bdef921a11d9bada77b1a72ac0e0989f49",
+      "size": 180
+    },
+    {
+      "path": "docs/reviews/architecture-review.md",
+      "sha256": "e5d3491fc9ecaae0bc7ba1c59530eff683dff6e00d7dc8161322ed47298ee293",
+      "size": 177
+    },
+    {
+      "path": "docs/reviews/code-review-example.md",
+      "sha256": "301b1fd8ab84b21fe63a97b7fadf41f9c8dd7ab83529582cf885fd524d067c11",
+      "size": 177
+    },
+    {
+      "path": "docs/reviews/release-readiness-review.md",
+      "sha256": "2e5796a0b6d80371140a5bf41b66016783041489ca914c1c067c5ae501d9061b",
+      "size": 182
+    },
+    {
+      "path": "docs/security/data-handling-notes.md",
+      "sha256": "3789072824461f3dd47fea8dbbe2891308c5272be66fc18b021659280378ff64",
+      "size": 177
+    },
+    {
+      "path": "docs/security/permission-boundaries.md",
+      "sha256": "be3f5f4bfc260bec831b015782ec881efb05aab1cc7af8a5e2e93d04d7dfc32c",
+      "size": 179
+    },
+    {
+      "path": "docs/security/security-governance-checklist.md",
+      "sha256": "2bc38c295e7dc8edf59e1893cb9d72d599b46dc5da79027f6f33671dd1be668b",
+      "size": 187
+    },
+    {
+      "path": "docs/team/roles.md",
+      "sha256": "a37466b9b2a8a7d4451af0ca7e5897e063db1942b8da9328c1a38da720138974",
+      "size": 7082
+    },
+    {
+      "path": "docs/team/team-charter.md",
+      "sha256": "60970e32740ab9465159dbba641bb3eb2d3f183b5e545b6caa091fe95dbb008c",
+      "size": 170
+    },
+    {
+      "path": "docs/team/working-agreements.md",
+      "sha256": "7cb93da2314caf4fc56d9551b09616ed6ea81d5abfa70f8fc8d4c5445f1dd378",
+      "size": 176
+    },
+    {
+      "path": "docs/testing/ci-evidence.md",
+      "sha256": "14b32e95f94a1e46178f64f3d15fb200c52999ece54fcb53751f0697de110b31",
+      "size": 169
+    },
+    {
+      "path": "docs/testing/test-cases.md",
+      "sha256": "e96a73c73a75774a1a5f0b8321d4d01f087517cf210833720bbae5bed796344c",
+      "size": 168
+    },
+    {
+      "path": "docs/testing/test-plan.md",
+      "sha256": "e3cf7f87db3595b22cab4a4d38d39d9db8f4cb79265b7294d346f681db2ab63c",
+      "size": 242
+    },
+    {
+      "path": "docs/testing/test-strategy.md",
+      "sha256": "bebb4e22241c51b28d9090993716e91c212153b484c1e9b27fbdec3998f77f40",
+      "size": 171
+    },
+    {
+      "path": "scripts/README.md",
+      "sha256": "f44394548231bbad3006f435a81f806f1548e4051bb650739ff311788afebe1a",
+      "size": 55
+    },
+    {
+      "path": "src/README.md",
+      "sha256": "d656026bd10939aaf78508e9b8a70c13e2ef6d4e7e0e3a1a1a3955ffcdfaa7e2",
+      "size": 47
+    },
+    {
+      "path": "test-evidence/README.md",
+      "sha256": "f2d4428b484066ee554515019bc2f3e9f2be7fca29378d6cc4ea3144d054d695",
+      "size": 67
+    },
+    {
+      "path": "tests/README.md",
+      "sha256": "cafe55fef39388cd309bb00d87856d72cf0791be586491430f98739f223701cb",
+      "size": 51
+    }
+  ]
+}

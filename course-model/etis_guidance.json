@@ -1,0 +1,192 @@
+{
+  "version": "1.0",
+  "source": "ETIS Engineering Platform Starter Kit v1.0.0",
+  "items": [
+    {
+      "id": "ETIS-ES100-PRINCIPLES",
+      "phase_ids": [
+        "A1"
+      ],
+      "moves": [
+        "consequence_visible",
+        "evidence_boundary_visible",
+        "ownership_visible"
+      ],
+      "title": "ES-100 \u2014 Engineering Principles",
+      "stage": "ES-100",
+      "path": "docs/engineering/ES-100/engineering_principles.md",
+      "why": "Foundational principles include governance as architecture and the rule that everything important leaves evidence.",
+      "student_hint": "Look at ES-100 Engineering Principles, especially governance, escalation, decision rights, and durable evidence.",
+      "website_url": "https://platform.etisframework.org/engineering/ES-100/engineering_principles/",
+      "source_type": "ETIS_PLATFORM"
+    },
+    {
+      "id": "ETIS-ES101-CONTEXT",
+      "phase_ids": [
+        "A1",
+        "A2"
+      ],
+      "moves": [
+        "consequence_visible",
+        "decision_explicit",
+        "boundary_visible"
+      ],
+      "title": "ES-101 \u2014 Engineering Context",
+      "stage": "ES-101",
+      "path": "docs/engineering/ES-101/engineering_context.md",
+      "why": "Explains why early scope, stakeholder, accountability, and decision boundaries constrain later engineering work.",
+      "student_hint": "Review ES-101 Engineering Context when the issue is about scope, stakeholders, early decisions, or why an unresolved beginning matters downstream.",
+      "website_url": "https://platform.etisframework.org/engineering/ES-101/engineering_context/",
+      "source_type": "ETIS_PLATFORM"
+    },
+    {
+      "id": "ETIS-ES102-READINESS",
+      "phase_ids": [
+        "A2"
+      ],
+      "moves": [
+        "evidence_boundary_visible",
+        "decision_explicit",
+        "change_trigger_visible"
+      ],
+      "title": "ES-102 \u2014 Requirements and Constraints",
+      "stage": "ES-102",
+      "path": "docs/engineering/ES-102/",
+      "why": "Provides requirements, constraints, evidence, and readiness guidance that feeds planning decisions.",
+      "student_hint": "Use ES-102 when you need to determine whether requirements or constraints are sufficiently clear to support a planning claim.",
+      "website_url": "https://platform.etisframework.org/engineering/ES-102/",
+      "source_type": "ETIS_PLATFORM"
+    },
+    {
+      "id": "ETIS-ES103-CONTEXT",
+      "phase_ids": [
+        "A2"
+      ],
+      "moves": [
+        "decision_explicit",
+        "ownership_visible",
+        "change_trigger_visible",
+        "tradeoff_visible"
+      ],
+      "title": "ES-103 \u2014 Planning and Work Breakdown",
+      "stage": "ES-103",
+      "path": "docs/engineering/ES-103/engineering_context.md",
+      "why": "Treats planning as accountable evidence and emphasizes uncertainty, dependencies, review, rework, governance, and decision points.",
+      "student_hint": "Look at ES-103 Engineering Context for planning, ownership, uncertainty, dependencies, and re-estimation.",
+      "website_url": "https://platform.etisframework.org/engineering/ES-103/engineering_context/",
+      "source_type": "ETIS_PLATFORM"
+    },
+    {
+      "id": "LMU-ROLES",
+      "phase_ids": [
+        "A1",
+        "A2"
+      ],
+      "moves": [
+        "ownership_visible",
+        "evidence_boundary_visible"
+      ],
+      "title": "LMU/COICP \u2014 Roles and Responsibilities Example",
+      "stage": "ES-103 example",
+      "path": "docs/examples/lmu-coicp/planning/roles_and_responsibilities.md",
+      "why": "Shows concrete responsibility and evidence ownership in a completed professional example.",
+      "student_hint": "The LMU/COICP Roles and Responsibilities example shows how responsibility and evidence ownership can be made explicit. Use it as an example, not an answer to copy.",
+      "website_url": "https://platform.etisframework.org/examples/lmu-coicp/planning/roles_and_responsibilities/",
+      "source_type": "ETIS_PLATFORM"
+    },
+    {
+      "id": "LMU-REPO-CONVENTIONS",
+      "phase_ids": [
+        "A1",
+        "A2"
+      ],
+      "moves": [
+        "evidence_boundary_visible",
+        "change_trigger_visible"
+      ],
+      "title": "LMU/COICP \u2014 Repository Conventions Example",
+      "stage": "Shared example",
+      "path": "docs/examples/lmu-coicp/shared/repository_conventions.md",
+      "why": "Demonstrates how decisions, risks, AI use, requirements, release, and governance remain durable and traceable.",
+      "student_hint": "The LMU/COICP Repository Conventions example can help you see what durable engineering evidence looks like across a lifecycle.",
+      "website_url": "https://platform.etisframework.org/examples/lmu-coicp/shared/repository_conventions/",
+      "source_type": "ETIS_PLATFORM"
+    },
+    {
+      "id": "ETIS-ES104",
+      "phase_ids": [
+        "A3"
+      ],
+      "moves": [
+        "consequence_visible",
+        "decision_explicit",
+        "tradeoff_visible",
+        "evidence_boundary_visible"
+      ],
+      "title": "ES-104 \u2014 Architecture",
+      "stage": "ES-104",
+      "path": "docs/engineering/ES-104/",
+      "why": "Architecture guidance for boundaries, responsibilities, dependencies, tradeoffs, and reviewability.",
+      "student_hint": "Use ES-104 when the review turns on architecture boundaries, responsibilities, dependencies, or consequences of a design choice.",
+      "website_url": "https://platform.etisframework.org/engineering/ES-104/",
+      "source_type": "ETIS_PLATFORM"
+    },
+    {
+      "id": "ETIS-ES106-109",
+      "phase_ids": [
+        "A4"
+      ],
+      "moves": [
+        "evidence_boundary_visible",
+        "ownership_visible",
+        "change_trigger_visible"
+      ],
+      "title": "ES-106 through ES-109 \u2014 Implementation, Review, Integration, Verification",
+      "stage": "ES-106\u2013ES-109",
+      "path": "docs/engineering/",
+      "why": "Implementation and verification guidance for controlled change, review, integration, and evidence.",
+      "student_hint": "For A4, use the relevant ES-106 through ES-109 stage guidance for implementation readiness, review, integration, and verification.",
+      "website_url": "https://platform.etisframework.org/engineering/ES-106/",
+      "source_type": "ETIS_PLATFORM"
+    },
+    {
+      "id": "ETIS-ES109-110",
+      "phase_ids": [
+        "A5"
+      ],
+      "moves": [
+        "decision_explicit",
+        "evidence_boundary_visible",
+        "tradeoff_visible",
+        "change_trigger_visible"
+      ],
+      "title": "ES-109 / ES-110 \u2014 Validation and Release Readiness",
+      "stage": "ES-109\u2013ES-110",
+      "path": "docs/engineering/",
+      "why": "Supports evidence-backed release judgment, validation, limitations, and readiness decisions.",
+      "student_hint": "Use ES-109 and ES-110 when the question is whether evidence is strong enough to defend a Cycle 1 release.",
+      "website_url": "https://platform.etisframework.org/engineering/ES-109/",
+      "source_type": "ETIS_PLATFORM"
+    },
+    {
+      "id": "ETIS-ES110-114",
+      "phase_ids": [
+        "A6"
+      ],
+      "moves": [
+        "consequence_visible",
+        "decision_explicit",
+        "ownership_visible",
+        "change_trigger_visible",
+        "tradeoff_visible"
+      ],
+      "title": "ES-110 through ES-114 \u2014 Release, Operations, Monitoring, Learning, Stewardship",
+      "stage": "ES-110\u2013ES-114",
+      "path": "docs/engineering/",
+      "why": "Supports final operational readiness, governance, monitoring, recovery, learning, and stewardship judgment.",
+      "student_hint": "For A6, use the relevant ES-110 through ES-114 guidance to reason about release, operations, monitoring, recovery, and stewardship.",
+      "website_url": "https://platform.etisframework.org/engineering/ES-110/",
+      "source_type": "ETIS_PLATFORM"
+    }
+  ]
+}

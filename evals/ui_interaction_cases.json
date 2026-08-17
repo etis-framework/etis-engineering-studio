@@ -1,0 +1,373 @@
+[
+  {
+    "id": "student-nav-studio",
+    "role": "student",
+    "view": "any",
+    "control": "Engineering Studio nav",
+    "expected": "opens Studio and scrolls to top"
+  },
+  {
+    "id": "student-nav-evidence",
+    "role": "student",
+    "view": "any",
+    "control": "Engineering Evidence nav",
+    "expected": "opens evidence workspace at top and loads current snapshot"
+  },
+  {
+    "id": "student-nav-history",
+    "role": "student",
+    "view": "any",
+    "control": "Review History nav",
+    "expected": "opens history at top"
+  },
+  {
+    "id": "student-nav-team",
+    "role": "student",
+    "view": "any",
+    "control": "My Team nav",
+    "expected": "opens team/onboarding view at top"
+  },
+  {
+    "id": "review-mode-board",
+    "role": "student",
+    "view": "studio",
+    "control": "Board Review",
+    "expected": "only Board is selected and Start button says Start Board Review"
+  },
+  {
+    "id": "review-mode-focused",
+    "role": "student",
+    "view": "studio",
+    "control": "Focused Review",
+    "expected": "only Focused is selected; focus input appears; Start disabled until focus is provided"
+  },
+  {
+    "id": "review-mode-finding",
+    "role": "student",
+    "view": "studio",
+    "control": "Review Findings",
+    "expected": "only Finding is selected; current findings load; Start disabled until finding selected"
+  },
+  {
+    "id": "start-board",
+    "role": "student",
+    "view": "studio",
+    "control": "Start Board Review",
+    "expected": "creates board session, locks review type, enables conversation controls"
+  },
+  {
+    "id": "start-focused",
+    "role": "student",
+    "view": "studio",
+    "control": "Start Focused Review",
+    "expected": "creates session with exact student focus and relevant evidence"
+  },
+  {
+    "id": "start-finding",
+    "role": "student",
+    "view": "studio",
+    "control": "Start Finding Review",
+    "expected": "creates session anchored to exact selected finding(s), never generic top finding"
+  },
+  {
+    "id": "finding-discuss-rail",
+    "role": "student",
+    "view": "studio",
+    "control": "Finding Discuss",
+    "expected": "attaches exact finding context to current conversation or prepares exact Finding Review"
+  },
+  {
+    "id": "finding-challenge-rail",
+    "role": "student",
+    "view": "studio",
+    "control": "Finding Challenge",
+    "expected": "opens evidence-dispute flow for exact finding"
+  },
+  {
+    "id": "finding-resolve-rail",
+    "role": "student",
+    "view": "studio",
+    "control": "Help me resolve this",
+    "expected": "asks senior reviewer about exact finding and begins remediation coaching"
+  },
+  {
+    "id": "evidence-ask-rail",
+    "role": "student",
+    "view": "studio",
+    "control": "Evidence Ask about this",
+    "expected": "attaches exact evidence object to composer; reviewer receives PATH reference"
+  },
+  {
+    "id": "evidence-reference-rail",
+    "role": "student",
+    "view": "studio",
+    "control": "Evidence Reference",
+    "expected": "adds evidence context/reference without navigating"
+  },
+  {
+    "id": "evidence-open-present",
+    "role": "student",
+    "view": "studio",
+    "control": "Evidence Open present artifact",
+    "expected": "opens exact frozen artifact viewer/source; no guessed URL"
+  },
+  {
+    "id": "evidence-open-missing",
+    "role": "student",
+    "view": "studio",
+    "control": "Evidence Open missing artifact",
+    "expected": "disabled/explained; never opens 404"
+  },
+  {
+    "id": "send-enter",
+    "role": "student",
+    "view": "studio",
+    "control": "Enter in composer",
+    "expected": "sends exactly one turn"
+  },
+  {
+    "id": "send-shift-enter",
+    "role": "student",
+    "view": "studio",
+    "control": "Shift+Enter",
+    "expected": "inserts newline and does not send"
+  },
+  {
+    "id": "nudge",
+    "role": "student",
+    "view": "studio",
+    "control": "Give me a nudge",
+    "expected": "requests one coaching turn; control shows busy while pending"
+  },
+  {
+    "id": "recommendation",
+    "role": "student",
+    "view": "studio",
+    "control": "State My Recommendation",
+    "expected": "appears only when decision is appropriate; records recommendation without ending session"
+  },
+  {
+    "id": "complete-review",
+    "role": "student",
+    "view": "studio",
+    "control": "Complete Review",
+    "expected": "session becomes read-only and Start New Review becomes obvious"
+  },
+  {
+    "id": "prior-session",
+    "role": "student",
+    "view": "studio/history",
+    "control": "Prior session",
+    "expected": "opens exact session at top with active/resumed or completed/read-only status"
+  },
+  {
+    "id": "prior-new-home",
+    "role": "student",
+    "view": "studio",
+    "control": "Start New Review",
+    "expected": "clears prior-session UI and returns to clean review launcher"
+  },
+  {
+    "id": "evidence-lens",
+    "role": "student",
+    "view": "evidence",
+    "control": "professional lens",
+    "expected": "shows lens-specific evidence/findings, does not navigate unexpectedly"
+  },
+  {
+    "id": "evidence-inventory-inspect",
+    "role": "student",
+    "view": "evidence",
+    "control": "Inspect evidence",
+    "expected": "opens local frozen evidence detail; external source optional"
+  },
+  {
+    "id": "evidence-inventory-ask",
+    "role": "student",
+    "view": "evidence",
+    "control": "Ask the Board",
+    "expected": "prepares focused review with exact evidence path and returns to top of Studio"
+  },
+  {
+    "id": "evidence-finding-discuss",
+    "role": "student",
+    "view": "evidence",
+    "control": "Finding Discuss",
+    "expected": "prepares exact finding discussion and returns to top of Studio"
+  },
+  {
+    "id": "evidence-finding-challenge",
+    "role": "student",
+    "view": "evidence",
+    "control": "Finding Challenge",
+    "expected": "prepares exact finding challenge; board may be corrected"
+  },
+  {
+    "id": "evidence-finding-resolve",
+    "role": "student",
+    "view": "evidence",
+    "control": "Finding Help resolve",
+    "expected": "prepares exact remediation-focused finding review"
+  },
+  {
+    "id": "evidence-guidance-link",
+    "role": "student",
+    "view": "studio/evidence",
+    "control": "Related guidance",
+    "expected": "opens public ETIS page in new tab and keeps Studio state"
+  },
+  {
+    "id": "browser-back",
+    "role": "student",
+    "view": "review",
+    "control": "Browser back",
+    "expected": "does not lose active server session; returning permits resume"
+  },
+  {
+    "id": "browser-refresh",
+    "role": "student",
+    "view": "review",
+    "control": "Browser refresh",
+    "expected": "history/active review remains recoverable; no snapshot mutation"
+  },
+  {
+    "id": "double-click-send",
+    "role": "student",
+    "view": "review",
+    "control": "double send",
+    "expected": "client pending state and backend turn idempotency prevent duplicate reviewer response"
+  },
+  {
+    "id": "offline-send",
+    "role": "student",
+    "view": "review",
+    "control": "send while offline",
+    "expected": "draft remains; clear offline message; no silent loss"
+  },
+  {
+    "id": "instructor-nav-command",
+    "role": "instructor",
+    "view": "any",
+    "control": "Command Center",
+    "expected": "loads section-scoped class signals"
+  },
+  {
+    "id": "instructor-nav-teams",
+    "role": "instructor",
+    "view": "any",
+    "control": "Teams",
+    "expected": "loads team cards or explicit retry state"
+  },
+  {
+    "id": "instructor-nav-students",
+    "role": "instructor",
+    "view": "any",
+    "control": "Students",
+    "expected": "loads roster/team management for authorized section"
+  },
+  {
+    "id": "instructor-nav-reviews",
+    "role": "instructor",
+    "view": "any",
+    "control": "Reviews",
+    "expected": "loads review activity or explicit retry state"
+  },
+  {
+    "id": "instructor-nav-evidence",
+    "role": "instructor",
+    "view": "any",
+    "control": "Engineering Evidence",
+    "expected": "loads frozen evidence/findings or explicit retry state"
+  },
+  {
+    "id": "instructor-nav-usage",
+    "role": "instructor",
+    "view": "any",
+    "control": "AI Usage & Cost",
+    "expected": "loads telemetry or explicit unavailable/retry state"
+  },
+  {
+    "id": "instructor-nav-setup",
+    "role": "course_owner/instructor",
+    "view": "any",
+    "control": "Semester Setup",
+    "expected": "visible only with appropriate role and section scope"
+  },
+  {
+    "id": "instructor-nav-access",
+    "role": "course_owner/instructor",
+    "view": "any",
+    "control": "Settings & Access",
+    "expected": "shows integration/auth status and current privilege"
+  },
+  {
+    "id": "ta-no-setup",
+    "role": "ta",
+    "view": "any",
+    "control": "Semester Setup",
+    "expected": "not visible"
+  },
+  {
+    "id": "ta-no-access-admin",
+    "role": "ta",
+    "view": "any",
+    "control": "Settings & Access",
+    "expected": "not visible"
+  },
+  {
+    "id": "instructor-team-card",
+    "role": "instructor",
+    "view": "teams/command",
+    "control": "team card",
+    "expected": "opens exact selected team, not first/default team"
+  },
+  {
+    "id": "instructor-section-selector",
+    "role": "instructor",
+    "view": "command/teams/students/setup",
+    "control": "section selector",
+    "expected": "reloads only selected section and preserves authorization boundaries"
+  },
+  {
+    "id": "roster-add",
+    "role": "instructor",
+    "view": "students",
+    "control": "Add/reactivate",
+    "expected": "validates required fields; applies once; history preserved"
+  },
+  {
+    "id": "roster-deactivate",
+    "role": "instructor",
+    "view": "students",
+    "control": "Deactivate",
+    "expected": "removes future access but preserves historical reviews"
+  },
+  {
+    "id": "roster-move-team",
+    "role": "instructor",
+    "view": "students",
+    "control": "team selector",
+    "expected": "moves student prospectively and preserves team membership history"
+  },
+  {
+    "id": "schedule-save",
+    "role": "instructor",
+    "view": "semester setup",
+    "control": "Save phase",
+    "expected": "updates selected section only and confirms result or reports failure"
+  },
+  {
+    "id": "archive-cancel",
+    "role": "course_owner",
+    "view": "semester setup",
+    "control": "Archive cancel",
+    "expected": "no mutation"
+  },
+  {
+    "id": "archive-confirm",
+    "role": "course_owner",
+    "view": "semester setup",
+    "control": "Archive confirm",
+    "expected": "archives term without deleting history; reports failure if request fails"
+  }
+]

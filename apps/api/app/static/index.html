@@ -1,60 +1,211 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ETIS Engineering Studio</title><link rel="stylesheet" href="/assets/studio.css"></head>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ETIS Engineering Studio</title>
+  <link rel="stylesheet" href="/assets/studio.css">
+</head>
 <body>
-<div class="shell">
+<div id="loginGate" class="login-gate hidden"><div class="login-card"><div class="brand login-brand"><div class="mark">E</div><div><b>ETIS</b><span>Engineering Studio</span></div></div><span class="eyebrow">COMP 330 ENGINEERING APPRENTICESHIP</span><h1>Sign in with Loyola</h1><p>Engineering Studio uses your Loyola Microsoft identity to verify who you are and the semester roster to determine what you may access. The Studio does not maintain a separate password.</p><a href="/auth/entra" class="primary login-button">Sign in with Loyola →</a><div class="login-security"><b>Secure by design</b><span>Loyola SSO authenticates you. Course enrollment and teaching-staff assignments authorize you. GitHub is linked separately for engineering identity and repository evidence.</span></div></div></div>
+<div id="appShell" class="shell">
   <aside class="rail">
     <div class="brand"><div class="mark">E</div><div><b>ETIS</b><span>Engineering Studio</span></div></div>
-    <nav>
+    <nav id="studentNav">
       <button class="nav active" data-view="studio">◈ <span>Engineering Studio</span></button>
-      <button class="nav" data-view="evidence">⌁ <span>Evidence Map</span></button>
-      <button class="nav" data-view="instructor">▦ <span>Instructor</span></button>
+      <button class="nav" data-view="evidence">⌁ <span>Engineering Evidence</span></button>
+      <button class="nav" data-view="history">↶ <span>Review History</span></button>
+      <button class="nav" data-view="myteam">◎ <span>My Team</span></button>
     </nav>
+    <nav id="instructorNav" class="hidden">
+      <button class="nav active" data-view="instructor">▦ <span>Command Center</span></button>
+      <button class="nav" data-view="instructorTeams">◎ <span>Teams</span></button>
+      <button class="nav" data-view="instructorStudents">♙ <span>Students</span></button>
+      <button class="nav" data-view="instructorReviews">◈ <span>Reviews</span></button>
+      <button class="nav" data-view="instructorEvidence">⌁ <span>Engineering Evidence</span></button>
+      <button class="nav" data-view="instructorUsage">◫ <span>AI Usage & Cost</span></button>
+      <button class="nav" data-view="semesterSetup">⚙ <span>Semester Setup</span></button>
+      <button class="nav" data-view="accessSettings">⌘ <span>Settings & Access</span></button>
+    </nav>
+    <div class="rail-actions"><button id="helpButton" class="rail-help">? <span>Help & guidance</span></button></div>
     <div class="rail-bottom"><span class="dot"></span><div><b>COMP330-F26</b><small>Wave 1 · A1/A2</small></div></div>
   </aside>
+
   <main>
-    <header class="topbar"><div><span class="eyebrow">PROFESSIONAL REVIEW ENVIRONMENT</span><h1 id="viewTitle">Engineering Review Room</h1></div><div class="user"><div class="avatar">AR</div><div><b>Alex Rivera</b><small>Architecture & Integration Owner</small></div></div></header>
+    <header class="topbar">
+      <div><span class="eyebrow">ENGINEERING APPRENTICESHIP ENVIRONMENT</span><h1 id="viewTitle">Engineering Review Room</h1></div>
+      <div class="top-actions"><select id="devPersona" class="dev-persona hidden" aria-label="Development persona"><option value="student">Dev · Student</option><option value="instructor">Dev · Instructor</option></select><div id="conversationMode" class="conversation-mode checking">Checking coaching mode…</div><button id="quickHelp" class="ghost">Need help?</button><div id="userIdentity" class="user"><div class="avatar">AR</div><div><b>Alex Rivera</b><small>Architecture & Integration Owner</small></div></div></div>
+    </header>
 
     <section id="studio" class="view active-view">
-      <div class="contextbar">
-        <div><small>TEAM</small><b>Team Vector</b></div><div><small>PROJECT</small><b>CampusConnect</b></div>
-        <div><small>PHASE</small><select id="phase"><option>A1 · Project Launch</option><option>A2 · Planning & Estimation</option></select></div>
-        <div><small>REPOSITORY</small><b><span class="status amber"></span> Demo Evidence</b></div>
-        <button id="newReview" class="primary">Begin Review</button>
+      <div id="uiRuntimeWarning" class="semantic-warning danger hidden"><div><b>Review Room needs attention.</b><span id="uiRuntimeWarningText">The browser encountered an unexpected UI error.</span></div><button class="secondary" onclick="location.reload()">Refresh</button></div>
+      <div id="semanticSetupWarning" class="semantic-warning hidden"><div><b>Natural reviewer coaching is not configured.</b><span>This build intentionally will not simulate a senior-engineer conversation with canned fallback responses.</span></div><button class="secondary" data-help-topic="semantic-required">Show setup</button></div>
+
+      <div class="contextbar professional-context">
+        <div><small>TEAM</small><b id="contextTeam">Team Vector</b></div>
+        <div><small>PROJECT</small><b id="contextProject">CampusConnect</b></div>
+        <div><small>CURRENT PHASE</small><select id="phase"><option>A1 · Project Launch</option><option>A2 · Planning & Estimation</option><option>A3 · Architecture & Review</option><option>A4 · Construction & Integration</option><option>A5 · Cycle 1 Release</option><option>A6 · Final Release & Maturity</option></select><span id="phaseLockHint" class="context-hint"></span></div>
+        <div class="repo-context"><small>EVIDENCE SNAPSHOT</small><input id="repoFullName" value="etis-framework/comp330-f26-starter-kit" aria-label="GitHub owner/repository" readonly><span id="repoMode"><span class="status green"></span> Repository connected</span></div>
+        <div class="context-actions"><button id="reviewHomeButton" class="secondary compact hidden">New Review Home</button><button id="newReview" class="primary">Start Review →</button></div>
       </div>
+      <div id="reviewSessionPurpose" class="session-purpose hidden"></div>
+      <div id="reviewLauncher" class="review-launcher-wrap">
+        <div class="review-launcher-heading"><div><span class="eyebrow">CHOOSE YOUR REVIEW</span><h3>How do you want the senior board to engage?</h3></div><small>You can ask questions at any time. The review type sets the purpose of this session, not a rigid script.</small></div>
+        <div class="review-launcher">
+          <button type="button" class="review-choice selected" data-review-mode="board" aria-pressed="true"><b>Board Review</b><span>Let the senior board choose the most valuable phase-gate question from your current evidence.</span><em>Normal phase-gate review</em></button>
+          <button type="button" class="review-choice" data-review-mode="focused" aria-pressed="false"><b>Focused Review</b><span>Bring a decision, artifact, PR, architecture choice, risk, AI-use question, or concern you want challenged.</span><em>You choose the engineering subject</em></button>
+          <button type="button" class="review-choice" data-review-mode="finding" aria-pressed="false"><b>Review Findings</b><span>Understand, challenge, resolve, accept, defer, or ask questions about findings the board already identified.</span><em>Work directly with board findings</em></button>
+        </div>
+        <div id="focusedReviewPanel" class="focus-panel hidden"><label for="reviewFocus">What should the board focus on?</label><div><input id="reviewFocus" placeholder="Examples: authentication architecture, our risk register, PR #27, database choice, AI verification"></div></div>
+        <div id="findingReviewPanel" class="finding-review-panel hidden"><div class="finding-picker-head"><b>Select up to three related findings</b><span>The board keeps this session coherent rather than trying to solve everything at once.</span></div><div id="findingPicker" class="finding-picker"></div></div>
+        <div class="review-launcher-action"><div><b id="reviewModeSummary">Board Review · the board chooses the agenda.</b><span class="launcher-hint">Use the large Start Review button in the context bar when you are ready.</span></div></div>
+      </div>
+
+      <div class="apprentice-strip" id="guideStrip">
+        <div class="apprentice-step"><span>1</span><div><b>Understand the condition</b><small>Ask the senior reviewer when wording or consequences are unclear.</small></div></div>
+        <div class="apprentice-step"><span>2</span><div><b>Work toward a position</b><small>Use coaching as often as needed; early phases are deliberately guided.</small></div></div>
+        <div class="apprentice-step"><span>3</span><div><b>Discuss, refine, then recommend</b><small>When a decision is needed, state the recommendation you are prepared to defend. Not every conversation needs one.</small></div></div>
+        <button id="dismissGuide" class="text-button">Got it</button>
+      </div>
+
       <div class="hero-grid">
         <article class="mission">
           <span class="eyebrow">CURRENT ENGINEERING QUESTION</span>
           <h2 id="gateQuestion">Can the team operate with visible ownership, workflow discipline, AI governance, and repository structure before serious implementation begins?</h2>
-          <p>Do not optimize for a score. Make a decision another engineer could challenge, trace to evidence, and live with if it is wrong.</p>
-          <div class="chips"><span>Business Value</span><span>Evidence</span><span>Accountability</span><span>AI Governance</span><span>Uncertainty</span></div>
+          <p>Think like a junior engineer in a review with senior engineers. You are expected to make the decision, but the board will coach you until the reasoning is strong enough to own.</p>
+          <div class="chips" id="dimensionChips"><span>Business Value</span><span>Evidence</span><span>Accountability</span><span>AI Governance</span><span>Uncertainty</span></div>
         </article>
-        <article class="pulse"><div class="pulse-head"><span>ENGINEERING SIGNALS</span><b id="coverage">—</b></div><div class="meter"><i id="meter"></i></div><div class="signal-grid"><div><small>Evidence Coverage</small><b id="evCoverage">Not scanned</b></div><div><small>Decision Defense</small><b id="defense">Not started</b></div><div><small>Review Depth</small><b id="depth">—</b></div><div><small>Instructor Visibility</small><b>On</b></div></div><p class="quiet">Signals are learning/navigation aids, not an autonomous course grade.</p></article>
+        <article class="pulse">
+          <div class="pulse-head"><span>ENGINEERING SIGNALS</span><b id="coverage">—</b></div>
+          <div class="meter"><i id="meter"></i></div>
+          <div class="signal-grid"><div><small>Evidence Coverage</small><b id="evCoverage">Not scanned</b></div><div><small>Position</small><b id="defense">Not started</b></div><div><small>Reasoning Moves</small><b id="depth">—</b></div><div><small>Instructor Visibility</small><b>On</b></div></div>
+          <p class="quiet">Signals help you navigate the review. They are not an autonomous course grade.</p>
+        </article>
       </div>
+
       <div class="workspace">
         <section class="review-room">
-          <div class="panel-title"><div><span class="eyebrow">LIVE REVIEW BOARD</span><h3 id="challengeTitle">Start a review to convene the board</h3></div><div class="board-lenses"><span>Chief Architect</span><span>Evidence Auditor</span><span>Red Team</span></div></div>
-          <div id="transcript" class="transcript"><div class="empty"><div class="glyph">⌬</div><h3>Your engineering review starts here.</h3><p>The board will challenge your current phase using the evidence your team actually has, not a generic question bank.</p></div></div>
+          <div class="panel-title review-titlebar">
+            <div><span class="eyebrow">SENIOR REVIEW BOARD</span><h3 id="challengeTitle">Start a review to convene the board</h3></div>
+            <div class="board-lenses"><span>Maya · Evidence</span><span>Marcus · Architecture</span><span>Elena · Red Team</span><span>Priya · Delivery</span></div>
+          </div>
+
+          <div id="reviewStatus" class="review-status hidden">
+            <div><span class="status green"></span><b id="reviewStatusLabel">Review in progress</b><small id="reviewStatusText">Evidence snapshot frozen for this session</small></div>
+            <button id="completeReview" class="secondary">Complete Review</button>
+          </div>
+
+          <div id="activeReviewer" class="active-reviewer hidden" aria-live="polite">
+            <img id="activeReviewerPortrait" alt="">
+            <div><span class="eyebrow">CURRENTLY COACHING YOU</span><h3 id="activeReviewerName"></h3><p id="activeReviewerFocus"></p></div>
+          </div>
+
+          <div id="challengeBrief" class="challenge-brief hidden">
+            <div><span class="brief-label">WHAT THE BOARD NOTICED</span><p id="noticedText"></p></div>
+            <div><span class="brief-label">WHY IT MATTERS</span><p id="significanceText"></p></div>
+            <div class="decision-callout"><span class="brief-label">YOUR ENGINEERING DECISION</span><p id="decisionQuestionText"></p></div>
+          </div>
+
+          <div id="transcript" class="transcript conversation">
+            <div class="empty"><div class="glyph">⌬</div><h3>Your engineering review starts here.</h3><p>The board will use your team's evidence and coach you through one engineering move at a time. You may ask questions before you make a decision.</p><button class="inline-help" data-help-topic="first-review">What happens when I begin?</button></div>
+          </div>
+
+          <div id="reviewerThinking" class="reviewer-thinking hidden" aria-live="polite"><img id="thinkingPortrait" alt=""><div><b id="thinkingName">Reviewer is thinking…</b><span id="thinkingStatus">Reviewing your answer and the frozen evidence.</span><i></i></div></div>
+
+          <div class="conversation-ready-note hidden" id="conversationReadyNote" aria-live="polite"><b>Review is live.</b><span>Ask a question, answer the reviewer, disagree, or say you are stuck. Enter sends; Shift+Enter adds a new line.</span></div>
+          <div class="conversation-controls hidden" id="conversationControls">
+            <button id="askMode" class="mode-button"><b>Talk with the reviewer</b><span>Ask a question, answer what they asked, or think out loud. The reviewer will follow what you mean.</span></button>
+            <button id="coachButton" class="mode-button coaching"><b>Give me a nudge</b><span>Ask the reviewer to reframe or scaffold. If you are truly stuck, they will teach the concept and show you where to review it.</span></button>
+            <button id="decisionMode" class="mode-button active"><b>Build my recommendation</b><span>Use this when the discussion reaches a real engineering decision. You can keep asking questions first.</span></button>
+          </div>
+
           <div class="composer">
-            <div class="decision-row"><label>Decision posture</label><select id="decision"><option value="">Select only if applicable</option><option>approve</option><option>approve_with_conditions</option><option>defer</option><option>reject</option><option>constrain</option><option>request_evidence</option><option>escalate</option></select></div>
-            <textarea id="response" placeholder="State your decision. Defend the tradeoff, evidence, uncertainty, consequence, owner, and what would change your position..."></textarea>
-            <div class="composer-bottom"><span>⌘ Enter to defend · Shift+Enter for newline</span><button id="send" disabled>Defend Decision →</button></div>
+            <div id="askBanner" class="mode-banner hidden"><b>Conversation mode</b><span>Talk naturally. Ask a question, respond to the reviewer, or say what you are thinking. The reviewer will respond to the substance—not the button you clicked.</span></div>
+            <div id="decisionComposerHead" class="composer-head">
+              <div class="decision-row">
+                <label for="decision">Current recommendation <span class="optional-label">(choose when ready)</span></label>
+                <select id="decision">
+                  <option value="">I am not ready to choose yet</option>
+                  <option value="approve">Continue</option>
+                  <option value="approve_with_conditions">Continue with conditions</option>
+                  <option value="defer">Hold / defer</option>
+                  <option value="reject">Reject this path</option>
+                  <option value="constrain">Constrain scope or authority</option>
+                  <option value="request_evidence">Request evidence before deciding</option>
+                  <option value="escalate">Escalate</option>
+                </select>
+                <button class="mini-help" data-help-topic="decision-posture" aria-label="Explain decision posture">?</button>
+              </div>
+              <div id="postureMeaning" class="posture-meaning">You can ask questions before choosing a posture.</div>
+            </div>
+
+            <div id="coachPanel" class="coach-panel hidden"></div>
+            <div id="composerContext" class="composer-context hidden" aria-live="polite"></div>
+            <textarea id="response" placeholder="Talk to the reviewer naturally. Ask a question, explain what you think, or say where you are stuck."></textarea>
+            <div id="movePrompts" class="move-prompts" aria-label="Engineering reasoning prompts"><button data-insert="Our decision: ">Decision</button><button data-insert="Evidence we have: ">Evidence</button><button data-insert="Risk if we are wrong: ">Consequence</button><button data-insert="Accountable owner: ">Owner</button><button data-insert="We would change this position when: ">Change trigger</button></div>
+            <div class="composer-bottom">
+              <span id="keyboardHint">Enter to discuss · Shift+Enter for newline<br><span class="student-language-note">Write in your own words. Grammar, spelling, and accent are not being graded.</span></span>
+              <div><span id="draftHint" class="draft-hint"></span><button id="send" disabled>Discuss My Decision →</button></div>
+            </div>
+            <div id="commitBar" class="commit-bar hidden"><div><b>Your recommendation is ready to state.</b><span>The board believes the core reasoning is explicit. Record it only if this conversation actually calls for a decision; you may keep discussing or revise it later.</span></div><button id="commitPosition" class="commit-button">State My Recommendation →</button></div>
           </div>
         </section>
+
         <aside class="evidence-rail">
-          <div class="panel-title"><div><span class="eyebrow">EVIDENCE RAIL</span><h3>What the board can see</h3></div></div>
+          <div class="panel-title"><div><span class="eyebrow">EVIDENCE RAIL</span><h3>What the board can see</h3></div><button class="mini-help" data-help-topic="evidence-rail" aria-label="Explain evidence rail">?</button></div>
+          <div id="evidenceSummary" class="evidence-summary"><div><b>—</b><small>Visible</small></div><div><b>—</b><small>Gaps</small></div><div><b>—</b><small>Snapshot</small></div></div>
           <div id="evidenceList" class="evidence-list"><p class="quiet">Begin a review to freeze the current evidence snapshot.</p></div>
-          <div class="guardrail"><b>Guardrail</b><p>Artifact presence is not proof. The Studio never treats a polished template, green CI, or confident answer as sufficient evidence by itself.</p></div>
+          <div class="rail-section"><div class="rail-section-head"><span class="eyebrow">RELATED GUIDANCE</span><small>Contextual references, not required answers</small></div><div id="relatedGuidance" class="related-guidance"><p class="quiet">Relevant ETIS and reference guidance will appear here when useful.</p></div></div>
+          <div class="rail-section"><div class="rail-section-head"><span class="eyebrow">REVIEW FINDINGS</span><small>Snapshot-bound findings · ask, challenge, resolve, or defer</small></div><div id="findingList" class="finding-list"><p class="quiet">Findings appear after the evidence snapshot is analyzed.</p></div></div>
+          <div class="guardrail"><b>Apprenticeship guardrail</b><p>Senior reviewers will steer you away from unsupported reasoning, teach when you are stuck, and give an honest professional opinion when you ask. They will not silently make consequential team decisions for you. Productive mistakes can be explored and recommendations can change when evidence changes.</p></div>
         </aside>
       </div>
+
+      <div class="history-card"><div><span class="eyebrow">YOUR REVIEW HISTORY</span><h3>Practice is cumulative</h3><p>Early reviews may include substantial coaching. Over the semester, the board will expect more independent engineering reasoning.</p></div><div id="reviewHistory" class="history-list"><span class="quiet">No review history loaded yet.</span></div></div>
     </section>
 
+    <section id="history" class="view"><div class="page-card"><div class="page-heading"><div><span class="eyebrow">MY REVIEW HISTORY</span><h2>How your engineering judgment is developing</h2><p>Your conversations are individual, but every review remains tied to the same frozen team evidence used at that moment.</p></div></div><div id="reviewHistoryPage" class="history-list large-history"></div></div></section>
+
+    <section id="myteam" class="view"><div class="page-card"><div class="page-heading"><div><span class="eyebrow">MY TEAM</span><h2 id="myTeamHeading">Team context</h2><p>Team membership and repository evidence are shared. Your coaching conversations and learning state remain individual.</p></div></div><div id="onboardingChecklist" class="onboarding-checklist"></div><div id="myTeamContent" class="team-context-grid"></div></div></section>
+
     <section id="evidence" class="view">
-      <div class="page-card"><span class="eyebrow">EVIDENCE MODEL</span><h2>Repository as an engineering control system</h2><p>The Studio distinguishes evidence location, evidence quality, workflow traceability, and engineering judgment. It does not reward folder completion.</p><div id="evidenceMatrix" class="matrix"></div></div>
+      <div class="page-card evidence-page engineering-evidence-page">
+        <div class="page-heading"><div><span class="eyebrow">ENGINEERING EVIDENCE</span><h2>See what the Studio found, how it connects, and where to ask for help</h2><p>This is your team's evidence workspace for the current released phase. File names are clues, not proof: the Studio also considers equivalent evidence, GitHub workflow history, and project-specific artifacts that actually support the engineering claim.</p></div><button class="secondary" data-help-topic="evidence-map">How to use this page</button></div>
+        <div id="evidenceWorkspaceStatus" class="evidence-workspace-status"><span class="mini-spinner"></span><span>Loading the latest frozen evidence snapshot…</span></div>
+        <div id="evidenceWorkspace" class="hidden">
+          <div class="evidence-workspace-head"><div><span class="eyebrow">CURRENT EVIDENCE CONTEXT</span><h3 id="evidenceWorkspaceTitle">Current phase evidence</h3><p id="evidenceWorkspaceMeta"></p></div><div class="evidence-workspace-actions"><button id="startBoardFromEvidence" class="primary compact">Start Board Review</button><button id="backToStudio" class="secondary">Open Review Room</button></div></div>
+          <div class="evidence-summary-strip" id="engineeringEvidenceSummary"></div>
+          <section class="evidence-strengths-section"><div class="section-heading"><div><span class="eyebrow">WHAT IS WORKING</span><h3>Evidence strengths</h3></div><small>Only evidence-supported strengths are shown.</small></div><div id="engineeringEvidenceStrengths" class="strength-grid"></div></section>
+          <section class="evidence-lenses-section"><div class="section-heading"><div><span class="eyebrow">PROFESSIONAL LENSES</span><h3>Explore your evidence through an engineering perspective</h3></div><small>Select a lens to see related evidence, findings, and a direct path to a Focused Review.</small></div><div id="evidenceMatrix" class="matrix evidence-lens-grid"></div><div id="evidenceLensDetail" class="evidence-lens-detail hidden"></div></section>
+          <section class="evidence-inventory-section"><div class="section-heading"><div><span class="eyebrow">EVIDENCE IN THE CURRENT PHASE</span><h3>What the Studio can currently see</h3></div><label class="check-line"><input id="showOutOfScopeEvidence" type="checkbox"> Show future/out-of-scope scaffold</label></div><div id="engineeringEvidenceInventory" class="evidence-inventory"></div></section>
+          <section class="evidence-findings-section"><div class="section-heading"><div><span class="eyebrow">CURRENT FINDINGS</span><h3>Questions or concerns worth examining</h3></div><small>Findings are REVIEW interpretations, not immutable facts. Ask, challenge, resolve, accept, or defer them.</small></div><div id="engineeringEvidenceFindings" class="evidence-findings-grid"></div></section>
+          <section class="traceability-section"><div class="section-heading"><div><span class="eyebrow">ENGINEERING STORY</span><h3>Traceability signals</h3></div><small>The Studio shows relationships it can support from the frozen snapshot; it does not invent missing links.</small></div><div id="engineeringTraceability" class="traceability-board"></div></section>
+        </div>
+      </div>
     </section>
 
     <section id="instructor" class="view">
-      <div class="instructor-grid"><article class="page-card"><span class="eyebrow">INSTRUCTOR COMMAND CENTER</span><h2>Class engineering intelligence</h2><p>See who is practicing judgment, where teams are blocked, and which evidence gaps need instructor attention—without reducing students to commit counts.</p><div id="teamCards" class="team-cards"><button id="loadInstructor" class="primary">Load Course Overview</button></div></article><article class="page-card"><span class="eyebrow">DESIGN BOUNDARY</span><h3>What this surface will never do</h3><ul><li>Autonomously assign the final course grade.</li><li>Rank students by lines of code or commit count.</li><li>Expose confidential peer reviews to teammates.</li><li>Invent repository evidence.</li><li>Give students the “correct” engineering decision.</li></ul></article></div>
+      <div class="instructor-hero"><div><span class="eyebrow">INSTRUCTOR COMMAND CENTER</span><h2>Class engineering intelligence</h2><p>Surface where teams need attention, what evidence is weak, and which reasoning moves remain implicit—without reducing students to activity counts.</p></div><div class="hero-controls"><select id="instructorSectionSelector" class="section-selector"><option value="">All sections</option></select><button id="refreshInstructor" class="primary compact">Refresh intelligence</button></div></div>
+      <div id="classSignals" class="class-signals"><div><b>—</b><span>Teams</span></div><div><b>—</b><span>Need attention</span></div><div><b>—</b><span>Active reviews</span></div><div><b>—</b><span>Review sessions</span></div></div>
+      <div id="aiUsagePanel" class="ai-usage-panel"><div><span class="eyebrow">AI ECONOMICS</span><h3>Usage and response health</h3><p>Token and latency telemetry will appear as reviews run. Cost estimates use a versioned OpenAI public rate card and are advisory.</p></div><div id="aiUsageMetrics" class="ai-usage-metrics"><div><b>—</b><span>Estimated cost</span></div><div><b>—</b><span>Input tokens</span></div><div><b>—</b><span>Cached input</span></div><div><b>—</b><span>Output tokens</span></div><div><b>—</b><span>Cache hit</span></div><div><b>—</b><span>Avg response</span></div><div><b>—</b><span>Model calls</span></div></div></div>
+      <div class="instructor-layout"><article class="page-card instructor-teams"><div class="page-heading"><div><span class="eyebrow">REVIEW QUEUE</span><h3>Teams and attention signals</h3></div></div><div id="teamCards" class="team-cards"><div class="loading-card">Loading course overview…</div></div></article><article class="page-card design-boundary"><span class="eyebrow">DESIGN BOUNDARY</span><h3>What this surface will never do</h3><ul><li>Autonomously assign the final course grade.</li><li>Rank students by lines of code or commit count.</li><li>Expose confidential peer reviews to teammates.</li><li>Invent repository evidence.</li><li>Give students a hidden “correct” engineering decision.</li></ul></article></div>
+      <div id="teamDetail" class="page-card team-detail hidden"></div>
     </section>
+
+    <section id="instructorTeams" class="view instructor-view"><div class="instructor-hero"><div><span class="eyebrow">TEAMS</span><h2>Section team operations</h2><p>Repository connection, shared evidence state, phase readiness, and student review participation.</p></div><select id="teamsSectionSelector" class="section-selector"></select></div><div id="instructorTeamGrid" class="team-cards"></div></section>
+    <section id="instructorStudents" class="view instructor-view"><div class="instructor-hero"><div><span class="eyebrow">STUDENTS</span><h2>Roster and team membership</h2><p>Add, deactivate, or move students without rewriting historical team membership.</p></div><select id="studentsSectionSelector" class="section-selector"></select></div><div id="studentRosterTable" class="page-card"></div></section>
+    <section id="instructorReviews" class="view instructor-view"><div class="page-card"><span class="eyebrow">REVIEWS</span><h2>Engineering apprenticeship activity</h2><p>Team evidence is shared; student conversations are private to the individual and authorized teaching staff.</p><div id="reviewOps"></div></div></section>
+    <section id="instructorEvidence" class="view instructor-view"><div class="page-card"><span class="eyebrow">ENGINEERING EVIDENCE</span><h2>Frozen team evidence and longitudinal change</h2><p>Inspect FACT observations, REVIEW interpretations, provenance, disputes, and phase-to-phase changes.</p><div id="evidenceOps"></div></div></section>
+    <section id="instructorUsage" class="view instructor-view"><div class="page-card"><span class="eyebrow">AI USAGE & COST</span><h2>Token, cost, caching, and response health</h2><p>Usage telemetry is operational intelligence, not student evaluation.</p><div id="usageOps"></div></div></section>
+    <section id="semesterSetup" class="view instructor-view"><div class="instructor-hero"><div><span class="eyebrow">SEMESTER SETUP</span><h2>Course, sections, roster, teams, and review calendar</h2><p>Start from the COMP 330 lifecycle template, then adjust each section independently as the semester changes.</p></div><select id="setupSectionSelector" class="section-selector"></select></div><div class="setup-grid"><article class="page-card wide-card"><h3>0 · Course term & sections</h3><p>Create each semester once, then add one or more sections. Sections inherit the COMP 330 lifecycle template but keep independent rosters, teams, review availability, and date overrides.</p><div class="term-section-builder"><div><label>New term namespace</label><input id="termNamespace" placeholder="COMP330-SP27"><input id="termLabel" placeholder="Spring 2027"><input id="termStart" type="date"><input id="termEnd" type="date"><button id="createTerm" class="secondary">Create term</button></div><div><label>Add section to term</label><select id="newSectionTerm"></select><input id="newSectionKey" placeholder="001"><input id="newSectionName" placeholder="Display name (optional)"><input id="newSectionMeeting" placeholder="Tue/Thu 8:30–9:45 AM"><button id="createSection" class="secondary">Add section</button></div></div></article><article class="page-card"><h3>1 · Section roster</h3><p>Import the Sakai gradebook CSV. Only Student ID and Name are used.</p><input id="rosterFile" type="file" accept=".csv"><label class="check-line"><input id="deactivateMissing" type="checkbox"> Deactivate students missing from this new roster import</label><button id="importRoster" class="primary compact">Import roster</button><div id="rosterImportResult" class="setup-result"></div></article><article class="page-card"><h3>2 · Teams</h3><p>Create teams, then assign or move students. Changes preserve membership history.</p><div class="inline-form"><input id="newTeamKey" placeholder="team-02"><input id="newTeamName" placeholder="Team name (optional)"><button id="createTeam" class="secondary">Create team</button></div><div id="teamAssignmentList"></div></article><article class="page-card wide-card"><h3>3 · Review calendar & release control</h3><p>Dates are proposed from the COMP 330 lifecycle template. Each section may override availability, due dates, and release state independently. Sakai remains the course deadline authority.</p><div id="scheduleEditor"></div></article><article class="page-card"><h3>4 · Teaching staff</h3><p>Add instructors, TAs, or reviewers by institutional email. Authentication and authorization remain separate.</p><div class="inline-form"><input id="staffEmail" placeholder="name@luc.edu"><select id="staffRole"><option value="instructor">Instructor</option><option value="ta">TA</option><option value="reviewer">Reviewer</option><option value="course_owner">Course Owner</option></select><button id="addStaff" class="secondary">Add</button></div><div id="staffList"></div></article><article class="page-card"><h3>5 · Term lifecycle</h3><p>Archiving preserves all historical reviews, evidence snapshots, team membership, and usage records. It does not delete them.</p><button id="archiveTerm" class="danger-outline">Archive term</button></article></div></section>
+    <section id="accessSettings" class="view instructor-view"><div class="page-card"><span class="eyebrow">SETTINGS & ACCESS</span><h2>Identity, authorization, and integrations</h2><div class="settings-cards"><div><b>Loyola Microsoft SSO</b><span id="entraStatus">Configuration status loading…</span></div><div><b>GitHub identity linking</b><span>Students link GitHub once; repository access is team-level through the GitHub App.</span></div><div><b>Repository authorization</b><span>A team repository is connected once. Other teammates inherit the team connection after login.</span></div><div><b>Local passwords</b><span>None. Engineering Studio does not maintain student or instructor passwords.</span></div></div></div></section>
   </main>
 </div>
-<script src="/assets/studio.js"></script></body></html>
+
+<div id="helpOverlay" class="help-overlay hidden"><aside class="help-drawer"><div class="help-header"><div><span class="eyebrow">STUDIO GUIDANCE</span><h2 id="helpTitle">Help</h2></div><button id="closeHelp" class="close-button" aria-label="Close help">×</button></div><div id="helpContent" class="help-content"></div></aside></div>
+<div id="evidenceDisputeOverlay" class="dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="evidenceDisputeTitle"><div class="dialog-card"><div class="help-header"><div><span class="eyebrow">EVIDENCE DISPUTE</span><h2 id="evidenceDisputeTitle">Show the board what it missed</h2></div><button id="closeEvidenceDispute" class="close-button" aria-label="Close evidence dispute">×</button></div><p>The reviewer can be wrong. Point to evidence in the frozen snapshot and explain why it changes the finding. If the evidence was added after the snapshot, the board will tell you that too.</p><label for="evidenceDisputePath">Repository path</label><input id="evidenceDisputePath" type="text" placeholder="docs/team/team-charter.md"><label for="evidenceDisputeExplanation">Why should the board reconsider?</label><textarea id="evidenceDisputeExplanation" placeholder="Explain what this evidence shows and which finding it changes."></textarea><div class="dialog-actions"><button id="cancelEvidenceDispute" class="secondary">Cancel</button><button id="submitEvidenceDispute" class="primary">Ask Maya to re-check →</button></div></div></div>
+<div id="artifactOverlay" class="dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="artifactOverlayTitle"><div class="dialog-card artifact-dialog"><div class="help-header"><div><span class="eyebrow">FROZEN EVIDENCE</span><h2 id="artifactOverlayTitle">Evidence detail</h2></div><button id="closeArtifactOverlay" class="close-button" aria-label="Close evidence detail">×</button></div><div id="artifactOverlayMeta" class="artifact-meta"></div><pre id="artifactOverlayExcerpt" class="artifact-excerpt"></pre><div class="dialog-actions"><button id="artifactReferenceButton" class="secondary">Reference in review</button><a id="artifactExternalLink" class="primary compact hidden" target="_blank" rel="noopener noreferrer">Open frozen GitHub source ↗</a></div></div></div>
+<div id="toast" class="toast hidden"></div>
+<script src="/assets/studio.js"></script>
+</body>
+</html>

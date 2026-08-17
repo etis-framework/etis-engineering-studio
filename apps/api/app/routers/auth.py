@@ -1,30 +1,86 @@
-import secrets
-from fastapi import APIRouter, Depends, HTTPException
+from __future__ import annotations
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from ..db import get_db
 from ..config import get_settings
-from ..models import User
-from ..services.auth import github_authorize_url, github_exchange, create_session_token
+from ..models import User, InstitutionalIdentity, SectionEnrollment, GitHubIdentity, SectionStaff
+from ..services.auth import (github_authorize_url, github_exchange, entra_authorize_url, entra_exchange,
+    create_session_token, request_identity, COOKIE_NAME, highest_staff_role,
+    create_flow_state, parse_flow_state)
+from ..services.course_admin import ensure_term, ensure_section, generate_schedule
 
 router=APIRouter(prefix="/auth",tags=["auth"])
-_state_store=set()
 
-@router.get("/github")
-def github_login():
+def _set_session(response:RedirectResponse,user:User,login:str):
+    token=create_session_token(user.id,login,user.role)
+    response.set_cookie(COOKIE_NAME,token,httponly=True,secure=get_settings().etis_env!="development",samesite="lax",max_age=43200,path="/")
+
+@router.get("/entra")
+def entra_login():
     s=get_settings()
-    if not s.github_oauth_client_id: raise HTTPException(503,"GitHub OAuth is not configured")
-    state=secrets.token_urlsafe(24); _state_store.add(state)
-    return RedirectResponse(github_authorize_url(state))
+    if not s.entra_client_id or not s.entra_client_secret: raise HTTPException(503,"Loyola Microsoft SSO is not configured")
+    state=create_flow_state("entra")
+    flow=parse_flow_state(state,"entra")
+    return RedirectResponse(entra_authorize_url(state,flow["nonce"]))
+
+@router.get("/entra/callback")
+def entra_callback(code:str,state:str,db:Session=Depends(get_db)):
+    pending=parse_flow_state(state,"entra")
+    claims=entra_exchange(code,pending.get("nonce","")); email=(claims.get("preferred_username") or claims.get("email") or "").lower(); sid=email.split("@",1)[0]
+    ident=db.query(InstitutionalIdentity).filter((InstitutionalIdentity.institutional_email==email)|(InstitutionalIdentity.student_id==sid)).first()
+    s=get_settings()
+    if not ident and s.etis_bootstrap_owner_email and email==s.etis_bootstrap_owner_email.lower():
+        user=User(github_login=f"staff:{email}",display_name=claims.get("name") or email.split("@")[0],role="instructor")
+        db.add(user); db.flush(); ident=InstitutionalIdentity(user_id=user.id,student_id=f"staff:{sid}",institutional_email=email,provider_subject=claims.get("sub","")); db.add(ident); db.flush()
+        term=ensure_term(db,s.etis_course_namespace); section=ensure_section(db,term); generate_schedule(db,section,term.starts_on or "2026-08-25")
+        db.add(SectionStaff(section_id=section.id,user_id=user.id,staff_role="course_owner",is_active=True)); db.commit()
+    if not ident: raise HTTPException(403,"This Loyola identity is not on an active Engineering Studio roster or teaching-staff list")
+    active=db.query(SectionEnrollment).filter_by(user_id=ident.user_id,status="active").first()
+    staff_rows=db.query(SectionStaff).filter_by(user_id=ident.user_id,is_active=True).all()
+    if not active and not staff_rows: raise HTTPException(403,"Your Engineering Studio authorization is not active")
+    user=db.get(User,ident.user_id)
+    effective_role=highest_staff_role([x.staff_role for x in staff_rows]) or "student"
+    user.role="instructor" if effective_role in {"course_owner","instructor"} else effective_role
+    ident.provider_subject=claims.get("sub","")
+    from datetime import datetime,timezone
+    ident.last_verified_at=datetime.now(timezone.utc)
+    db.commit()
+    response=RedirectResponse("/"); token=create_session_token(user.id,email,effective_role); response.set_cookie(COOKIE_NAME,token,httponly=True,secure=s.etis_env!="development",samesite="lax",max_age=43200,path="/"); return response
+
+@router.get("/github/link")
+def github_link(request:Request):
+    ident=request_identity(request)
+    if not ident: raise HTTPException(401,"Sign in with Loyola before connecting GitHub")
+    s=get_settings()
+    if not s.github_oauth_client_id: raise HTTPException(503,"GitHub identity linking is not configured")
+    state=create_flow_state("github-link",{"user_id":ident["uid"]}); return RedirectResponse(github_authorize_url(state))
 
 @router.get("/github/callback")
 def github_callback(code:str,state:str,db:Session=Depends(get_db)):
-    if state not in _state_store: raise HTTPException(400,"Invalid OAuth state")
-    _state_store.discard(state)
+    pending=parse_flow_state(state,"github-link")
     profile=github_exchange(code); login=profile["login"]
-    user=db.query(User).filter_by(github_login=login).first()
-    if not user:
-        # Production policy: un-enrolled users are not automatically admitted.
-        raise HTTPException(403,"This GitHub identity is not enrolled in the active course namespace")
-    token=create_session_token(user.id,user.github_login,user.role)
-    return RedirectResponse(url=f"/?session={token}")
+    if pending.get("kind")=="github-link":
+        user_id=pending["user_id"]; conflict=db.query(GitHubIdentity).filter_by(github_login=login).first()
+        if conflict and conflict.user_id!=user_id: raise HTTPException(409,"That GitHub identity is already linked to another Studio user")
+        link=db.query(GitHubIdentity).filter_by(user_id=user_id).first()
+        if not link: link=GitHubIdentity(user_id=user_id,github_login=login,github_user_id=str(profile.get("id", ""))); db.add(link)
+        else: link.github_login=login; link.github_user_id=str(profile.get("id", ""))
+        db.commit(); return RedirectResponse("/?github=linked")
+    raise HTTPException(400,"Unsupported GitHub authorization flow")
+
+@router.post("/logout")
+def logout():
+    r=RedirectResponse("/"); r.delete_cookie(COOKIE_NAME,path="/"); return r
+
+@router.get("/me")
+def me(request:Request,db:Session=Depends(get_db)):
+    ident=request_identity(request)
+    if not ident: return {"authenticated":False}
+    user=db.get(User,ident["uid"])
+    if not user: return {"authenticated":False}
+    institutional=db.query(InstitutionalIdentity).filter_by(user_id=user.id).first(); gh=db.query(GitHubIdentity).filter_by(user_id=user.id).first()
+    staff_rows=db.query(SectionStaff).filter_by(user_id=user.id,is_active=True).all()
+    assignments=[{"section_id":x.section_id,"role":x.staff_role} for x in staff_rows]
+    role=highest_staff_role([x.staff_role for x in staff_rows]) or ident.get("role") or "student"
+    return {"authenticated":True,"user":{"id":user.id,"display_name":user.display_name,"role":role,"email":institutional.institutional_email if institutional else None,"student_id":institutional.student_id if institutional else None,"github_login":gh.github_login if gh else None,"staff_assignments":assignments}}

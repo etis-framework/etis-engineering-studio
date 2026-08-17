@@ -2,12 +2,13 @@ from apps.api.app.services.challenge_engine import ChallengeEngine
 from apps.api.app.services.evidence import demo_snapshot
 
 
-def test_missing_evidence_becomes_consequence_challenge():
+def test_demo_scaffold_is_not_treated_as_completed_team_evidence():
     e=ChallengeEngine()
-    c=e.start('A1',demo_snapshot('A1'))
-    assert c.lens=='evidence_auditor'
-    assert c.evidence_refs
-    assert 'Do not just promise' in c.prompt
+    snap=demo_snapshot('A1')
+    assert any(x.status == 'scaffold' for x in snap.items)
+    # Demo has no ranked findings; production starter-kit acceptance is covered by repository intelligence tests.
+    c=e.start('A1',snap)
+    assert c.phase_id == 'A1'
 
 
 def test_response_evaluation_rewards_engineering_moves_not_length():

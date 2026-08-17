@@ -1,0 +1,43 @@
+ETIS Engineering Studio v0.10.0 overlay
+Apply at repository root. All included files are complete replacements/new files.
+
+Root files
+.env.example
+CHANGELOG.md
+PATCH_NOTES_v0.10.0.md
+README.md
+
+API
+apps/api/app/config.py
+apps/api/app/main.py
+apps/api/app/models.py
+apps/api/app/routers/instructor.py
+apps/api/app/routers/reviews.py
+apps/api/app/services/ai_provider.py
+apps/api/app/services/ai_telemetry.py
+apps/api/app/services/challenge_engine.py
+apps/api/app/services/evidence.py
+apps/api/app/services/evidence_assessor.py
+apps/api/app/services/evidence_package.py
+apps/api/app/services/review_orchestrator.py
+apps/api/app/services/usage_store.py
+apps/api/app/static/index.html
+apps/api/app/static/studio.css
+apps/api/app/static/studio.js
+
+Architecture / eval documentation
+docs/architecture/CONVERSATION_QUALITY_AND_EVALS.md
+docs/architecture/EVIDENCE_PACKAGES_AND_AI_ECONOMICS.md
+
+Behavioral eval corpus and runner
+evals/student_behavior_cases.json
+scripts/run_conversation_evals.py
+
+Tests
+tests/test_api.py
+tests/test_student_behavior_policy.py
+tests/test_v010_maturity.py
+
+Hidden directories
+NONE. This overlay does not contain .github/ or any other dot-prefixed directory.
+The root-level file .env.example is intentionally included and belongs in the repository root.

@@ -95,3 +95,151 @@ class InstructorNote(Base):
     provenance: Mapped[str] = mapped_column(String(30), default="INSTRUCTOR")
     note: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class AIUsageEvent(Base):
+    __tablename__ = "ai_usage_events"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    course_namespace: Mapped[str] = mapped_column(String(50), index=True, default="")
+    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    session_id: Mapped[int | None] = mapped_column(ForeignKey("review_sessions.id", ondelete="SET NULL"), nullable=True, index=True)
+    phase_id: Mapped[str] = mapped_column(String(10), default="", index=True)
+    purpose: Mapped[str] = mapped_column(String(80), default="conversation", index=True)
+    model: Mapped[str] = mapped_column(String(80), default="")
+    response_id: Mapped[str] = mapped_column(String(120), default="")
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cached_input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cache_write_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    estimated_cost_microusd: Mapped[int] = mapped_column(Integer, default=0)
+    metadata_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CourseTerm(Base):
+    __tablename__ = "course_terms"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    course_code: Mapped[str] = mapped_column(String(40), default="COMP 330", index=True)
+    namespace: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+    term_label: Mapped[str] = mapped_column(String(100))
+    starts_on: Mapped[str] = mapped_column(String(20), default="")
+    ends_on: Mapped[str] = mapped_column(String(20), default="")
+    timezone: Mapped[str] = mapped_column(String(80), default="America/Chicago")
+    status: Mapped[str] = mapped_column(String(30), default="setup")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CourseSection(Base):
+    __tablename__ = "course_sections"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    term_id: Mapped[int] = mapped_column(ForeignKey("course_terms.id", ondelete="CASCADE"), index=True)
+    section_key: Mapped[str] = mapped_column(String(40), index=True)
+    display_name: Mapped[str] = mapped_column(String(160))
+    meeting_pattern: Mapped[str] = mapped_column(String(160), default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (UniqueConstraint("term_id", "section_key"),)
+
+
+class InstitutionalIdentity(Base):
+    __tablename__ = "institutional_identities"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True)
+    student_id: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    institutional_email: Mapped[str] = mapped_column(String(240), unique=True, index=True)
+    identity_provider: Mapped[str] = mapped_column(String(40), default="loyola_entra")
+    provider_subject: Mapped[str] = mapped_column(String(240), default="", index=True)
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    user = relationship("User")
+
+
+class SectionEnrollment(Base):
+    __tablename__ = "section_enrollments"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    section_id: Mapped[int] = mapped_column(ForeignKey("course_sections.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(30), default="active", index=True)
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    __table_args__ = (UniqueConstraint("section_id", "user_id"),)
+
+
+class SectionStaff(Base):
+    __tablename__ = "section_staff"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    section_id: Mapped[int] = mapped_column(ForeignKey("course_sections.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    staff_role: Mapped[str] = mapped_column(String(40), default="instructor")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    __table_args__ = (UniqueConstraint("section_id", "user_id", "staff_role"),)
+
+
+class TeamSection(Base):
+    __tablename__ = "team_sections"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), unique=True, index=True)
+    section_id: Mapped[int] = mapped_column(ForeignKey("course_sections.id", ondelete="CASCADE"), index=True)
+
+
+class MembershipEvent(Base):
+    __tablename__ = "membership_events"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    section_id: Mapped[int] = mapped_column(ForeignKey("course_sections.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    from_team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id", ondelete="SET NULL"), nullable=True)
+    to_team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id", ondelete="SET NULL"), nullable=True)
+    action: Mapped[str] = mapped_column(String(40), default="assigned")
+    performed_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PhaseSchedule(Base):
+    __tablename__ = "phase_schedules"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    section_id: Mapped[int] = mapped_column(ForeignKey("course_sections.id", ondelete="CASCADE"), index=True)
+    phase_id: Mapped[str] = mapped_column(String(10), index=True)
+    available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    accept_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    release_override: Mapped[str] = mapped_column(String(20), default="auto")
+    instructor_note: Mapped[str] = mapped_column(Text, default="")
+    __table_args__ = (UniqueConstraint("section_id", "phase_id"),)
+
+
+class GitHubIdentity(Base):
+    __tablename__ = "github_identities"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True)
+    github_login: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    github_user_id: Mapped[str] = mapped_column(String(80), default="")
+    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RepositoryConnection(Base):
+    __tablename__ = "repository_connections"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), unique=True, index=True)
+    repo_full_name: Mapped[str] = mapped_column(String(260), index=True)
+    clone_url: Mapped[str] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(40), default="identified")
+    github_app_installed: Mapped[bool] = mapped_column(Boolean, default=False)
+    installation_id: Mapped[str] = mapped_column(String(100), default="")
+    connected_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    connected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ReviewFindingState(Base):
+    __tablename__ = "review_finding_states"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), index=True)
+    snapshot_id: Mapped[int] = mapped_column(ForeignKey("evidence_snapshots.id", ondelete="CASCADE"), index=True)
+    finding_id: Mapped[str] = mapped_column(String(180), index=True)
+    status: Mapped[str] = mapped_column(String(40), default="open", index=True)
+    evidence_path: Mapped[str] = mapped_column(String(500), default="")
+    rationale: Mapped[str] = mapped_column(Text, default="")
+    created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    __table_args__ = (UniqueConstraint("snapshot_id", "finding_id"),)
