@@ -38,6 +38,7 @@ class EvidenceDisputeRequest(BaseModel):
     path: str = Field(min_length=1, max_length=500)
     explanation: str = Field(min_length=1, max_length=4000)
     finding_id: str | None = Field(default=None, max_length=160)
+    client_turn_id: str | None = Field(default=None, max_length=120)
 
 
 class RepoAnalyzeRequest(BaseModel):

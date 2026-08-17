@@ -123,7 +123,12 @@ def _safe_json(value, default):
         return default
 
 
-def _idempotent_result(db: Session, session_id: int, client_turn_id: str | None):
+def _idempotent_result(
+    db: Session,
+    session_id: int,
+    client_turn_id: str | None,
+    expected_operation: str,
+):
     if not client_turn_id:
         return None
 
@@ -137,6 +142,34 @@ def _idempotent_result(db: Session, session_id: int, client_turn_id: str | None)
     )
     if not student_turn:
         return None
+
+    signals = _safe_json(student_turn.signals_json, {})
+    actual_operation = signals.get("idempotency_operation")
+
+    # Compatibility inference is intentionally narrow. client_turn_id became
+    # a first-class column in this release, but this also makes the helper
+    # robust if a development fixture omits the explicit operation marker.
+    if not actual_operation:
+        if (
+            student_turn.lens == "evidence_dispute"
+            or signals.get("kind") == "evidence_dispute"
+        ):
+            actual_operation = "evidence_dispute"
+        elif signals.get("kind") == "student_coach_request":
+            actual_operation = "coach"
+        elif (
+            signals.get("kind") == "student_conversation"
+            and signals.get("selected_intent") == "clarify"
+        ):
+            actual_operation = "clarify"
+        else:
+            actual_operation = "respond"
+
+    if actual_operation != expected_operation:
+        raise HTTPException(
+            409,
+            "client_turn_id was already used for a different review operation",
+        )
 
     reviewer = (
         db.query(ReviewTurn)
@@ -726,7 +759,12 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
     _authorize_session(db, session, auth_context(request))
     if session.status != "active":
         raise HTTPException(409, "Review session is not active")
-    duplicate = _idempotent_result(db, session_id, req.client_turn_id)
+    duplicate = _idempotent_result(
+            db,
+            session_id,
+            req.client_turn_id,
+            "clarify",
+        )
     if duplicate:
         state = _safe_json(session.challenge_state_json, {})
         return {**duplicate, "evaluation": state.get("evaluation"), "reasoning_state": state.get("reasoning_state", {})}
@@ -749,7 +787,12 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
             raise HTTPException(409, "Review session is not active")
 
         # Re-check idempotency while holding the authoritative database lock.
-        duplicate = _idempotent_result(db, session_id, req.client_turn_id)
+        duplicate = _idempotent_result(
+            db,
+            session_id,
+            req.client_turn_id,
+            "clarify",
+        )
         if duplicate:
             state = _safe_json(session.challenge_state_json, {})
             return {
@@ -775,6 +818,7 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
             actor="student", lens="conversation", content=req.question,
             evidence_refs_json="[]", signals_json=json.dumps({
                 "kind": "student_conversation", "selected_intent": "clarify",
+                "idempotency_operation": "clarify",
                 "interpreted_intent": reply.get("interpreted_intent"), "client_turn_id": req.client_turn_id,
             }),
         ))
@@ -800,7 +844,12 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
     _authorize_session(db, session, auth_context(request))
     if session.status != "active":
         raise HTTPException(409, "Review session is not active")
-    duplicate = _idempotent_result(db, session_id, req.client_turn_id)
+    duplicate = _idempotent_result(
+            db,
+            session_id,
+            req.client_turn_id,
+            "coach",
+        )
     if duplicate:
         state = _safe_json(session.challenge_state_json, {})
         return {**duplicate, "evaluation": state.get("evaluation"), "reasoning_state": state.get("reasoning_state", {})}
@@ -823,7 +872,12 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
             raise HTTPException(409, "Review session is not active")
 
         # Re-check idempotency while holding the authoritative database lock.
-        duplicate = _idempotent_result(db, session_id, req.client_turn_id)
+        duplicate = _idempotent_result(
+            db,
+            session_id,
+            req.client_turn_id,
+            "coach",
+        )
         if duplicate:
             state = _safe_json(session.challenge_state_json, {})
             return {
@@ -847,7 +901,12 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
         db.add(ReviewTurn(
             session_id=session_id, sequence=sequence, client_turn_id=req.client_turn_id,
             actor="student", lens="conversation", content=text, evidence_refs_json="[]",
-            signals_json=json.dumps({"kind": "student_coach_request", "selected_intent": "coach", "client_turn_id": req.client_turn_id}),
+            signals_json=json.dumps({
+                "kind": "student_coach_request",
+                "selected_intent": "coach",
+                "idempotency_operation": "coach",
+                "client_turn_id": req.client_turn_id,
+            }),
         ))
         _add_reviewer_turn(db, session_id, sequence + 1, reply)
         _record_reply_usage(db, reply, session)
@@ -872,7 +931,12 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
     if session.status != "active":
         raise HTTPException(409, "Review session is not active")
 
-    duplicate = _idempotent_result(db, session_id, req.client_turn_id)
+    duplicate = _idempotent_result(
+            db,
+            session_id,
+            req.client_turn_id,
+            "respond",
+        )
     if duplicate:
         state = _safe_json(session.challenge_state_json, {})
         return {**duplicate, "evaluation": state.get("evaluation"), "turn_count": state.get("turn_count", 0)}
@@ -902,7 +966,12 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
 
         # Re-check the database idempotency key while holding the authoritative
         # lock. A competing replica may have completed this logical turn first.
-        duplicate = _idempotent_result(db, session_id, req.client_turn_id)
+        duplicate = _idempotent_result(
+            db,
+            session_id,
+            req.client_turn_id,
+            "respond",
+        )
         if duplicate:
             state = _safe_json(session.challenge_state_json, {})
             return {
@@ -932,6 +1001,7 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
             content=req.response, evidence_refs_json=json.dumps(req.evidence_refs),
             signals_json=json.dumps({
                 **evaluation, "decision": req.decision, "selected_intent": req.intent,
+                "idempotency_operation": "respond",
                 "interpreted_intent": follow_up.get("interpreted_intent"), "client_turn_id": req.client_turn_id,
             }),
         ))
@@ -1021,6 +1091,121 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
             None,
         )
 
+        # A repeated client_turn_id represents the same logical browser
+        # request. Because the ReviewSession row lock is already held, another
+        # replica cannot race this lookup and insert the same logical dispute.
+        if req.client_turn_id:
+            existing_student = (
+                db.query(ReviewTurn)
+                .filter_by(
+                    session_id=session_id,
+                    client_turn_id=req.client_turn_id,
+                )
+                .first()
+            )
+
+            if existing_student:
+                existing_signals = _safe_json(
+                    existing_student.signals_json,
+                    {},
+                )
+
+                original_path = str(
+                    existing_signals.get("path") or ""
+                )
+                original_explanation = str(
+                    existing_signals.get("explanation") or ""
+                )
+                original_finding_id = existing_signals.get(
+                    "requested_finding_id"
+                )
+
+                # An idempotency key must never silently alias two different
+                # logical requests.
+                if (
+                    original_path != path
+                    or original_explanation != req.explanation
+                    or original_finding_id != req.finding_id
+                ):
+                    raise HTTPException(
+                        409,
+                        "client_turn_id was already used for a different "
+                        "evidence dispute",
+                    )
+
+                reviewer_turn = (
+                    db.query(ReviewTurn)
+                    .filter(
+                        ReviewTurn.session_id == session_id,
+                        ReviewTurn.sequence > existing_student.sequence,
+                        ReviewTurn.actor == "reviewer",
+                    )
+                    .order_by(ReviewTurn.sequence)
+                    .first()
+                )
+
+                if not reviewer_turn:
+                    raise HTTPException(
+                        409,
+                        "The previously recorded evidence dispute is "
+                        "incomplete",
+                    )
+
+                recorded_dispute = next(
+                    (
+                        item
+                        for item in reversed(
+                            state.get("evidence_disputes") or []
+                        )
+                        if item.get("client_turn_id")
+                        == req.client_turn_id
+                    ),
+                    None,
+                )
+
+                reviewer_signals = _safe_json(
+                    reviewer_turn.signals_json,
+                    {},
+                )
+                duplicate_reply = {
+                    "text": reviewer_turn.content,
+                    "lens": reviewer_turn.lens,
+                    "reviewer": reviewer_signals.get("reviewer"),
+                    "provider": reviewer_signals.get("provider"),
+                    "model": reviewer_signals.get("model"),
+                    "kind": reviewer_signals.get("kind"),
+                    "target_move": reviewer_signals.get(
+                        "target_move"
+                    ),
+                    "guidance_refs": reviewer_signals.get(
+                        "guidance_refs",
+                        [],
+                    ),
+                    "teach_back": reviewer_signals.get(
+                        "teach_back",
+                        False,
+                    ),
+                    "evidence_refs": _safe_json(
+                        reviewer_turn.evidence_refs_json,
+                        [],
+                    ),
+                }
+
+                return {
+                    "duplicate": True,
+                    "disposition": (
+                        recorded_dispute.get("disposition")
+                        if recorded_dispute
+                        else (
+                            "artifact_found"
+                            if artifact
+                            else "not_in_snapshot"
+                        )
+                    ),
+                    "artifact": artifact,
+                    "reply": duplicate_reply,
+                }
+
         turns = (
             db.query(ReviewTurn)
             .filter_by(session_id=session_id)
@@ -1033,6 +1218,7 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
             ReviewTurn(
                 session_id=session_id,
                 sequence=sequence,
+                client_turn_id=req.client_turn_id,
                 actor="student",
                 lens="evidence_dispute",
                 content=(
@@ -1040,7 +1226,14 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
                 ),
                 evidence_refs_json=json.dumps([f"PATH:{path}"]),
                 signals_json=json.dumps(
-                    {"kind": "evidence_dispute"}
+                    {
+                        "kind": "evidence_dispute",
+                        "idempotency_operation": "evidence_dispute",
+                        "client_turn_id": req.client_turn_id,
+                        "path": path,
+                        "explanation": req.explanation,
+                        "requested_finding_id": req.finding_id,
+                    }
                 ),
             )
         )
@@ -1109,6 +1302,7 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
                 "path": path,
                 "explanation": req.explanation,
                 "disposition": disposition,
+                "client_turn_id": req.client_turn_id,
                 "at": datetime.now(timezone.utc).isoformat(),
             }
         )
@@ -1118,6 +1312,7 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
         db.commit()
 
         return {
+            "duplicate": False,
             "disposition": disposition,
             "artifact": artifact,
             "reply": payload,

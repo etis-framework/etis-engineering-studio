@@ -1172,3 +1172,187 @@ def test_postgresql_team_row_lock_blocks_independent_replica_until_commit():
             cleanup.close()
 
         pg_engine.dispose()
+
+
+def test_identical_evidence_dispute_retry_is_idempotent():
+    """
+    Retrying the same logical evidence dispute must not append duplicate turns
+    or duplicate review-state history.
+
+    Browser/network retries identify the logical request with client_turn_id.
+    The second request must return the already-recorded dispute result.
+    """
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.main import app
+    from apps.api.app.models import ReviewSession, ReviewTurn
+
+    client = TestClient(app)
+
+    seed = client.post("/api/v1/dev/seed")
+    assert seed.status_code == 200
+    seeded = seed.json()
+
+    started = client.post(
+        "/api/v1/reviews/start",
+        json={
+            "team_id": seeded["team_id"],
+            "user_id": seeded["user_id"],
+            "phase_id": "A1",
+            "mode": "board_review",
+        },
+    )
+    assert started.status_code == 200, started.text
+
+    payload = started.json()
+    session_id = payload["session_id"]
+    finding = payload["evidence"]["findings"][0]
+
+    path_ref = next(
+        ref
+        for ref in finding.get("evidence_refs", [])
+        if str(ref).startswith("PATH:")
+    )
+    path = str(path_ref)[5:]
+
+    request_body = {
+        "path": path,
+        "finding_id": finding["id"],
+        "explanation": (
+            "This exact frozen artifact changes how this finding "
+            "should be interpreted."
+        ),
+        "client_turn_id": "evidence-dispute-retry-001",
+    }
+
+    first = client.post(
+        f"/api/v1/reviews/{session_id}/evidence-dispute",
+        json=request_body,
+    )
+    assert first.status_code == 200, first.text
+
+    db = SessionLocal()
+    try:
+        turn_count_after_first = (
+            db.query(ReviewTurn)
+            .filter_by(session_id=session_id)
+            .count()
+        )
+
+        session = db.get(ReviewSession, session_id)
+        first_state = json.loads(session.challenge_state_json or "{}")
+        dispute_count_after_first = len(
+            first_state.get("evidence_disputes") or []
+        )
+    finally:
+        db.close()
+
+    second = client.post(
+        f"/api/v1/reviews/{session_id}/evidence-dispute",
+        json=request_body,
+    )
+    assert second.status_code == 200, second.text
+
+    second_payload = second.json()
+    assert second_payload.get("duplicate") is True, (
+        "The repeated client_turn_id must return the previously recorded "
+        "evidence-dispute result"
+    )
+
+    db = SessionLocal()
+    try:
+        turn_count_after_second = (
+            db.query(ReviewTurn)
+            .filter_by(session_id=session_id)
+            .count()
+        )
+
+        session = db.get(ReviewSession, session_id)
+        second_state = json.loads(session.challenge_state_json or "{}")
+        dispute_count_after_second = len(
+            second_state.get("evidence_disputes") or []
+        )
+
+        assert turn_count_after_second == turn_count_after_first
+        assert dispute_count_after_second == dispute_count_after_first
+    finally:
+        db.close()
+
+
+def test_client_turn_id_cannot_be_reused_across_review_operations():
+    """
+    A session-scoped client_turn_id belongs to one logical operation.
+
+    If an evidence dispute already owns an idempotency key, a later
+    conversation request must not interpret that dispute as its own duplicate
+    result. Cross-operation key reuse must fail closed with HTTP 409.
+    """
+    from fastapi.testclient import TestClient
+
+    from apps.api.app.main import app
+
+    client = TestClient(app)
+
+    seed = client.post("/api/v1/dev/seed")
+    assert seed.status_code == 200
+    seeded = seed.json()
+
+    started = client.post(
+        "/api/v1/reviews/start",
+        json={
+            "team_id": seeded["team_id"],
+            "user_id": seeded["user_id"],
+            "phase_id": "A1",
+            "mode": "board_review",
+        },
+    )
+    assert started.status_code == 200, started.text
+
+    payload = started.json()
+    session_id = payload["session_id"]
+    finding = payload["evidence"]["findings"][0]
+
+    path_ref = next(
+        ref
+        for ref in finding.get("evidence_refs", [])
+        if str(ref).startswith("PATH:")
+    )
+    path = str(path_ref)[5:]
+
+    shared_id = "cross-operation-id-001"
+
+    dispute = client.post(
+        f"/api/v1/reviews/{session_id}/evidence-dispute",
+        json={
+            "path": path,
+            "finding_id": finding["id"],
+            "explanation": (
+                "This frozen artifact changes how the finding should "
+                "be interpreted."
+            ),
+            "client_turn_id": shared_id,
+        },
+    )
+    assert dispute.status_code == 200, dispute.text
+
+    response = client.post(
+        f"/api/v1/reviews/{session_id}/respond",
+        json={
+            "response": (
+                "This is a different logical operation and must not "
+                "inherit the dispute result."
+            ),
+            "evidence_refs": [],
+            "decision": None,
+            "intent": "discuss",
+            "client_turn_id": shared_id,
+        },
+    )
+
+    assert response.status_code == 409, (
+        "A client_turn_id already owned by an evidence dispute must not "
+        "be interpreted as a duplicate conversation turn"
+    )
