@@ -55,35 +55,219 @@ def api_proxy(base_url: str, state: dict | None = None):
         # start calls still use the real local API and frozen evidence.
         if path.endswith("/respond"):
             time.sleep(0.12)
-            body = {
-                "duplicate": False,
-                "follow_up": {
-                    "lens": "evidence_auditor",
-                    "text": "I understand what you mean. Let us keep working from that exact evidence and take one next step.",
-                    "kind": "coach",
-                    "reviewer": {"name": "Maya Chen", "role": "Evidence Auditor", "focus": "Evidence", "portrait": "/assets/reviewers/maya-chen.svg"},
-                    "guidance_refs": [],
-                    "provider": "ui-wargame",
-                },
-                "evaluation": {"disposition": "developing", "missing_moves": ["ownership_visible"], "ready_to_commit": False, "learning_score": 2, "learning_score_max": 7},
-                "reasoning_state": {"consequence_visible": True},
+
+            try:
+                request_payload = json.loads(request.post_data or "{}")
+            except Exception:
+                request_payload = {}
+
+            client_turn_id = request_payload.get("client_turn_id")
+            committed = state.setdefault("respond_commits", {})
+            committed_body = committed.get(client_turn_id)
+
+            if committed_body is not None:
+                body = {
+                    **committed_body,
+                    "duplicate": True,
+                }
+            else:
+                body = {
+                    "duplicate": False,
+                    "follow_up": {
+                        "lens": "evidence_auditor",
+                        "text": "I understand what you mean. Let us keep working from that exact evidence and take one next step.",
+                        "kind": "coach",
+                        "reviewer": {"name": "Maya Chen", "role": "Evidence Auditor", "focus": "Evidence", "portrait": "/assets/reviewers/maya-chen.svg"},
+                        "guidance_refs": [],
+                        "provider": "ui-wargame",
+                    },
+                    "evaluation": {
+                        "disposition": "developing",
+                        "missing_moves": ["ownership_visible"],
+                        "ready_to_commit": False,
+                        "learning_score": 2,
+                        "learning_score_max": 7,
+                    },
+                    "reasoning_state": {"consequence_visible": True},
+                }
+                if client_turn_id:
+                    committed[client_turn_id] = body
+
+            record = {
+                "client_turn_id": client_turn_id,
+                "request_payload": request_payload,
+                "duplicate": body.get("duplicate"),
+                "server_status": 200,
             }
-            route.fulfill(status=200, content_type="application/json", body=json.dumps(body))
+            state.setdefault("respond_requests", []).append(record)
+
+            # Simulate the important failure mode: the logical response was
+            # committed, but the browser receives a gateway failure instead of
+            # the successful result.
+            if (
+                state.get("fail_next_respond_after_commit")
+                and not body.get("duplicate")
+            ):
+                state["fail_next_respond_after_commit"] = False
+                state["expected_503_console_errors"] = (
+                    state.get("expected_503_console_errors", 0) + 1
+                )
+                record["browser_status"] = 503
+                route.fulfill(
+                    status=503,
+                    content_type="application/json",
+                    body=json.dumps({
+                        "detail": "Simulated post-commit Respond gateway failure"
+                    }),
+                )
+                return
+
+            record["browser_status"] = 200
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps(body),
+            )
             return
         if path.endswith("/coach"):
-            body = {
-                "reply": {
-                    "lens": "evidence_auditor",
-                    "text": "You are not stuck alone here. Start with what the evidence can support, and I will help you from there.",
-                    "kind": "coaching",
-                    "reviewer": {"name": "Maya Chen", "role": "Evidence Auditor", "focus": "Evidence", "portrait": "/assets/reviewers/maya-chen.svg"},
-                    "guidance_refs": [],
-                    "provider": "ui-wargame",
-                },
-                "coaching_level": 1,
+            try:
+                request_payload = json.loads(request.post_data or "{}")
+            except Exception:
+                request_payload = {}
+
+            client_turn_id = request_payload.get("client_turn_id")
+            committed = state.setdefault("coach_commits", {})
+            committed_body = committed.get(client_turn_id)
+
+            if committed_body is not None:
+                body = {
+                    **committed_body,
+                    "duplicate": True,
+                }
+            else:
+                body = {
+                    "duplicate": False,
+                    "reply": {
+                        "lens": "evidence_auditor",
+                        "text": "You are not stuck alone here. Start with what the evidence can support, and I will help you from there.",
+                        "kind": "coaching",
+                        "reviewer": {
+                            "name": "Maya Chen",
+                            "role": "Evidence Auditor",
+                            "focus": "Evidence",
+                            "portrait": "/assets/reviewers/maya-chen.svg",
+                        },
+                        "guidance_refs": [],
+                        "provider": "ui-wargame",
+                    },
+                    "coaching_level": 1,
+                }
+
+                if client_turn_id:
+                    committed[client_turn_id] = body
+
+            record = {
+                "client_turn_id": client_turn_id,
+                "request_payload": request_payload,
+                "duplicate": body.get("duplicate"),
+                "server_status": 200,
             }
-            route.fulfill(status=200, content_type="application/json", body=json.dumps(body))
+            state.setdefault("coach_requests", []).append(record)
+
+            if (
+                state.get("fail_next_coach_after_commit")
+                and not body.get("duplicate")
+            ):
+                state["fail_next_coach_after_commit"] = False
+                state["expected_503_console_errors"] = (
+                    state.get("expected_503_console_errors", 0) + 1
+                )
+                record["browser_status"] = 503
+                route.fulfill(
+                    status=503,
+                    content_type="application/json",
+                    body=json.dumps({
+                        "detail": "Simulated post-commit Coach gateway failure"
+                    }),
+                )
+                return
+
+            record["browser_status"] = 200
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps(body),
+            )
             return
+
+        if path.endswith("/evidence-dispute"):
+            try:
+                request_payload = json.loads(request.post_data or "{}")
+            except Exception:
+                request_payload = {}
+
+            client_turn_id = request_payload.get("client_turn_id")
+            committed = state.setdefault("dispute_commits", {})
+            committed_body = committed.get(client_turn_id)
+
+            if committed_body is not None:
+                body = {
+                    **committed_body,
+                    "duplicate": True,
+                }
+            else:
+                body = {
+                    "duplicate": False,
+                    "reply": {
+                        "lens": "evidence_auditor",
+                        "text": "I re-checked that exact frozen evidence. The dispute is preserved with the review record.",
+                        "kind": "evidence_dispute",
+                        "reviewer": {
+                            "name": "Maya Chen",
+                            "role": "Evidence Auditor",
+                            "focus": "Evidence",
+                            "portrait": "/assets/reviewers/maya-chen.svg",
+                        },
+                    },
+                }
+
+                if client_turn_id:
+                    committed[client_turn_id] = body
+
+            record = {
+                "client_turn_id": client_turn_id,
+                "request_payload": request_payload,
+                "duplicate": body.get("duplicate"),
+                "server_status": 200,
+            }
+            state.setdefault("dispute_requests", []).append(record)
+
+            if (
+                state.get("fail_next_dispute_after_commit")
+                and not body.get("duplicate")
+            ):
+                state["fail_next_dispute_after_commit"] = False
+                state["expected_503_console_errors"] = (
+                    state.get("expected_503_console_errors", 0) + 1
+                )
+                record["browser_status"] = 503
+                route.fulfill(
+                    status=503,
+                    content_type="application/json",
+                    body=json.dumps({
+                        "detail": "Simulated post-commit Evidence Dispute gateway failure"
+                    }),
+                )
+                return
+
+            record["browser_status"] = 200
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps(body),
+            )
+            return
+
 
         target = base_url.rstrip("/") + path + query
         data = request.post_data.encode() if request.post_data else None
@@ -171,7 +355,16 @@ def main() -> int:
     checks: list[str] = []
     proxy_state = {
         "start_requests": [],
+        "respond_requests": [],
+        "respond_commits": {},
+        "coach_requests": [],
+        "coach_commits": {},
+        "fail_next_coach_after_commit": False,
+        "dispute_requests": [],
+        "dispute_commits": {},
+        "fail_next_dispute_after_commit": False,
         "fail_next_start_after_commit": False,
+        "fail_next_respond_after_commit": False,
         "expected_503_console_errors": 0,
     }
     proxy = api_proxy(args.base_url, proxy_state)
@@ -217,6 +410,7 @@ def main() -> int:
             page.route("**/health", proxy)
             page.route("**/api/v1/reviews/*/respond", proxy)
             page.route("**/api/v1/reviews/*/coach", proxy)
+            page.route("**/api/v1/reviews/*/evidence-dispute", proxy)
             page.route("**/api/v1/reviews/start", proxy)
             page.goto(args.base_url, wait_until="networkidle")
         page.wait_for_timeout(600)
@@ -248,6 +442,144 @@ def main() -> int:
         page.wait_for_timeout(150)
         require("not stuck alone" in page.locator("#transcript").inner_text(), "Nudge did not produce coaching")
         passed("Board Review conversation, Enter, and Nudge")
+
+        # Conversation mutation network/gateway recovery:
+        # 1. Browser submits one logical Respond mutation.
+        # 2. The simulated server commits it.
+        # 3. Browser receives a post-commit 503 and restores the draft.
+        # 4. Student retries the same logical message.
+        # 5. Browser must reuse client_turn_id, avoid another student bubble,
+        #    and render the already-committed reviewer response.
+        respond_record_index = len(proxy_state["respond_requests"])
+        student_before_retry = page.locator("#transcript .turn.student").count()
+        reviewer_text_before_retry = page.locator(
+            "#transcript"
+        ).inner_text().count("I understand what you mean")
+
+        retry_text = (
+            "We need the review conversation to recover safely "
+            "when delivery fails after the server commits."
+        )
+
+        proxy_state["fail_next_respond_after_commit"] = True
+        page.locator("#response").fill(retry_text)
+        page.locator("#response").press("Enter")
+        page.wait_for_timeout(300)
+
+        first_records = proxy_state["respond_requests"][respond_record_index:]
+        require(
+            len(first_records) == 1,
+            "failed browser response did not correspond to exactly one committed Respond request",
+        )
+        require(
+            first_records[0]["server_status"] == 200
+            and first_records[0]["browser_status"] == 503,
+            "Respond did not exercise the post-commit failure path",
+        )
+        require(
+            first_records[0]["client_turn_id"],
+            "browser did not supply client_turn_id on Respond",
+        )
+        require(
+            page.locator("#response").input_value() == retry_text,
+            "failed Respond did not restore the student's draft",
+        )
+
+        page.locator("#response").press("Enter")
+        page.wait_for_timeout(300)
+
+        recovery_records = proxy_state["respond_requests"][respond_record_index:]
+        require(
+            len(recovery_records) == 2,
+            f"expected exactly two Respond attempts, got {len(recovery_records)}",
+        )
+
+        first_respond, retry_respond = recovery_records
+
+        require(
+            retry_respond["client_turn_id"] == first_respond["client_turn_id"],
+            "browser generated a new client_turn_id instead of retrying the logical Respond mutation",
+        )
+        require(
+            retry_respond["duplicate"] is True,
+            "Respond retry was not recognized as the already-committed logical mutation",
+        )
+        require(
+            page.locator("#transcript .turn.student").count()
+            == student_before_retry + 1,
+            "Respond recovery rendered the same student turn more than once",
+        )
+        require(
+            page.locator("#transcript").inner_text().count(
+                "I understand what you mean"
+            )
+            == reviewer_text_before_retry + 1,
+            "Respond recovery did not render the already-committed reviewer response",
+        )
+
+        passed("Respond post-commit retry preserves one logical conversation turn")
+
+        # Coach/Nudge post-commit recovery:
+        # the first logical coaching request is committed but its successful
+        # response is replaced with a 503. Clicking Nudge again must reuse the
+        # original client_turn_id and recover exactly one coaching response.
+        coach_record_index = len(proxy_state["coach_requests"])
+        coach_text_before_retry = page.locator(
+            "#transcript"
+        ).inner_text().count("You are not stuck alone here")
+
+        proxy_state["fail_next_coach_after_commit"] = True
+        page.locator("#coachButton").click()
+        page.wait_for_timeout(250)
+
+        first_coach_records = proxy_state["coach_requests"][coach_record_index:]
+        require(
+            len(first_coach_records) == 1,
+            "failed browser response did not correspond to exactly one committed Coach request",
+        )
+        require(
+            first_coach_records[0]["server_status"] == 200
+            and first_coach_records[0]["browser_status"] == 503,
+            "Coach did not exercise the post-commit failure path",
+        )
+        require(
+            first_coach_records[0]["client_turn_id"],
+            "browser did not supply client_turn_id on Coach",
+        )
+        require(
+            page.locator("#transcript").inner_text().count(
+                "You are not stuck alone here"
+            ) == coach_text_before_retry,
+            "failed Coach response incorrectly rendered a reviewer reply",
+        )
+
+        page.locator("#coachButton").click()
+        page.wait_for_timeout(250)
+
+        coach_recovery_records = proxy_state["coach_requests"][coach_record_index:]
+        require(
+            len(coach_recovery_records) == 2,
+            f"expected exactly two Coach attempts, got {len(coach_recovery_records)}",
+        )
+
+        first_coach, retry_coach = coach_recovery_records
+
+        require(
+            retry_coach["client_turn_id"] == first_coach["client_turn_id"],
+            "browser generated a new client_turn_id instead of retrying the logical Coach mutation",
+        )
+        require(
+            retry_coach["duplicate"] is True,
+            "Coach retry was not recognized as the already-committed logical mutation",
+        )
+        require(
+            page.locator("#transcript").inner_text().count(
+                "You are not stuck alone here"
+            ) == coach_text_before_retry + 1,
+            "Coach recovery did not render exactly one recovered reviewer response",
+        )
+
+        passed("Coach post-commit retry preserves one logical coaching request")
 
         # Complete -> preserved session -> obvious Start New Review -> clean launcher.
         page.locator("#completeReview").click()
@@ -304,6 +636,113 @@ def main() -> int:
             require(external.get_attribute("target") == "_blank", "frozen source should open in a new tab")
             page.locator("#closeArtifactOverlay").click()
         passed("Evidence Rail exact-context actions")
+
+        # Evidence Dispute post-commit recovery:
+        # preserve the logical dispute and its user-entered explanation when
+        # the server commits but the browser receives a gateway failure.
+        dispute_record_index = len(proxy_state["dispute_requests"])
+
+        dispute_item = page.locator("#evidenceList .eitem").first
+        dispute_path = dispute_item.locator(".eref").inner_text()
+
+        # Use the first available finding challenge action to open the dispute
+        # overlay against exact frozen evidence.
+        challenge_button = page.locator(
+            "#findingList .challenge-finding"
+        ).first
+        require(
+            challenge_button.count() == 1,
+            "no finding challenge action available for Evidence Dispute recovery test",
+        )
+
+        challenge_button.click()
+        page.wait_for_timeout(100)
+
+        require(
+            page.locator("#evidenceDisputeOverlay").is_visible(),
+            "Challenge did not open the Evidence Dispute overlay",
+        )
+
+        actual_path = page.locator("#evidenceDisputePath").input_value()
+        require(
+            bool(actual_path),
+            "Evidence Dispute did not preserve the exact frozen evidence path",
+        )
+
+        explanation = (
+            "This exact frozen artifact changes how the board should "
+            "interpret the finding."
+        )
+
+        page.locator("#evidenceDisputeExplanation").fill(explanation)
+        proxy_state["fail_next_dispute_after_commit"] = True
+        page.locator("#submitEvidenceDispute").click()
+        page.wait_for_timeout(250)
+
+        first_dispute_records = proxy_state["dispute_requests"][
+            dispute_record_index:
+        ]
+
+        require(
+            len(first_dispute_records) == 1,
+            "failed browser response did not correspond to exactly one committed Evidence Dispute request",
+        )
+        require(
+            first_dispute_records[0]["server_status"] == 200
+            and first_dispute_records[0]["browser_status"] == 503,
+            "Evidence Dispute did not exercise the post-commit failure path",
+        )
+        require(
+            first_dispute_records[0]["client_turn_id"],
+            "browser did not supply client_turn_id on Evidence Dispute",
+        )
+
+        # The student must be able to recover the exact logical dispute without
+        # reconstructing it from memory.
+        require(
+            page.locator("#evidenceDisputeOverlay").is_visible(),
+            "failed Evidence Dispute did not restore the dispute form",
+        )
+        require(
+            page.locator("#evidenceDisputePath").input_value() == actual_path,
+            "failed Evidence Dispute did not preserve the exact evidence path",
+        )
+        require(
+            page.locator("#evidenceDisputeExplanation").input_value()
+            == explanation,
+            "failed Evidence Dispute did not preserve the student's explanation",
+        )
+
+        page.locator("#submitEvidenceDispute").click()
+        page.wait_for_timeout(250)
+
+        dispute_recovery_records = proxy_state["dispute_requests"][
+            dispute_record_index:
+        ]
+
+        require(
+            len(dispute_recovery_records) == 2,
+            f"expected exactly two Evidence Dispute attempts, got {len(dispute_recovery_records)}",
+        )
+
+        first_dispute, retry_dispute = dispute_recovery_records
+
+        require(
+            retry_dispute["client_turn_id"]
+            == first_dispute["client_turn_id"],
+            "browser generated a new client_turn_id instead of retrying the logical Evidence Dispute mutation",
+        )
+        require(
+            retry_dispute["duplicate"] is True,
+            "Evidence Dispute retry was not recognized as the already-committed logical mutation",
+        )
+        require(
+            "I re-checked that exact frozen evidence"
+            in page.locator("#transcript").inner_text(),
+            "Evidence Dispute recovery did not render the recovered reviewer response",
+        )
+
+        passed("Evidence Dispute post-commit retry preserves exact dispute context")
 
         # Finding Discuss and Challenge entry actions preserve the exact selected object.
         page.locator("#completeReview").click(); page.wait_for_timeout(130)

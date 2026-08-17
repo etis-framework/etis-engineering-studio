@@ -1,3 +1,4 @@
+import hashlib
 import json
 import threading
 from datetime import datetime, timezone
@@ -123,11 +124,61 @@ def _safe_json(value, default):
         return default
 
 
+def _idempotency_fingerprint(payload: dict) -> str:
+    canonical = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _legacy_idempotency_payload(
+    student_turn: ReviewTurn,
+    signals: dict,
+    operation: str,
+) -> dict | None:
+    """
+    Reconstruct request identity for turns created before payload fingerprints
+    were persisted.
+
+    Historical coach turns did not retain the requested decision, so they
+    cannot always be verified safely. In that case fail closed rather than
+    silently treating a potentially different request as a duplicate.
+    """
+    if operation == "clarify":
+        return {
+            "question": student_turn.content,
+        }
+
+    if operation == "respond":
+        return {
+            "response": student_turn.content,
+            "evidence_refs": _safe_json(
+                student_turn.evidence_refs_json,
+                [],
+            ),
+            "decision": signals.get("decision"),
+            "intent": signals.get("selected_intent") or "discuss",
+        }
+
+    if operation == "coach":
+        if "decision" not in signals:
+            return None
+        return {
+            "decision": signals.get("decision"),
+        }
+
+    return None
+
+
 def _idempotent_result(
     db: Session,
     session_id: int,
     client_turn_id: str | None,
     expected_operation: str,
+    expected_payload: dict | None = None,
 ):
     if not client_turn_id:
         return None
@@ -170,6 +221,31 @@ def _idempotent_result(
             409,
             "client_turn_id was already used for a different review operation",
         )
+
+    if expected_payload is not None:
+        expected_fingerprint = _idempotency_fingerprint(expected_payload)
+        original_fingerprint = signals.get("idempotency_fingerprint")
+
+        if not original_fingerprint:
+            original_payload = _legacy_idempotency_payload(
+                student_turn,
+                signals,
+                actual_operation,
+            )
+            if original_payload is None:
+                raise HTTPException(
+                    409,
+                    "client_turn_id retry payload cannot be safely verified",
+                )
+            original_fingerprint = _idempotency_fingerprint(
+                original_payload
+            )
+
+        if original_fingerprint != expected_fingerprint:
+            raise HTTPException(
+                409,
+                "client_turn_id was already used for a different request payload",
+            )
 
     reviewer = (
         db.query(ReviewTurn)
@@ -909,10 +985,19 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
             session_id,
             req.client_turn_id,
             "clarify",
+            {"question": req.question},
         )
     if duplicate:
         state = _safe_json(session.challenge_state_json, {})
-        return {**duplicate, "evaluation": state.get("evaluation"), "reasoning_state": state.get("reasoning_state", {})}
+        reply = duplicate["follow_up"]
+        return {
+            "duplicate": True,
+            "reply": reply,
+            "turn_count": state.get("turn_count", 0),
+            "clarification_count": state.get("clarification_count", 0),
+            "evaluation": state.get("evaluation"),
+            "reasoning_state": state.get("reasoning_state", {}),
+        }
     lock = _session_lock(session_id)
     if not lock.acquire(blocking=False):
         raise HTTPException(409, "The reviewer is still responding to the previous turn. Please wait for that response.")
@@ -937,11 +1022,16 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
             session_id,
             req.client_turn_id,
             "clarify",
+            {"question": req.question},
         )
         if duplicate:
             state = _safe_json(session.challenge_state_json, {})
+            reply = duplicate["follow_up"]
             return {
-                **duplicate,
+                "duplicate": True,
+                "reply": reply,
+                "turn_count": state.get("turn_count", 0),
+                "clarification_count": state.get("clarification_count", 0),
                 "evaluation": state.get("evaluation"),
                 "reasoning_state": state.get("reasoning_state", {}),
             }
@@ -964,6 +1054,9 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
             evidence_refs_json="[]", signals_json=json.dumps({
                 "kind": "student_conversation", "selected_intent": "clarify",
                 "idempotency_operation": "clarify",
+                "idempotency_fingerprint": _idempotency_fingerprint(
+                    {"question": req.question}
+                ),
                 "interpreted_intent": reply.get("interpreted_intent"), "client_turn_id": req.client_turn_id,
             }),
         ))
@@ -994,10 +1087,19 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
             session_id,
             req.client_turn_id,
             "coach",
+            {"decision": req.decision},
         )
     if duplicate:
         state = _safe_json(session.challenge_state_json, {})
-        return {**duplicate, "evaluation": state.get("evaluation"), "reasoning_state": state.get("reasoning_state", {})}
+        reply = duplicate["follow_up"]
+        return {
+            "duplicate": True,
+            "reply": reply,
+            "turn_count": state.get("turn_count", 0),
+            "coaching_level": state.get("coaching_level", 0),
+            "evaluation": state.get("evaluation"),
+            "reasoning_state": state.get("reasoning_state", {}),
+        }
     lock = _session_lock(session_id)
     if not lock.acquire(blocking=False):
         raise HTTPException(409, "The reviewer is still responding to the previous turn. Please wait for that response.")
@@ -1022,11 +1124,16 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
             session_id,
             req.client_turn_id,
             "coach",
+            {"decision": req.decision},
         )
         if duplicate:
             state = _safe_json(session.challenge_state_json, {})
+            reply = duplicate["follow_up"]
             return {
-                **duplicate,
+                "duplicate": True,
+                "reply": reply,
+                "turn_count": state.get("turn_count", 0),
+                "coaching_level": state.get("coaching_level", 0),
                 "evaluation": state.get("evaluation"),
                 "reasoning_state": state.get("reasoning_state", {}),
             }
@@ -1050,6 +1157,10 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
                 "kind": "student_coach_request",
                 "selected_intent": "coach",
                 "idempotency_operation": "coach",
+                "decision": req.decision,
+                "idempotency_fingerprint": _idempotency_fingerprint(
+                    {"decision": req.decision}
+                ),
                 "client_turn_id": req.client_turn_id,
             }),
         ))
@@ -1081,6 +1192,12 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
             session_id,
             req.client_turn_id,
             "respond",
+            {
+                "response": req.response,
+                "evidence_refs": list(req.evidence_refs),
+                "decision": req.decision,
+                "intent": req.intent,
+            },
         )
     if duplicate:
         state = _safe_json(session.challenge_state_json, {})
@@ -1116,6 +1233,12 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
             session_id,
             req.client_turn_id,
             "respond",
+            {
+                "response": req.response,
+                "evidence_refs": list(req.evidence_refs),
+                "decision": req.decision,
+                "intent": req.intent,
+            },
         )
         if duplicate:
             state = _safe_json(session.challenge_state_json, {})
@@ -1147,6 +1270,12 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
             signals_json=json.dumps({
                 **evaluation, "decision": req.decision, "selected_intent": req.intent,
                 "idempotency_operation": "respond",
+                "idempotency_fingerprint": _idempotency_fingerprint({
+                    "response": req.response,
+                    "evidence_refs": list(req.evidence_refs),
+                    "decision": req.decision,
+                    "intent": req.intent,
+                }),
                 "interpreted_intent": follow_up.get("interpreted_intent"), "client_turn_id": req.client_turn_id,
             }),
         ))

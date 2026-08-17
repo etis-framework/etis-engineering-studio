@@ -1535,3 +1535,256 @@ def test_review_start_request_id_cannot_be_reused_for_different_payload():
     )
 
     assert second.status_code == 409, second.text
+
+
+def test_respond_client_turn_id_cannot_be_reused_for_changed_payload():
+    """A respond idempotency key must belong to exactly one logical response."""
+    from fastapi.testclient import TestClient
+
+    from apps.api.app.main import app
+
+    client = TestClient(app)
+
+    seed = client.post("/api/v1/dev/seed")
+    assert seed.status_code == 200
+    seeded = seed.json()
+
+    started = client.post(
+        "/api/v1/reviews/start",
+        json={
+            "team_id": seeded["team_id"],
+            "user_id": seeded["user_id"],
+            "phase_id": "A1",
+            "mode": "board_review",
+        },
+    )
+    assert started.status_code == 200, started.text
+    session_id = started.json()["session_id"]
+
+    request_id = "respond-payload-collision-001"
+
+    first = client.post(
+        f"/api/v1/reviews/{session_id}/respond",
+        json={
+            "response": "We assigned one engineer to own the decision.",
+            "evidence_refs": [],
+            "decision": "retain",
+            "intent": "discuss",
+            "client_turn_id": request_id,
+        },
+    )
+    assert first.status_code == 200, first.text
+
+    second = client.post(
+        f"/api/v1/reviews/{session_id}/respond",
+        json={
+            "response": "We actually assigned a different engineer.",
+            "evidence_refs": [],
+            "decision": "retain",
+            "intent": "discuss",
+            "client_turn_id": request_id,
+        },
+    )
+
+    assert second.status_code == 409, second.text
+
+
+def test_clarify_client_turn_id_cannot_be_reused_for_changed_payload():
+    """A clarify idempotency key must belong to exactly one logical question."""
+    from fastapi.testclient import TestClient
+
+    from apps.api.app.main import app
+
+    client = TestClient(app)
+
+    seed = client.post("/api/v1/dev/seed")
+    assert seed.status_code == 200
+    seeded = seed.json()
+
+    started = client.post(
+        "/api/v1/reviews/start",
+        json={
+            "team_id": seeded["team_id"],
+            "user_id": seeded["user_id"],
+            "phase_id": "A1",
+            "mode": "board_review",
+        },
+    )
+    assert started.status_code == 200, started.text
+    session_id = started.json()["session_id"]
+
+    request_id = "clarify-payload-collision-001"
+
+    first = client.post(
+        f"/api/v1/reviews/{session_id}/clarify",
+        json={
+            "question": "What evidence would demonstrate clear ownership?",
+            "client_turn_id": request_id,
+        },
+    )
+    assert first.status_code == 200, first.text
+
+    second = client.post(
+        f"/api/v1/reviews/{session_id}/clarify",
+        json={
+            "question": "What evidence would demonstrate architecture quality?",
+            "client_turn_id": request_id,
+        },
+    )
+
+    assert second.status_code == 409, second.text
+
+
+def test_coach_client_turn_id_cannot_be_reused_for_changed_payload():
+    """A coach idempotency key must belong to exactly one logical coaching request."""
+    from fastapi.testclient import TestClient
+
+    from apps.api.app.main import app
+
+    client = TestClient(app)
+
+    seed = client.post("/api/v1/dev/seed")
+    assert seed.status_code == 200
+    seeded = seed.json()
+
+    started = client.post(
+        "/api/v1/reviews/start",
+        json={
+            "team_id": seeded["team_id"],
+            "user_id": seeded["user_id"],
+            "phase_id": "A1",
+            "mode": "board_review",
+        },
+    )
+    assert started.status_code == 200, started.text
+    session_id = started.json()["session_id"]
+
+    request_id = "coach-payload-collision-001"
+
+    first = client.post(
+        f"/api/v1/reviews/{session_id}/coach",
+        json={
+            "decision": "retain the current ownership model",
+            "client_turn_id": request_id,
+        },
+    )
+    assert first.status_code == 200, first.text
+
+    second = client.post(
+        f"/api/v1/reviews/{session_id}/coach",
+        json={
+            "decision": "replace the current ownership model",
+            "client_turn_id": request_id,
+        },
+    )
+
+    assert second.status_code == 409, second.text
+
+
+def test_identical_clarify_retry_preserves_clarify_response_contract():
+    """
+    An idempotent Clarify retry must preserve the Clarify endpoint's normal
+    response shape. Browser recovery must receive `reply`, not the generic
+    conversation helper's `follow_up` field.
+    """
+    from fastapi.testclient import TestClient
+
+    from apps.api.app.main import app
+
+    client = TestClient(app)
+
+    seed = client.post("/api/v1/dev/seed")
+    assert seed.status_code == 200
+    seeded = seed.json()
+
+    started = client.post(
+        "/api/v1/reviews/start",
+        json={
+            "team_id": seeded["team_id"],
+            "user_id": seeded["user_id"],
+            "phase_id": "A1",
+            "mode": "board_review",
+        },
+    )
+    assert started.status_code == 200, started.text
+    session_id = started.json()["session_id"]
+
+    body = {
+        "question": "What evidence would demonstrate clear ownership?",
+        "client_turn_id": "clarify-identical-retry-001",
+    }
+
+    first = client.post(
+        f"/api/v1/reviews/{session_id}/clarify",
+        json=body,
+    )
+    assert first.status_code == 200, first.text
+    first_payload = first.json()
+    assert first_payload.get("duplicate") is False
+    assert "reply" in first_payload
+
+    second = client.post(
+        f"/api/v1/reviews/{session_id}/clarify",
+        json=body,
+    )
+    assert second.status_code == 200, second.text
+    second_payload = second.json()
+
+    assert second_payload.get("duplicate") is True
+    assert "reply" in second_payload
+    assert "follow_up" not in second_payload
+    assert second_payload["reply"]["text"] == first_payload["reply"]["text"]
+
+
+def test_identical_coach_retry_preserves_coach_response_contract():
+    """
+    An idempotent Coach retry must preserve the Coach endpoint's normal
+    response shape. Browser recovery must receive `reply`, not `follow_up`.
+    """
+    from fastapi.testclient import TestClient
+
+    from apps.api.app.main import app
+
+    client = TestClient(app)
+
+    seed = client.post("/api/v1/dev/seed")
+    assert seed.status_code == 200
+    seeded = seed.json()
+
+    started = client.post(
+        "/api/v1/reviews/start",
+        json={
+            "team_id": seeded["team_id"],
+            "user_id": seeded["user_id"],
+            "phase_id": "A1",
+            "mode": "board_review",
+        },
+    )
+    assert started.status_code == 200, started.text
+    session_id = started.json()["session_id"]
+
+    body = {
+        "decision": "retain the current ownership model",
+        "client_turn_id": "coach-identical-retry-001",
+    }
+
+    first = client.post(
+        f"/api/v1/reviews/{session_id}/coach",
+        json=body,
+    )
+    assert first.status_code == 200, first.text
+    first_payload = first.json()
+    assert first_payload.get("duplicate") is False
+    assert "reply" in first_payload
+
+    second = client.post(
+        f"/api/v1/reviews/{session_id}/coach",
+        json=body,
+    )
+    assert second.status_code == 200, second.text
+    second_payload = second.json()
+
+    assert second_payload.get("duplicate") is True
+    assert "reply" in second_payload
+    assert "follow_up" not in second_payload
+    assert second_payload["reply"]["text"] == first_payload["reply"]["text"]

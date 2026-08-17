@@ -109,6 +109,76 @@ function clearReviewStartRequest(){
   try{sessionStorage.removeItem(reviewStartRequestKey())}catch(_){}
 }
 
+let pendingReviewMutation=null;
+function reviewMutationRequestKey(){return 'etis.pendingReviewMutation'}
+function reviewMutationPayload(body){
+  const copy={...body};
+  delete copy.client_turn_id;
+  return copy;
+}
+function persistReviewMutation(saved){
+  pendingReviewMutation=saved;
+  try{
+    sessionStorage.setItem(
+      reviewMutationRequestKey(),
+      JSON.stringify(saved)
+    );
+  }catch(_){}
+}
+function reviewMutationRequest(operation,activeSessionId,body){
+  const payload=JSON.stringify({
+    operation,
+    session_id:activeSessionId,
+    payload:reviewMutationPayload(body),
+  });
+
+  if(
+    pendingReviewMutation?.payload===payload
+    && pendingReviewMutation?.id
+  ){
+    return pendingReviewMutation;
+  }
+
+  try{
+    const raw=sessionStorage.getItem(reviewMutationRequestKey());
+    if(raw){
+      const saved=JSON.parse(raw);
+      if(saved?.payload===payload&&saved?.id){
+        pendingReviewMutation=saved;
+        return saved;
+      }
+    }
+  }catch(_){}
+
+  const saved={
+    id:turnId(),
+    payload,
+    rendered:false,
+    ts:Date.now(),
+  };
+  persistReviewMutation(saved);
+  return saved;
+}
+function markReviewMutationRendered(saved){
+  saved.rendered=true;
+  persistReviewMutation(saved);
+}
+function clearReviewMutation(saved=null){
+  if(
+    saved
+    && pendingReviewMutation?.id
+    && pendingReviewMutation.id!==saved.id
+  ){
+    return;
+  }
+
+  pendingReviewMutation=null;
+
+  try{
+    sessionStorage.removeItem(reviewMutationRequestKey())
+  }catch(_){}
+}
+
 function applyRoleShell(){const instructor=appRole==='instructor';$('#studentNav').classList.toggle('hidden',instructor);$('#instructorNav').classList.toggle('hidden',!instructor);if(instructor){const limited=authenticatedUser&&['ta','reviewer'].includes(authenticatedUser.role);$$('#instructorNav .nav').forEach(n=>{if(['semesterSetup','accessSettings'].includes(n.dataset.view))n.classList.toggle('hidden',limited)})}setIdentity(currentView);if(instructor&&!String(currentView).startsWith('instructor')&&!['semesterSetup','accessSettings'].includes(currentView))switchView('instructor');if(!instructor&&(String(currentView).startsWith('instructor')||['semesterSetup','accessSettings'].includes(currentView)))switchView('studio')}
 $$('.nav').forEach(b=>b.onclick=()=>switchView(b.dataset.view));
 function openHelp(topic='general'){const h=helpTopics[topic]||helpTopics.general;$('#helpTitle').textContent=h.title;$('#helpContent').innerHTML=h.body;$('#helpOverlay').classList.remove('hidden')}
@@ -181,47 +251,232 @@ $('#coachButton').onclick=async()=>{
   if(!semanticReady){openHelp('semantic-required');return}
   if(!sessionId){toast('Start a review first.');return}
   if(pending)return;
-  setPending(true,`${currentReviewer?.name||'Your reviewer'} is deciding how much help will be useful…`);
+
+  const body={
+    decision:els.decision.value||null,
+  };
+
+  const mutation=reviewMutationRequest(
+    'coach',
+    sessionId,
+    body
+  );
+
+  body.client_turn_id=mutation.id;
+
+  setPending(
+    true,
+    `${currentReviewer?.name||'Your reviewer'} is deciding how much help will be useful…`
+  );
+
   try{
-    const r=await fetch(`/api/v1/reviews/${sessionId}/coach`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision:els.decision.value||null,client_turn_id:turnId()})});
-    const body=await r.json();
-    if(!r.ok)throw new Error(body.detail||r.statusText);
-    const reply=body.reply;
-    addTurn('reviewer',reply.lens,reply.text,{reviewer:reply.reviewer,kind:reply.kind,guidance_refs:reply.guidance_refs,provider:reply.provider});
-    $('#depth').textContent=`Coaching level ${body.coaching_level}`;
+    const r=await fetch(
+      `/api/v1/reviews/${sessionId}/coach`,
+      {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body),
+      }
+    );
+
+    const responseBody=await r.json();
+
+    if(!r.ok){
+      throw new Error(responseBody.detail||r.statusText);
+    }
+
+    const reply=responseBody.reply;
+
+    // A duplicate Coach result after an uncertain delivery is recovery of
+    // the original logical coaching request. The browser did not receive
+    // that reply previously, so render it now.
+    addTurn(
+      'reviewer',
+      reply.lens,
+      reply.text,
+      {
+        reviewer:reply.reviewer,
+        kind:reply.kind,
+        guidance_refs:reply.guidance_refs,
+        provider:reply.provider,
+      }
+    );
+
+    if(responseBody.duplicate){
+      toast(
+        'Your earlier coaching request had already been processed. '
+        +'The reviewer response was recovered.'
+      );
+    }
+
+    $('#depth').textContent=
+      `Coaching level ${responseBody.coaching_level}`;
+
+    clearReviewMutation(mutation);
+
     await loadHistory();
-  }catch(e){toast('Coaching could not load: '+e.message)}finally{setPending(false);els.response.focus()}
+
+  }catch(e){
+    toast('Coaching could not load: '+e.message);
+
+  }finally{
+    setPending(false);
+    els.response.focus();
+  }
 };
+
 async function send(){
   if(!semanticReady){openHelp('semantic-required');return}
   if(!sessionId){toast('Start a review first.');return}
   if(pending)return;
+
   const text=els.response.value.trim();
-  if(!text){toast('Type a thought or question first.');return}
-  const id=turnId();
-  addTurn('student','conversation',text,{kind:interactionMode});
-  saveDraft();els.response.value='';updateDraftHint();
-  setPending(true,`${currentReviewer?.name||'Your reviewer'} is considering what you meant and what the evidence supports…`);
+  if(!text){
+    toast('Type a thought or question first.');
+    return;
+  }
+
+  const body={
+    response:text,
+    evidence_refs:contextRefs(),
+    decision:els.decision.value||null,
+    intent:interactionMode==='ask'?'discuss':'decision',
+  };
+
+  const mutation=reviewMutationRequest(
+    'respond',
+    sessionId,
+    body
+  );
+
+  body.client_turn_id=mutation.id;
+
+  if(!mutation.rendered){
+    addTurn(
+      'student',
+      'conversation',
+      text,
+      {kind:interactionMode}
+    );
+    markReviewMutationRendered(mutation);
+  }
+
+  saveDraft();
+  els.response.value='';
+  updateDraftHint();
+
+  setPending(
+    true,
+    `${currentReviewer?.name||'Your reviewer'} is considering what you meant and what the evidence supports…`
+  );
+
   try{
-    const r=await fetch(`/api/v1/reviews/${sessionId}/respond`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({response:text,evidence_refs:contextRefs(),decision:els.decision.value||null,intent:interactionMode==='ask'?'discuss':'decision',client_turn_id:id})});
-    const body=await r.json();
-    if(!r.ok)throw new Error(body.detail||r.statusText);
-    const reply=body.follow_up;
-    if(!body.duplicate)addTurn('reviewer',reply.lens,reply.text,{reviewer:reply.reviewer,kind:reply.kind,guidance_refs:reply.guidance_refs,provider:reply.provider});
-    else toast('That turn was already processed; the duplicate was ignored.');
-    const ev=body.evaluation||{};
-    $('#defense').textContent=ev.disposition?humanizeDisposition(ev.disposition):'In discussion';
-    $('#depth').textContent=ev.learning_score!=null?`${ev.learning_score}/${ev.learning_score_max} moves`:'In discussion';
-    const missing=ev.missing_moves||[],panel=$('#coachPanel');
-    if(missing.length&&!ev.ready_to_commit){panel.classList.remove('hidden');panel.innerHTML=`<b>Next engineering move</b><p>${escapeHtml(humanizeMove(missing[0]))}</p>`}else panel.classList.add('hidden');
-    updateRecommendationBar(ev,body.reasoning_state||{});if(!$('#commitBar').classList.contains('hidden'))$('#defense').textContent='Recommendation ready';setComposerContext(null);clearDraft()
+    const r=await fetch(
+      `/api/v1/reviews/${sessionId}/respond`,
+      {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body),
+      }
+    );
+
+    const responseBody=await r.json();
+
+    if(!r.ok){
+      throw new Error(responseBody.detail||r.statusText);
+    }
+
+    const reply=responseBody.follow_up;
+
+    // A duplicate response after an uncertain delivery is recovery of the
+    // original logical mutation. The browser never received that reviewer
+    // response, so it must now render it.
+    addTurn(
+      'reviewer',
+      reply.lens,
+      reply.text,
+      {
+        reviewer:reply.reviewer,
+        kind:reply.kind,
+        guidance_refs:reply.guidance_refs,
+        provider:reply.provider,
+      }
+    );
+
+    if(responseBody.duplicate){
+      toast(
+        'Your previous message had already been processed. '
+        +'The reviewer response was recovered.'
+      );
+    }
+
+    const ev=responseBody.evaluation||{};
+
+    $('#defense').textContent=ev.disposition
+      ?humanizeDisposition(ev.disposition)
+      :'In discussion';
+
+    $('#depth').textContent=ev.learning_score!=null
+      ?`${ev.learning_score}/${ev.learning_score_max} moves`
+      :'In discussion';
+
+    const missing=ev.missing_moves||[];
+    const panel=$('#coachPanel');
+
+    if(missing.length&&!ev.ready_to_commit){
+      panel.classList.remove('hidden');
+      panel.innerHTML=
+        `<b>Next engineering move</b>`+
+        `<p>${escapeHtml(humanizeMove(missing[0]))}</p>`;
+    }else{
+      panel.classList.add('hidden');
+    }
+
+    updateRecommendationBar(
+      ev,
+      responseBody.reasoning_state||{}
+    );
+
+    if(!$('#commitBar').classList.contains('hidden')){
+      $('#defense').textContent='Recommendation ready';
+    }
+
+    setComposerContext(null);
+    clearDraft();
+    clearReviewMutation(mutation);
+
     await loadHistory();
+
   }catch(e){
     toast(e.message);
-    if(!els.response.value){els.response.value=text;updateDraftHint();saveDraft()}
-    addTurn('reviewer','system','I could not complete that turn. Your draft is still in the response box. Wait a moment, then retry if needed.',{reviewer:{name:'Studio',role:'System',focus:'Review continuity',portrait:'/assets/reviewers/maya-chen.svg'},kind:'system'});
-  }finally{setPending(false);els.response.focus()}
+
+    if(!els.response.value){
+      els.response.value=text;
+      updateDraftHint();
+      saveDraft();
+    }
+
+    addTurn(
+      'reviewer',
+      'system',
+      'I could not complete that turn. Your draft is still in the response box. Wait a moment, then retry if needed.',
+      {
+        reviewer:{
+          name:'Studio',
+          role:'System',
+          focus:'Review continuity',
+          portrait:'/assets/reviewers/maya-chen.svg'
+        },
+        kind:'system'
+      }
+    );
+
+  }finally{
+    setPending(false);
+    els.response.focus();
+  }
 }
+
 function updateStartReviewButton(){
   const btn=els.newReview;
   if(!btn)return;
@@ -254,8 +509,116 @@ let disputePath='',disputeFindingId=null;
 function openEvidenceDispute(path='',findingId=null){if(!sessionId){toast('Begin or resume a review first.');return}disputePath=path||'';disputeFindingId=findingId||null;$('#evidenceDisputePath').value=disputePath;$('#evidenceDisputeExplanation').value='';$('#evidenceDisputeOverlay').classList.remove('hidden');setTimeout(()=>$('#evidenceDisputeExplanation').focus(),30)}
 function closeEvidenceDispute(){$('#evidenceDisputeOverlay').classList.add('hidden');disputePath='';disputeFindingId=null}
 $('#closeEvidenceDispute').onclick=closeEvidenceDispute;$('#cancelEvidenceDispute').onclick=closeEvidenceDispute;$('#evidenceDisputeOverlay').onclick=e=>{if(e.target.id==='evidenceDisputeOverlay')closeEvidenceDispute()};
-$('#submitEvidenceDispute').onclick=async()=>{const path=$('#evidenceDisputePath').value.trim(),explanation=$('#evidenceDisputeExplanation').value.trim();if(!path||!explanation){toast('Give the repository path and explain what the board should reconsider.');return}const fid=disputeFindingId;closeEvidenceDispute();await disputeEvidence(path,explanation,fid)};
-async function disputeEvidence(path,explanation,findingId=null){if(!sessionId)return;setPending(true,'Maya is re-checking that evidence against the frozen snapshot…');try{const r=await fetch(`/api/v1/reviews/${sessionId}/evidence-dispute`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path,explanation,finding_id:findingId,client_turn_id:turnId()})});const d=await r.json();if(!r.ok)throw new Error(d.detail||r.statusText);addTurn('student','evidence_dispute',`I think the board should reconsider ${path}: ${explanation}`);addTurn('reviewer',d.reply.lens,d.reply.text,{reviewer:d.reply.reviewer,kind:d.reply.kind});toast('Evidence dispute recorded. The review record keeps both the original finding and the correction.')}catch(e){toast(e.message)}finally{setPending(false)}}
+$('#submitEvidenceDispute').onclick=async()=>{
+  const path=$('#evidenceDisputePath').value.trim();
+  const explanation=$('#evidenceDisputeExplanation').value.trim();
+
+  if(!path||!explanation){
+    toast(
+      'Give the repository path and explain what the board should reconsider.'
+    );
+    return;
+  }
+
+  const fid=disputeFindingId;
+  await disputeEvidence(path,explanation,fid);
+};
+
+async function disputeEvidence(path,explanation,findingId=null){
+  if(!sessionId)return;
+
+  const body={
+    path,
+    explanation,
+    finding_id:findingId,
+  };
+
+  const mutation=reviewMutationRequest(
+    'evidence_dispute',
+    sessionId,
+    body
+  );
+
+  body.client_turn_id=mutation.id;
+
+  setPending(
+    true,
+    'Maya is re-checking that evidence against the frozen snapshot…'
+  );
+
+  try{
+    const r=await fetch(
+      `/api/v1/reviews/${sessionId}/evidence-dispute`,
+      {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body),
+      }
+    );
+
+    const responseBody=await r.json();
+
+    if(!r.ok){
+      throw new Error(responseBody.detail||r.statusText);
+    }
+
+    addTurn(
+      'student',
+      'evidence_dispute',
+      `I think the board should reconsider ${path}: ${explanation}`
+    );
+
+    const reply=responseBody.reply;
+
+    addTurn(
+      'reviewer',
+      reply.lens,
+      reply.text,
+      {
+        reviewer:reply.reviewer,
+        kind:reply.kind
+      }
+    );
+
+    if(responseBody.duplicate){
+      toast(
+        'Your earlier evidence dispute had already been recorded. '
+        +'The review response was recovered.'
+      );
+    }else{
+      toast(
+        'Evidence dispute recorded. The review record keeps both '
+        +'the original finding and the correction.'
+      );
+    }
+
+    clearReviewMutation(mutation);
+    closeEvidenceDispute();
+
+  }catch(e){
+    // Keep the overlay and its exact path/explanation open. If the server
+    // committed before delivery failed, retrying this unchanged form will
+    // reuse the same client_turn_id and recover the original result.
+    toast(e.message);
+
+    $('#evidenceDisputeOverlay').classList.remove('hidden');
+
+    if($('#evidenceDisputePath').value!==path){
+      $('#evidenceDisputePath').value=path;
+    }
+
+    if($('#evidenceDisputeExplanation').value!==explanation){
+      $('#evidenceDisputeExplanation').value=explanation;
+    }
+
+    disputePath=path;
+    disputeFindingId=findingId;
+
+  }finally{
+    setPending(false);
+  }
+}
+
 async function loadHistory(){try{const seed=await ensureDemo(),sc=studentContext?.sections?.[0],teamId=sc?.team?.id||seed.team_id,userId=studentContext?.user?.id||seed.user_id,d=await fetch(`/api/v1/reviews?team_id=${teamId}&user_id=${userId}&limit=6`).then(r=>r.json()),box=$('#reviewHistory');if(!d.sessions.length){box.innerHTML='<span class="quiet">No review sessions yet.</span>';return}box.innerHTML=d.sessions.map(s=>`<button class="history-item" data-session="${s.id}"><span><b>${s.phase_id} · Session #${s.id}</b><small>${new Date(s.started_at).toLocaleString()}</small></span><span class="history-state ${s.status}">${s.status}</span><span>${s.committed?'Recommendation stated':s.evaluation?.disposition?humanizeDisposition(s.evaluation.disposition):'Discussion not started'}</span></button>`).join('');$$('.history-item').forEach(b=>b.onclick=()=>resumeSession(Number(b.dataset.session)))}catch(e){}}
 async function resumeSession(id){try{const r=await fetch(`/api/v1/reviews/${id}`),d=await r.json();if(!r.ok)throw new Error(d.detail||r.statusText);switchView('studio');sessionId=id;clearEntryContext();setComposerContext(null);document.body.classList.toggle('review-session-active',d.session.status==='active');const modeName=String(d.session.mode||'board_review');const label=modeName.includes('focused')?'Focused Review':modeName.includes('finding')?'Finding Review':'Board Review';$('#reviewSessionPurpose').innerHTML=`<div><b>${label} · ${d.session.phase_id}</b><span>${d.session.status==='active'?'Resumed':'Completed session · read-only'} against its original frozen evidence snapshot.</span></div>`;$('#reviewSessionPurpose').classList.remove('hidden');$('#reviewHomeButton').classList.remove('hidden');$('#reviewHomeButton').textContent='Start New Review';currentPhase=d.session.phase_id;const opt=[...els.phase.options].find(o=>o.value.startsWith(currentPhase));if(opt)els.phase.value=opt.value;applyPhase();els.transcript.innerHTML='';currentChallenge=d.state.challenge||null;if(currentChallenge)renderChallengeBrief(currentChallenge);if(d.evidence){renderEvidence(d.evidence);renderStrengths(d.evidence)}d.turns.forEach(t=>addTurn(t.actor,t.lens,t.content,{...t.signals,reviewer:t.signals?.reviewer,guidance_refs:t.signals?.guidance_refs}));$('#challengeTitle').textContent=d.state.challenge?.title||'Review session';committed=!!d.state.committed_position;reviewMode=modeName.includes('focused')?'focused':modeName.includes('finding')?'finding':'board';$('#reviewStatus').classList.toggle('hidden',d.session.status!=='active');$('#conversationControls').classList.toggle('hidden',d.session.status!=='active');$('#conversationReadyNote')?.classList.toggle('hidden',d.session.status!=='active');$('#reviewStatusText').textContent=`Session #${id} · ${d.session.status==='active'?'resumed':'completed'}`;updateRecommendationBar(d.state.evaluation,d.state.reasoning_state||{});if(d.session.status!=='active'){hideActiveReviewer();$('#challengeBrief').classList.remove('hidden');$('#reviewStatus').classList.remove('hidden');$('#reviewStatusLabel').textContent='Completed review · read-only';$('#reviewStatusText').textContent=`Session #${id} · preserved history`;$('#completeReview').classList.add('hidden')}else{$('#completeReview').classList.remove('hidden')}els.send.disabled=d.session.status!=='active';updateStartReviewButton();if(d.session.status==='active')restoreDraft();requestAnimationFrame(()=>window.scrollTo({top:0,behavior:'auto'}));toast(d.session.status==='active'?'Review resumed with its original frozen evidence snapshot.':'Completed review opened read-only. Use Start New Review when you are ready for another session.')}catch(e){toast(safeErrorMessage(e,'Could not open that review session.'))}}
 function humanizeDisposition(x){return String(x||'').replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())}
