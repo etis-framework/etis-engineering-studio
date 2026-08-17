@@ -10,6 +10,11 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 def init_db():
+    # Production schema lifecycle is owned exclusively by Alembic migrations.
+    # Development retains create_all() as a local convenience.
+    if str(settings.etis_env).strip().lower() == "production":
+        return
+
     Base.metadata.create_all(engine)
 
 
