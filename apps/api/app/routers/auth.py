@@ -8,7 +8,7 @@ from ..models import User, InstitutionalIdentity, SectionEnrollment, GitHubIdent
 from ..services.auth import (github_authorize_url, github_exchange, entra_authorize_url, entra_exchange,
     create_session_token, request_identity, COOKIE_NAME, highest_staff_role,
     create_flow_state, parse_flow_state, request_session_token,
-    revoke_session_token)
+    revoke_session_token, csrf_token_for_session)
 from ..services.course_admin import ensure_term, ensure_section, generate_schedule
 
 router=APIRouter(prefix="/auth",tags=["auth"])
@@ -83,11 +83,36 @@ def logout(request: Request, db: Session = Depends(get_db)):
 @router.get("/me")
 def me(request:Request,db:Session=Depends(get_db)):
     ident=request_identity(request)
-    if not ident: return {"authenticated":False}
+    if not ident:
+        return {"authenticated":False}
+
     user=db.get(User,ident["uid"])
-    if not user: return {"authenticated":False}
-    institutional=db.query(InstitutionalIdentity).filter_by(user_id=user.id).first(); gh=db.query(GitHubIdentity).filter_by(user_id=user.id).first()
+    if not user:
+        return {"authenticated":False}
+
+    institutional=db.query(InstitutionalIdentity).filter_by(user_id=user.id).first()
+    gh=db.query(GitHubIdentity).filter_by(user_id=user.id).first()
     staff_rows=db.query(SectionStaff).filter_by(user_id=user.id,is_active=True).all()
     assignments=[{"section_id":x.section_id,"role":x.staff_role} for x in staff_rows]
     role=highest_staff_role([x.staff_role for x in staff_rows]) or ident.get("role") or "student"
-    return {"authenticated":True,"user":{"id":user.id,"display_name":user.display_name,"role":role,"email":institutional.institutional_email if institutional else None,"student_id":institutional.student_id if institutional else None,"github_login":gh.github_login if gh else None,"staff_assignments":assignments}}
+
+    body={
+        "authenticated":True,
+        "user":{
+            "id":user.id,
+            "display_name":user.display_name,
+            "role":role,
+            "email":institutional.institutional_email if institutional else None,
+            "student_id":institutional.student_id if institutional else None,
+            "github_login":gh.github_login if gh else None,
+            "staff_assignments":assignments,
+        },
+    }
+
+    # CSRF protection is required only for browser cookie authentication.
+    # Bearer-only API clients remain outside the browser CSRF threat model.
+    cookie_token=request.cookies.get(COOKIE_NAME)
+    if cookie_token:
+        body["csrf_token"]=csrf_token_for_session(cookie_token)
+
+    return body

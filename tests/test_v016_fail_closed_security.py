@@ -3555,3 +3555,166 @@ def test_course_authorization_revocation_permanently_invalidates_session():
 
     assert replay_after_reauthorization.status_code == 200
     assert replay_after_reauthorization.json()["authenticated"] is False
+
+
+def test_cookie_authenticated_mutation_requires_csrf_token():
+    """
+    A state-changing request authenticated by the browser session cookie must
+    require a valid CSRF token.
+
+    Merely possessing/sending the HttpOnly session cookie must not be enough
+    to perform a POST mutation.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import User
+    from apps.api.app.services.auth import COOKIE_NAME, create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    db = SessionLocal()
+    try:
+        user = User(
+            github_login=f"csrf-cookie-{suffix}",
+            display_name="CSRF Cookie Test User",
+            role="student",
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        user_id = user.id
+    finally:
+        db.close()
+
+    token = create_session_token(
+        user_id,
+        f"csrf-cookie-{suffix}@luc.edu",
+        "student",
+    )
+
+    # Authenticate exactly as the production browser does: with the session
+    # cookie, not an Authorization bearer header.
+    client.cookies.set(COOKIE_NAME, token)
+
+    response = client.post(
+        "/auth/logout",
+        follow_redirects=False,
+    )
+
+    # Cookie-authenticated mutations must fail closed without a CSRF header.
+    assert response.status_code == 403
+
+    # A rejected CSRF attempt must not revoke the underlying session.
+    replay = client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert replay.status_code == 200
+    assert replay.json()["authenticated"] is True
+
+    client.cookies.delete(COOKIE_NAME)
+
+
+def test_cookie_authenticated_browser_can_obtain_and_use_csrf_token():
+    """
+    An authenticated browser session must be able to obtain its session-bound
+    CSRF token through safe authenticated state and use it for a mutation.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import User
+    from apps.api.app.services.auth import COOKIE_NAME, create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    db = SessionLocal()
+    try:
+        user = User(
+            github_login=f"csrf-valid-{suffix}",
+            display_name="Valid CSRF Test User",
+            role="student",
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        user_id = user.id
+    finally:
+        db.close()
+
+    token = create_session_token(
+        user_id,
+        f"csrf-valid-{suffix}@luc.edu",
+        "student",
+    )
+
+    client.cookies.set(COOKIE_NAME, token)
+
+    try:
+        me = client.get("/auth/me")
+
+        assert me.status_code == 200
+        body = me.json()
+        assert body["authenticated"] is True
+        assert isinstance(body.get("csrf_token"), str)
+        assert len(body["csrf_token"]) >= 32
+
+        logout = client.post(
+            "/auth/logout",
+            headers={
+                "X-CSRF-Token": body["csrf_token"],
+            },
+            follow_redirects=False,
+        )
+
+        assert 300 <= logout.status_code < 400
+
+        replay = client.get(
+            "/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert replay.status_code == 200
+        assert replay.json()["authenticated"] is False
+
+    finally:
+        client.cookies.delete(COOKIE_NAME)
+
+
+def test_studio_browser_client_injects_csrf_on_same_origin_mutations():
+    """
+    The production Studio browser must centrally attach the session-bound
+    CSRF token to same-origin state-changing fetch requests.
+
+    This must not depend on every individual Review Room, repository, or
+    instructor mutation remembering to add the header manually.
+    """
+    from pathlib import Path
+
+    javascript = Path(
+        "apps/api/app/static/studio.js"
+    ).read_text(encoding="utf-8")
+
+    assert "csrfToken" in javascript
+    assert "X-CSRF-Token" in javascript
+    assert "window.fetch" in javascript or "globalThis.fetch" in javascript
+    assert "me.csrf_token" in javascript
+
+
+def test_studio_csrf_fetch_wrapper_uses_document_base_uri():
+    """
+    The central browser fetch wrapper must resolve relative API URLs from the
+    document base URI rather than window.location.
+
+    This preserves normal production behavior and also supports the inline
+    browser war-game harness, which intentionally supplies an application
+    <base href> while the underlying page itself is created with set_content().
+    """
+    from pathlib import Path
+
+    javascript = Path(
+        "apps/api/app/static/studio.js"
+    ).read_text(encoding="utf-8")
+
+    assert "document.baseURI" in javascript

@@ -7,6 +7,7 @@ from .db import init_db
 from .routers import course, reviews, repositories, instructor, dev, auth, admin, onboarding
 from .config import get_settings
 from .services.challenge_engine import SemanticCoachingUnavailable
+from .services.auth import COOKIE_NAME, validate_csrf_token
 
 
 @asynccontextmanager
@@ -21,6 +22,35 @@ app = FastAPI(
     description="Evidence-centered engineering apprenticeship environment for COMP 330",
     lifespan=lifespan,
 )
+
+
+CSRF_PROTECTED_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+@app.middleware("http")
+async def enforce_cookie_csrf(request: Request, call_next):
+    """
+    Require a session-bound CSRF token for state-changing requests that use
+    browser cookie authentication.
+
+    Bearer-only API requests do not carry the browser session cookie and remain
+    outside the CSRF threat model.
+    """
+    if request.method.upper() in CSRF_PROTECTED_METHODS:
+        session_token = request.cookies.get(COOKIE_NAME)
+
+        if session_token:
+            presented = request.headers.get("X-CSRF-Token", "")
+
+            if not validate_csrf_token(session_token, presented):
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "detail": "CSRF validation failed",
+                    },
+                )
+
+    return await call_next(request)
 
 app.include_router(course.router)
 app.include_router(reviews.router)

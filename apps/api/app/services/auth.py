@@ -20,6 +20,25 @@ def _session_token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def csrf_token_for_session(token: str) -> str:
+    """
+    Derive a session-bound CSRF token without persisting another secret.
+
+    The browser session credential remains HttpOnly. A safe derived value may
+    be exposed separately to the authenticated UI and echoed in the
+    X-CSRF-Token request header for cookie-authenticated mutations.
+    """
+    return _sign(f"csrf:{token}")
+
+
+def validate_csrf_token(session_token: str, presented_token: str) -> bool:
+    if not session_token or not presented_token:
+        return False
+
+    expected = csrf_token_for_session(session_token)
+    return hmac.compare_digest(expected, presented_token)
+
+
 def _as_utc(value: datetime) -> datetime:
     # SQLite may return timezone-aware columns as naive datetimes. Normalize
     # explicitly so test and PostgreSQL behavior use the same UTC semantics.
