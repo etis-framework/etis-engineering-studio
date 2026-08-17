@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 class ReviewStartRequest(BaseModel):
     team_id: int
+    client_request_id: str | None = Field(default=None, max_length=120)
     phase_id: str = Field(pattern=r"^A[1-6]$")
     mode: str = "guided_review"
     scenario_id: str | None = None

@@ -448,6 +448,109 @@ def _prior_student_review_context(db: Session, user_id: int, team_id: int, phase
     return out
 
 
+def _review_start_idempotency_payload(
+    req: ReviewStartRequest,
+    *,
+    user_id: int,
+    repo_full_name: str,
+) -> dict:
+    """
+    Return the effective Start Review request protected by client_request_id.
+
+    Identity and repository values are the authoritative values resolved by the
+    server, not untrusted caller substitutions.
+    """
+    return {
+        "user_id": user_id,
+        "phase_id": req.phase_id,
+        "mode": req.mode,
+        "scenario_id": req.scenario_id or None,
+        "repo_full_name": repo_full_name or None,
+        "focus": req.focus or None,
+        "finding_id": req.finding_id or None,
+        "finding_ids": list(req.finding_ids or []),
+        "entry_intent": req.entry_intent,
+        "source_view": req.source_view,
+    }
+
+
+def _review_start_response(
+    db: Session,
+    session: ReviewSession,
+    *,
+    duplicate: bool,
+) -> dict:
+    """
+    Reconstruct the Start Review response entirely from committed state.
+
+    This lets a network retry return the original ReviewSession without
+    repeating repository analysis, reviewer preparation, or opening-turn
+    creation.
+    """
+    state = _safe_json(session.challenge_state_json, {})
+
+    team = db.get(Team, session.team_id)
+    user = db.get(User, session.user_id)
+    if not team or not user:
+        raise HTTPException(
+            409,
+            "The original review session can no longer be reconstructed",
+        )
+
+    snapshot_id = state.get("evidence_snapshot_id")
+    snapshot = db.get(EvidenceSnapshot, snapshot_id) if snapshot_id else None
+    if not snapshot:
+        raise HTTPException(
+            409,
+            "The original review session has no frozen evidence snapshot",
+        )
+
+    evidence = _safe_json(snapshot.summary_json, {})
+    evidence = _decorate_finding_states(
+        evidence,
+        _finding_states(db, snapshot.id),
+    )
+
+    challenge_payload = dict(state.get("challenge") or {})
+    opening_turn = (
+        db.query(ReviewTurn)
+        .filter_by(
+            session_id=session.id,
+            sequence=1,
+            actor="reviewer",
+        )
+        .first()
+    )
+    if not challenge_payload or not opening_turn:
+        raise HTTPException(
+            409,
+            "The original review session is incomplete",
+        )
+
+    challenge_payload["opening_text"] = opening_turn.content
+
+    return {
+        "session_id": session.id,
+        "team": {
+            "id": team.id,
+            "name": team.name,
+            "project_name": team.project_name,
+            "phase": session.phase_id,
+        },
+        "user": {
+            "id": user.id,
+            "name": user.display_name,
+            "role": user.role,
+        },
+        "challenge": challenge_payload,
+        "evidence": evidence,
+        "evidence_cache_reused": bool(
+            state.get("evidence_cache_reused")
+        ),
+        "duplicate": duplicate,
+    }
+
+
 @router.post("/start")
 def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db)):
     ctx = auth_context(request)
@@ -548,6 +651,51 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
         )
 
     repo_full_name = authoritative_repo
+
+    start_request_payload = _review_start_idempotency_payload(
+        req,
+        user_id=user.id,
+        repo_full_name=repo_full_name,
+    )
+
+    # The Team row is still locked here. Therefore a second application
+    # replica using the same team-scoped client_request_id cannot race this
+    # lookup with creation of another ReviewSession.
+    if req.client_request_id:
+        existing_session = (
+            db.query(ReviewSession)
+            .filter_by(
+                team_id=team.id,
+                client_request_id=req.client_request_id,
+            )
+            .first()
+        )
+
+        if existing_session:
+            existing_state = _safe_json(
+                existing_session.challenge_state_json,
+                {},
+            )
+            original_request = existing_state.get("start_request")
+
+            if original_request != start_request_payload:
+                raise HTTPException(
+                    409,
+                    "client_request_id was already used for a different review start request",
+                )
+
+            _authorize_session(
+                db,
+                existing_session,
+                auth_context(request),
+            )
+
+            return _review_start_response(
+                db,
+                existing_session,
+                duplicate=True,
+            )
+
     previous_snapshot = db.query(EvidenceSnapshot).filter_by(team_id=team.id).order_by(EvidenceSnapshot.created_at.desc()).first()
     previous_data = _safe_json(previous_snapshot.summary_json, {}) if previous_snapshot else None
     prior_categories = _prior_finding_categories(db, team.id, req.phase_id)
@@ -656,11 +804,13 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
         "requested_finding_ids": req.finding_ids,
         "entry_intent": req.entry_intent,
         "source_view": req.source_view,
+        "start_request": start_request_payload,
         "evidence_disputes": [],
     }
 
     session = ReviewSession(
         team_id=team.id,
+        client_request_id=req.client_request_id,
         user_id=user.id,
         phase_id=req.phase_id,
         mode=req.mode,
@@ -675,16 +825,11 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
     db.commit()
     db.refresh(session)
 
-    challenge_payload = challenge.to_dict()
-    challenge_payload["opening_text"] = opening["text"]
-    return {
-        "session_id": session.id,
-        "team": {"id": team.id, "name": team.name, "project_name": team.project_name, "phase": req.phase_id},
-        "user": {"id": user.id, "name": user.display_name, "role": user.role},
-        "challenge": challenge_payload,
-        "evidence": evidence_payload,
-        "evidence_cache_reused": bool(state.get("evidence_cache_reused")),
-    }
+    return _review_start_response(
+        db,
+        session,
+        duplicate=False,
+    )
 
 
 @router.get("/evidence/current")

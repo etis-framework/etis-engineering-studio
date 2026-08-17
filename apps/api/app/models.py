@@ -102,6 +102,7 @@ class ReviewSession(Base):
     __tablename__ = "review_sessions"
     id: Mapped[int] = mapped_column(primary_key=True)
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), index=True)
+    client_request_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     phase_id: Mapped[str] = mapped_column(String(10), index=True)
     mode: Mapped[str] = mapped_column(String(30), default="guided_review")
@@ -110,6 +111,14 @@ class ReviewSession(Base):
     challenge_state_json: Mapped[str] = mapped_column(Text, default="{}")
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "team_id",
+            "client_request_id",
+            name="uq_review_sessions_team_client_request_id",
+        ),
+    )
 
 
 class ReviewTurn(Base):

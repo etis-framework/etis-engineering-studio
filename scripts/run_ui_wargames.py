@@ -43,7 +43,9 @@ def load_inline_html() -> str:
     return html
 
 
-def api_proxy(base_url: str):
+def api_proxy(base_url: str, state: dict | None = None):
+    state = state if state is not None else {}
+
     def proxy(route, request):
         parsed = urlparse(request.url)
         path = parsed.path
@@ -100,6 +102,46 @@ def api_proxy(base_url: str):
             status = exc.code
             ctype = exc.headers.get("Content-Type", "application/json")
 
+        if path == "/api/v1/reviews/start" and request.method.upper() == "POST":
+            try:
+                request_payload = json.loads(request.post_data or "{}")
+            except Exception:
+                request_payload = {}
+
+            try:
+                response_payload = json.loads(response_body)
+            except Exception:
+                response_payload = {}
+
+            start_record = {
+                "client_request_id": request_payload.get("client_request_id"),
+                "session_id": response_payload.get("session_id"),
+                "duplicate": response_payload.get("duplicate"),
+                "server_status": status,
+            }
+            state.setdefault("start_requests", []).append(start_record)
+
+            # Exercise the failure mode where the server commits the review,
+            # but an intermediary/browser receives no successful Start Review
+            # result. The browser must retain its client_request_id and recover
+            # the committed session on retry.
+            if state.get("fail_next_start_after_commit") and status == 200:
+                state["fail_next_start_after_commit"] = False
+                state["expected_503_console_errors"] = (
+                    state.get("expected_503_console_errors", 0) + 1
+                )
+                start_record["browser_status"] = 503
+                route.fulfill(
+                    status=503,
+                    content_type="application/json",
+                    body=json.dumps({
+                        "detail": "Simulated post-commit Start Review gateway failure"
+                    }),
+                )
+                return
+
+            start_record["browser_status"] = status
+
         if path == "/health" and status == 200:
             health = json.loads(response_body)
             health["semantic_coaching_ready"] = True
@@ -127,6 +169,12 @@ def main() -> int:
 
     errors: list[str] = []
     checks: list[str] = []
+    proxy_state = {
+        "start_requests": [],
+        "fail_next_start_after_commit": False,
+        "expected_503_console_errors": 0,
+    }
+    proxy = api_proxy(args.base_url, proxy_state)
 
     def passed(name: str) -> None:
         checks.append(name)
@@ -140,17 +188,36 @@ def main() -> int:
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
         page.set_default_timeout(8000)
         page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
-        page.on("console", lambda m: errors.append(f"console error: {m.text}") if m.type == "error" else None)
+
+        def record_console(message):
+            if message.type != "error":
+                return
+
+            text = message.text
+            intentional_503 = (
+                "Failed to load resource" in text
+                and "503" in text
+                and proxy_state.get("expected_503_console_errors", 0) > 0
+            )
+
+            if intentional_503:
+                proxy_state["expected_503_console_errors"] -= 1
+                return
+
+            errors.append(f"console error: {text}")
+
+        page.on("console", record_console)
 
         if args.inline_static:
-            page.route("**/*", api_proxy(args.base_url))
+            page.route("**/*", proxy)
             page.set_content(load_inline_html(), wait_until="networkidle")
         else:
             # Direct mode still intercepts health and conversation calls so this suite
             # never spends OpenAI tokens.
-            page.route("**/health", api_proxy(args.base_url))
-            page.route("**/api/v1/reviews/*/respond", api_proxy(args.base_url))
-            page.route("**/api/v1/reviews/*/coach", api_proxy(args.base_url))
+            page.route("**/health", proxy)
+            page.route("**/api/v1/reviews/*/respond", proxy)
+            page.route("**/api/v1/reviews/*/coach", proxy)
+            page.route("**/api/v1/reviews/start", proxy)
             page.goto(args.base_url, wait_until="networkidle")
         page.wait_for_timeout(600)
 
@@ -296,6 +363,96 @@ def main() -> int:
         page.locator("#reviewHomeButton").click(); page.wait_for_timeout(100)
         require(page.locator("#viewTitle").inner_text() == "Engineering Review Room", "Start New Review did not return to Review Room")
         passed("review history -> prior session -> new review home")
+
+        # Start Review network/gateway recovery:
+        # 1. The server commits the first request.
+        # 2. The browser receives a simulated post-commit 503.
+        # 3. The browser retains the logical request ID.
+        # 4. Retry uses the same ID and recovers the same ReviewSession.
+        start_record_index = len(proxy_state["start_requests"])
+        proxy_state["fail_next_start_after_commit"] = True
+
+        page.locator("#newReview").click()
+        page.wait_for_timeout(450)
+
+        require(
+            not page.locator("#conversationControls").is_visible(),
+            "failed Start Review response incorrectly activated a session",
+        )
+
+        require(
+            len(proxy_state["start_requests"][start_record_index:]) == 1,
+            "first failed browser response did not correspond to exactly one committed Start Review request",
+        )
+        require(
+            proxy_state["start_requests"][start_record_index]["client_request_id"],
+            "browser did not retain a logical Start Review request identity",
+        )
+
+        page.locator("#newReview").click()
+        page.wait_for_timeout(450)
+
+        recovery_records = proxy_state["start_requests"][start_record_index:]
+        require(
+            len(recovery_records) == 2,
+            f"expected exactly two Start Review attempts, got {len(recovery_records)}",
+        )
+
+        first_start, retry_start = recovery_records
+
+        require(
+            first_start["server_status"] == 200
+            and first_start["browser_status"] == 503,
+            "first Start Review did not exercise the post-commit failure path",
+        )
+        require(
+            first_start["client_request_id"],
+            "browser did not supply client_request_id on first Start Review",
+        )
+        require(
+            retry_start["client_request_id"] == first_start["client_request_id"],
+            "browser generated a new client_request_id instead of retrying the logical request",
+        )
+        require(
+            retry_start["session_id"] == first_start["session_id"],
+            "Start Review retry created or returned a different ReviewSession",
+        )
+        require(
+            retry_start["duplicate"] is True,
+            "server did not identify the recovered Start Review as an idempotent retry",
+        )
+        require(
+            page.locator("#conversationControls").is_visible(),
+            "recovered Start Review did not activate the original session",
+        )
+        page.locator("#completeReview").click()
+        page.wait_for_timeout(150)
+        page.locator("#reviewHomeButton").click()
+        page.wait_for_timeout(120)
+
+        fresh_start_index = len(proxy_state["start_requests"])
+        page.locator("#newReview").click()
+        page.wait_for_timeout(450)
+
+        fresh_records = proxy_state["start_requests"][fresh_start_index:]
+        require(
+            len(fresh_records) == 1,
+            f"expected one later Start Review request, got {len(fresh_records)}",
+        )
+        require(
+            fresh_records[0]["client_request_id"]
+            != first_start["client_request_id"],
+            "successful recovery did not clear the retained Start Review request identity",
+        )
+        require(
+            fresh_records[0]["duplicate"] is False,
+            "a genuinely new Start Review was incorrectly treated as a duplicate",
+        )
+
+        passed("Start Review post-commit retry recovers original session")
+
+        page.locator("#completeReview").click()
+        page.wait_for_timeout(150)
 
         # Instructor persona: every authorized nav opens without a JS failure.
         page.locator("#devPersona").select_option("instructor")

@@ -68,6 +68,46 @@ function closeArtifact(){$('#artifactOverlay').classList.add('hidden');artifactC
 function newReviewHome(message='Choose the kind of senior review you want to start.'){if(pending){toast('Wait for the current reviewer response to finish first.');return}saveDraft();sessionId=null;committed=false;document.body.classList.remove('review-session-active');selectedFindingIds.clear();requestedFindingId=null;pendingEntryContext=null;setComposerContext(null);reviewMode='board';$$('.review-choice').forEach(b=>{const yes=b.dataset.reviewMode==='board';b.classList.toggle('selected',yes);b.setAttribute('aria-pressed',String(yes))});$('#focusedReviewPanel').classList.add('hidden');$('#findingReviewPanel').classList.add('hidden');$('#reviewFocus').value='';els.response.value='';updateDraftHint();$('#reviewSessionPurpose').classList.add('hidden');$('#reviewHomeButton').classList.add('hidden');resetReview(message);els.newReview.onclick=startReviewAction;switchView('studio');requestAnimationFrame(()=>window.scrollTo({top:0,behavior:'auto'}))}
 function prepareEntryContext(ctx){pendingEntryContext=ctx;try{sessionStorage.setItem('etis.pendingReviewContext',JSON.stringify(ctx))}catch(e){} }
 function clearEntryContext(){pendingEntryContext=null;try{sessionStorage.removeItem('etis.pendingReviewContext')}catch(e){}}
+let pendingReviewStartRequest=null;
+function reviewStartRequestKey(){return 'etis.pendingReviewStart'}
+function reviewStartPayload(body){const copy={...body};delete copy.client_request_id;return copy}
+function reviewStartRequestId(body){
+  const serialized=JSON.stringify(reviewStartPayload(body));
+
+  if(
+    pendingReviewStartRequest?.payload===serialized
+    && pendingReviewStartRequest?.id
+  ){
+    return pendingReviewStartRequest.id;
+  }
+
+  try{
+    const raw=sessionStorage.getItem(reviewStartRequestKey());
+    if(raw){
+      const saved=JSON.parse(raw);
+      if(saved?.payload===serialized&&saved?.id){
+        pendingReviewStartRequest=saved;
+        return saved.id;
+      }
+    }
+  }catch(_){}
+
+  const saved={id:turnId(),payload:serialized,ts:Date.now()};
+  pendingReviewStartRequest=saved;
+
+  try{
+    sessionStorage.setItem(
+      reviewStartRequestKey(),
+      JSON.stringify(saved)
+    );
+  }catch(_){}
+
+  return saved.id;
+}
+function clearReviewStartRequest(){
+  pendingReviewStartRequest=null;
+  try{sessionStorage.removeItem(reviewStartRequestKey())}catch(_){}
+}
 
 function applyRoleShell(){const instructor=appRole==='instructor';$('#studentNav').classList.toggle('hidden',instructor);$('#instructorNav').classList.toggle('hidden',!instructor);if(instructor){const limited=authenticatedUser&&['ta','reviewer'].includes(authenticatedUser.role);$$('#instructorNav .nav').forEach(n=>{if(['semesterSetup','accessSettings'].includes(n.dataset.view))n.classList.toggle('hidden',limited)})}setIdentity(currentView);if(instructor&&!String(currentView).startsWith('instructor')&&!['semesterSetup','accessSettings'].includes(currentView))switchView('instructor');if(!instructor&&(String(currentView).startsWith('instructor')||['semesterSetup','accessSettings'].includes(currentView)))switchView('studio')}
 $$('.nav').forEach(b=>b.onclick=()=>switchView(b.dataset.view));
@@ -103,7 +143,7 @@ async function loadHistoryPage(){await loadHistory();$('#reviewHistoryPage').inn
 
 function updateRepoMode(){const repo=els.repo.value.trim();const b=$('#repoMode');b.innerHTML=repo==='etis-framework/comp330-f26-starter-kit'?'<span class="status green"></span> Public starter-kit acceptance test':'<span class="status amber"></span> Repository selected'}
 els.repo.addEventListener('input',updateRepoMode);
-async function beginReview(mode='board',opts={}){if(!semanticReady){openHelp('semantic-required');return}if(pending)return;if(sessionId){toast('Complete or pause the current review before starting another.');return}reviewMode=mode;requestedFindingId=opts.finding_id||null;els.newReview.disabled=true;els.newReview.textContent='Preparing review…';$('#reviewStatusLabel').textContent='Preparing review';$('#reviewStatus').classList.remove('hidden');$('#reviewStatusText').textContent='Freezing repository evidence and selecting a small number of high-value review themes.';setPending(true,'Freezing the repository snapshot and evaluating only the evidence relevant to this phase…');try{const seed=await ensureDemo();const sc=studentContext?.sections?.[0],teamId=sc?.team?.id||seed.team_id,userId=studentContext?.user?.id||seed.user_id,repo=sc?.team?.repo_full_name||els.repo.value.trim();const body={team_id:teamId,phase_id:currentPhase,user_id:userId,repo_full_name:repo||null,mode:mode==='board'?'board_review':mode==='focused'?'focused_review':'finding_review',focus:opts.focus||null,finding_id:opts.finding_id||null,finding_ids:opts.finding_ids||[],entry_intent:opts.entry_intent||pendingEntryContext?.entry_intent||'review',source_view:opts.source_view||pendingEntryContext?.source_view||'studio'};const r=await fetch('/api/v1/reviews/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const payload=await r.json();if(!r.ok)throw new Error(payload.detail||r.statusText);const d=payload;sessionId=d.session_id;committed=false;document.body.classList.add('review-session-active');renderSessionPurpose(mode,{...opts,entry_intent:body.entry_intent,source_view:body.source_view},d);clearEntryContext();renderChallengeBrief(d.challenge);renderEvidence(d.evidence);els.transcript.innerHTML='';renderStrengths(d.evidence);$('#challengeTitle').textContent=d.challenge.title;addTurn('reviewer',d.challenge.lens,d.challenge.opening_text||d.challenge.prompt,{level:d.challenge.level,reviewer:d.challenge.reviewer,kind:'opening challenge'});$('#defense').textContent='In discussion';$('#depth').textContent='1 move at a time';$('#reviewStatusLabel').textContent=mode==='focused'?'Focused review in progress':mode==='finding'?'Finding review in progress':'Board review in progress';$('#completeReview').classList.remove('hidden');$('#conversationControls').classList.remove('hidden');$('#conversationReadyNote')?.classList.remove('hidden');const reused=d.evidence_cache_reused?' · evidence analysis reused':'';$('#reviewStatusText').textContent=`Session #${sessionId} · ${currentPhase} · ${d.evidence.repo_full_name}@${String(d.evidence.commit_sha).slice(0,8)}${reused}`;$('#coachPanel').classList.add('hidden');$('#commitBar').classList.add('hidden');setMode('decision');restoreDraft();await loadHistory()}catch(e){$('#reviewStatus').classList.add('hidden');toast('Could not start review: '+e.message);document.body.classList.remove('review-session-active');sessionId=null;$('#conversationControls').classList.add('hidden');$('#conversationReadyNote')?.classList.add('hidden')}finally{setPending(false);updateStartReviewButton();els.response.focus()}}
+async function beginReview(mode='board',opts={}){if(!semanticReady){openHelp('semantic-required');return}if(pending)return;if(sessionId){toast('Complete or pause the current review before starting another.');return}reviewMode=mode;requestedFindingId=opts.finding_id||null;els.newReview.disabled=true;els.newReview.textContent='Preparing review…';$('#reviewStatusLabel').textContent='Preparing review';$('#reviewStatus').classList.remove('hidden');$('#reviewStatusText').textContent='Freezing repository evidence and selecting a small number of high-value review themes.';setPending(true,'Freezing the repository snapshot and evaluating only the evidence relevant to this phase…');try{const seed=await ensureDemo();const sc=studentContext?.sections?.[0],teamId=sc?.team?.id||seed.team_id,userId=studentContext?.user?.id||seed.user_id,repo=sc?.team?.repo_full_name||els.repo.value.trim();const body={team_id:teamId,phase_id:currentPhase,user_id:userId,repo_full_name:repo||null,mode:mode==='board'?'board_review':mode==='focused'?'focused_review':'finding_review',focus:opts.focus||null,finding_id:opts.finding_id||null,finding_ids:opts.finding_ids||[],entry_intent:opts.entry_intent||pendingEntryContext?.entry_intent||'review',source_view:opts.source_view||pendingEntryContext?.source_view||'studio'};body.client_request_id=reviewStartRequestId(body);const r=await fetch('/api/v1/reviews/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const payload=await r.json();if(!r.ok)throw new Error(payload.detail||r.statusText);const d=payload;sessionId=d.session_id;clearReviewStartRequest();committed=false;document.body.classList.add('review-session-active');renderSessionPurpose(mode,{...opts,entry_intent:body.entry_intent,source_view:body.source_view},d);clearEntryContext();renderChallengeBrief(d.challenge);renderEvidence(d.evidence);els.transcript.innerHTML='';renderStrengths(d.evidence);$('#challengeTitle').textContent=d.challenge.title;addTurn('reviewer',d.challenge.lens,d.challenge.opening_text||d.challenge.prompt,{level:d.challenge.level,reviewer:d.challenge.reviewer,kind:'opening challenge'});$('#defense').textContent='In discussion';$('#depth').textContent='1 move at a time';$('#reviewStatusLabel').textContent=mode==='focused'?'Focused review in progress':mode==='finding'?'Finding review in progress':'Board review in progress';$('#completeReview').classList.remove('hidden');$('#conversationControls').classList.remove('hidden');$('#conversationReadyNote')?.classList.remove('hidden');const reused=d.evidence_cache_reused?' · evidence analysis reused':'';$('#reviewStatusText').textContent=`Session #${sessionId} · ${currentPhase} · ${d.evidence.repo_full_name}@${String(d.evidence.commit_sha).slice(0,8)}${reused}`;$('#coachPanel').classList.add('hidden');$('#commitBar').classList.add('hidden');setMode('decision');restoreDraft();await loadHistory()}catch(e){$('#reviewStatus').classList.add('hidden');toast('Could not start review: '+e.message);document.body.classList.remove('review-session-active');sessionId=null;$('#conversationControls').classList.add('hidden');$('#conversationReadyNote')?.classList.add('hidden')}finally{setPending(false);updateStartReviewButton();els.response.focus()}}
 
 function insertText(text){
   if(!els.response)return;

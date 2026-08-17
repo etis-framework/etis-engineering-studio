@@ -1356,3 +1356,182 @@ def test_client_turn_id_cannot_be_reused_across_review_operations():
         "A client_turn_id already owned by an evidence dispute must not "
         "be interpreted as a duplicate conversation turn"
     )
+
+
+def test_identical_review_start_retry_returns_same_session_without_repreparing(
+    monkeypatch,
+):
+    """
+    Retrying the same logical Start Review request must return the already
+    created ReviewSession.
+
+    The durable client_request_id must prevent a network retry from creating a
+    second review session, a second opening turn, or repeating evidence/reviewer
+    preparation.
+    """
+    from fastapi.testclient import TestClient
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.main import app
+    from apps.api.app.models import ReviewSession, ReviewTurn
+    from apps.api.app.routers import reviews as reviews_router
+
+    client = TestClient(app)
+
+    seed = client.post("/api/v1/dev/seed")
+    assert seed.status_code == 200
+    seeded = seed.json()
+
+    prepare_calls = 0
+    original_prepare = reviews_router.orchestrator.prepare
+
+    def observed_prepare(*args, **kwargs):
+        nonlocal prepare_calls
+        prepare_calls += 1
+        return original_prepare(*args, **kwargs)
+
+    monkeypatch.setattr(
+        reviews_router.orchestrator,
+        "prepare",
+        observed_prepare,
+    )
+
+    request_body = {
+        "team_id": seeded["team_id"],
+        "user_id": seeded["user_id"],
+        "phase_id": "A1",
+        "mode": "board_review",
+        "client_request_id": "review-start-retry-001",
+    }
+
+    first = client.post(
+        "/api/v1/reviews/start",
+        json=request_body,
+    )
+    assert first.status_code == 200, first.text
+    first_payload = first.json()
+    assert first_payload.get("duplicate") is False
+
+    db = SessionLocal()
+    try:
+        sessions_after_first = (
+            db.query(ReviewSession)
+            .filter_by(team_id=seeded["team_id"])
+            .count()
+        )
+        opening_turns_after_first = (
+            db.query(ReviewTurn)
+            .filter_by(session_id=first_payload["session_id"])
+            .count()
+        )
+    finally:
+        db.close()
+
+    second = client.post(
+        "/api/v1/reviews/start",
+        json=request_body,
+    )
+    assert second.status_code == 200, second.text
+    second_payload = second.json()
+
+    assert second_payload["session_id"] == first_payload["session_id"], (
+        "The same client_request_id must return the original ReviewSession"
+    )
+    assert second_payload.get("duplicate") is True
+    assert prepare_calls == 1, (
+        "A durable Start Review retry must not repeat evidence/reviewer "
+        "preparation"
+    )
+
+    db = SessionLocal()
+    try:
+        sessions_after_second = (
+            db.query(ReviewSession)
+            .filter_by(team_id=seeded["team_id"])
+            .count()
+        )
+        opening_turns_after_second = (
+            db.query(ReviewTurn)
+            .filter_by(session_id=first_payload["session_id"])
+            .count()
+        )
+
+        assert sessions_after_second == sessions_after_first
+        assert opening_turns_after_second == opening_turns_after_first
+    finally:
+        db.close()
+
+
+def test_review_session_schema_enforces_start_request_idempotency():
+    """
+    Start Review idempotency must be database-enforced.
+
+    client_request_id remains nullable for backward-compatible API callers, but
+    when supplied it must identify at most one ReviewSession for a team.
+    """
+    from apps.api.app.models import ReviewSession
+
+    table = ReviewSession.__table__
+
+    assert "client_request_id" in table.c, (
+        "ReviewSession needs a first-class client_request_id column"
+    )
+
+    client_request_id = table.c.client_request_id
+    assert client_request_id.nullable is True
+    assert getattr(client_request_id.type, "length", None) == 120
+
+    unique_columns = _unique_column_sets(table)
+
+    assert frozenset(
+        {"team_id", "client_request_id"}
+    ) in unique_columns, (
+        "ReviewSession must enforce one client_request_id per team"
+    )
+
+
+def test_review_start_request_id_cannot_be_reused_for_different_payload():
+    """
+    A Start Review idempotency key belongs to exactly one logical request.
+
+    Reusing the same client_request_id for a different review mode, phase,
+    focus, finding selection, or other effective Start Review input must fail
+    closed rather than returning or creating an unrelated session.
+    """
+    from fastapi.testclient import TestClient
+
+    from apps.api.app.main import app
+
+    client = TestClient(app)
+
+    seed = client.post("/api/v1/dev/seed")
+    assert seed.status_code == 200
+    seeded = seed.json()
+
+    request_id = "review-start-payload-collision-001"
+
+    first = client.post(
+        "/api/v1/reviews/start",
+        json={
+            "team_id": seeded["team_id"],
+            "user_id": seeded["user_id"],
+            "phase_id": "A1",
+            "mode": "board_review",
+            "client_request_id": request_id,
+        },
+    )
+    assert first.status_code == 200, first.text
+
+    second = client.post(
+        "/api/v1/reviews/start",
+        json={
+            "team_id": seeded["team_id"],
+            "user_id": seeded["user_id"],
+            "phase_id": "A1",
+            "mode": "focused_review",
+            "focus": "A different logical review request",
+            "client_request_id": request_id,
+        },
+    )
+
+    assert second.status_code == 409, second.text
