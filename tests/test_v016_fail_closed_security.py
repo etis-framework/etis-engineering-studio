@@ -3718,3 +3718,121 @@ def test_studio_csrf_fetch_wrapper_uses_document_base_uri():
     ).read_text(encoding="utf-8")
 
     assert "document.baseURI" in javascript
+
+
+def test_application_responses_include_browser_security_headers():
+    """
+    Studio responses must carry a conservative browser security baseline.
+
+    HSTS is environment-dependent and is tested separately because local
+    development intentionally runs over HTTP.
+    """
+    response = client.get("/")
+
+    assert response.status_code == 200
+
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+
+    permissions = response.headers["Permissions-Policy"]
+    assert "camera=()" in permissions
+    assert "microphone=()" in permissions
+    assert "geolocation=()" in permissions
+
+    csp = response.headers["Content-Security-Policy"]
+    assert "default-src 'self'" in csp
+    assert "script-src 'self'" in csp
+    assert "style-src 'self'" in csp
+    assert "img-src 'self' data:" in csp
+    assert "connect-src 'self'" in csp
+    assert "object-src 'none'" in csp
+    assert "base-uri 'self'" in csp
+    assert "frame-ancestors 'none'" in csp
+    assert "form-action 'self'" in csp
+
+
+def test_hsts_is_enabled_in_production_but_not_development(monkeypatch):
+    """
+    Production responses must require HTTPS on future browser requests.
+
+    Local development intentionally uses plain HTTP, so HSTS must not be
+    emitted there.
+    """
+    from apps.api.app.config import get_settings
+
+    monkeypatch.setenv("ETIS_ENV", "production")
+    get_settings.cache_clear()
+
+    try:
+        production = client.get("/")
+
+        assert production.status_code == 200
+        assert (
+            production.headers["Strict-Transport-Security"]
+            == "max-age=31536000; includeSubDomains"
+        )
+
+        monkeypatch.setenv("ETIS_ENV", "development")
+        get_settings.cache_clear()
+
+        development = client.get("/")
+
+        assert development.status_code == 200
+        assert "Strict-Transport-Security" not in development.headers
+
+    finally:
+        get_settings.cache_clear()
+
+
+def test_csrf_rejection_still_includes_browser_security_headers():
+    """
+    Security headers must remain present even when a request is rejected
+    before reaching an endpoint.
+
+    A fail-closed CSRF response must not accidentally bypass the browser
+    hardening applied to normal responses.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import User
+    from apps.api.app.services.auth import COOKIE_NAME, create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    db = SessionLocal()
+    try:
+        user = User(
+            github_login=f"csrf-headers-{suffix}",
+            display_name="CSRF Header Test User",
+            role="student",
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        user_id = user.id
+    finally:
+        db.close()
+
+    token = create_session_token(
+        user_id,
+        f"csrf-headers-{suffix}@luc.edu",
+        "student",
+    )
+
+    client.cookies.set(COOKIE_NAME, token)
+
+    try:
+        response = client.post(
+            "/auth/logout",
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 403
+        assert response.headers["X-Content-Type-Options"] == "nosniff"
+        assert response.headers["X-Frame-Options"] == "DENY"
+        assert "default-src 'self'" in response.headers["Content-Security-Policy"]
+
+    finally:
+        client.cookies.delete(COOKIE_NAME)

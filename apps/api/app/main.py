@@ -26,6 +26,28 @@ app = FastAPI(
 
 CSRF_PROTECTED_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
+CONTENT_SECURITY_POLICY = "; ".join(
+    [
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self'",
+        "img-src 'self' data:",
+        "connect-src 'self'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "frame-ancestors 'none'",
+        "form-action 'self'",
+    ]
+)
+
+PERMISSIONS_POLICY = ", ".join(
+    [
+        "camera=()",
+        "microphone=()",
+        "geolocation=()",
+    ]
+)
+
 
 @app.middleware("http")
 async def enforce_cookie_csrf(request: Request, call_next):
@@ -51,6 +73,31 @@ async def enforce_cookie_csrf(request: Request, call_next):
                 )
 
     return await call_next(request)
+
+
+@app.middleware("http")
+async def add_browser_security_headers(request: Request, call_next):
+    """
+    Apply the browser security baseline consistently to Studio responses.
+
+    HSTS is intentionally handled separately because local development uses
+    plain HTTP while production is expected to terminate TLS.
+    """
+    response = await call_next(request)
+
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = PERMISSIONS_POLICY
+    response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
+
+    if get_settings().etis_env == "production":
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+
+    return response
+
 
 app.include_router(course.router)
 app.include_router(reviews.router)
