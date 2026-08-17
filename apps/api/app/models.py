@@ -117,12 +117,26 @@ class ReviewTurn(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     session_id: Mapped[int] = mapped_column(ForeignKey("review_sessions.id", ondelete="CASCADE"), index=True)
     sequence: Mapped[int] = mapped_column(Integer)
+    client_turn_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     actor: Mapped[str] = mapped_column(String(50))
     lens: Mapped[str] = mapped_column(String(80), default="")
     content: Mapped[str] = mapped_column(Text)
     evidence_refs_json: Mapped[str] = mapped_column(Text, default="[]")
     signals_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "session_id",
+            "sequence",
+            name="uq_review_turns_session_sequence",
+        ),
+        UniqueConstraint(
+            "session_id",
+            "client_turn_id",
+            name="uq_review_turns_session_client_turn_id",
+        ),
+    )
 
 
 class InstructorNote(Base):

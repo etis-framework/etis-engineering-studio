@@ -3,6 +3,7 @@ import threading
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -57,6 +58,57 @@ def _session_lock(session_id: int):
         return _session_locks.setdefault(session_id, threading.Lock())
 
 
+def _review_session_for_update_stmt(session_id: int):
+    """
+    Build the authoritative database row-lock statement for review mutation.
+
+    PostgreSQL SELECT ... FOR UPDATE serializes mutations to the same review
+    session across independent application replicas. populate_existing forces
+    SQLAlchemy to refresh an already-loaded ReviewSession after any lock wait,
+    preventing post-lock logic from continuing with stale pre-wait state.
+    """
+    return (
+        select(ReviewSession)
+        .where(ReviewSession.id == session_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+
+def _evidence_snapshot_for_update_stmt(snapshot_id: int):
+    """
+    Build the authoritative database row-lock statement for finding-state
+    mutation shared across review sessions.
+
+    Multiple review sessions may reference the same immutable evidence snapshot.
+    Locking the snapshot row serializes updates to snapshot-scoped finding state
+    across those independent sessions.
+    """
+    return (
+        select(EvidenceSnapshot)
+        .where(EvidenceSnapshot.id == snapshot_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+
+def _team_for_update_stmt(team_id: int):
+    """
+    Build the authoritative database row-lock statement for team-scoped
+    review-start and frozen-snapshot establishment.
+
+    PostgreSQL SELECT ... FOR UPDATE ensures that only one application replica
+    at a time can decide whether a team's frozen evidence snapshot should be
+    reused or created.
+    """
+    return (
+        select(Team)
+        .where(Team.id == team_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+
 def _challenge_from_state(state: dict) -> Challenge:
     raw = dict(state["challenge"])
     raw.pop("reviewer", None)
@@ -74,25 +126,46 @@ def _safe_json(value, default):
 def _idempotent_result(db: Session, session_id: int, client_turn_id: str | None):
     if not client_turn_id:
         return None
-    turns = db.query(ReviewTurn).filter_by(session_id=session_id).order_by(ReviewTurn.sequence).all()
-    for idx, turn in enumerate(turns):
-        if turn.actor != "student":
-            continue
-        signals = _safe_json(turn.signals_json, {})
-        if signals.get("client_turn_id") == client_turn_id:
-            reviewer = next((x for x in turns[idx + 1:] if x.actor == "reviewer"), None)
-            if reviewer:
-                rs = _safe_json(reviewer.signals_json, {})
-                return {
-                    "duplicate": True,
-                    "follow_up": {
-                        "text": reviewer.content, "lens": reviewer.lens, "reviewer": rs.get("reviewer"),
-                        "kind": rs.get("kind"), "provider": rs.get("provider"), "model": rs.get("model"),
-                        "target_move": rs.get("target_move"), "guidance_refs": rs.get("guidance_refs", []),
-                        "teach_back": rs.get("teach_back", False),
-                    },
-                }
-    return None
+
+    student_turn = (
+        db.query(ReviewTurn)
+        .filter_by(
+            session_id=session_id,
+            client_turn_id=client_turn_id,
+        )
+        .first()
+    )
+    if not student_turn:
+        return None
+
+    reviewer = (
+        db.query(ReviewTurn)
+        .filter(
+            ReviewTurn.session_id == session_id,
+            ReviewTurn.sequence > student_turn.sequence,
+            ReviewTurn.actor == "reviewer",
+        )
+        .order_by(ReviewTurn.sequence)
+        .first()
+    )
+    if not reviewer:
+        return None
+
+    rs = _safe_json(reviewer.signals_json, {})
+    return {
+        "duplicate": True,
+        "follow_up": {
+            "text": reviewer.content,
+            "lens": reviewer.lens,
+            "reviewer": rs.get("reviewer"),
+            "kind": rs.get("kind"),
+            "provider": rs.get("provider"),
+            "model": rs.get("model"),
+            "target_move": rs.get("target_move"),
+            "guidance_refs": rs.get("guidance_refs", []),
+            "teach_back": rs.get("teach_back", False),
+        },
+    }
 
 
 def _add_reviewer_turn(db: Session, session_id: int, sequence: int, payload: dict):
@@ -346,6 +419,25 @@ def _prior_student_review_context(db: Session, user_id: int, team_id: int, phase
 def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db)):
     ctx = auth_context(request)
     team = require_team_access(db, ctx, req.team_id)
+
+    # Frozen-snapshot establishment is team-scoped. Serialize the entire
+    # snapshot cache check and evidence-preparation transaction on the Team row
+    # so independent application replicas cannot simultaneously decide that
+    # the same team/phase/commit needs a new frozen snapshot.
+    locked_team = (
+        db.execute(_team_for_update_stmt(team.id))
+        .scalar_one_or_none()
+    )
+    if not locked_team:
+        raise HTTPException(404, "Team not found")
+
+    team = locked_team
+
+    # Authorization may have changed while waiting for another replica's Team
+    # transaction. Re-evaluate current database-backed identity and access
+    # before reading repository configuration or preparing evidence.
+    ctx = auth_context(request)
+    team = require_team_access(db, ctx, team.id)
 
     # Selecting another person as the subject of a Review Room session is
     # privileged authority. Derive that authority from current database state,
@@ -642,10 +734,30 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
     if not lock.acquire(blocking=False):
         raise HTTPException(409, "The reviewer is still responding to the previous turn. Please wait for that response.")
     try:
+        # Same-process locking is only a fast-fail optimization. The database
+        # row lock is the authoritative serializer across application replicas.
+        locked_session = (
+            db.execute(_review_session_for_update_stmt(session_id))
+            .scalar_one_or_none()
+        )
+        if not locked_session:
+            raise HTTPException(404, "Review session not found")
+
+        session = locked_session
+        _authorize_session(db, session, auth_context(request))
+        if session.status != "active":
+            raise HTTPException(409, "Review session is not active")
+
+        # Re-check idempotency while holding the authoritative database lock.
         duplicate = _idempotent_result(db, session_id, req.client_turn_id)
         if duplicate:
             state = _safe_json(session.challenge_state_json, {})
-            return {**duplicate, "evaluation": state.get("evaluation"), "reasoning_state": state.get("reasoning_state", {})}
+            return {
+                **duplicate,
+                "evaluation": state.get("evaluation"),
+                "reasoning_state": state.get("reasoning_state", {}),
+            }
+
         state = _safe_json(session.challenge_state_json, {})
         challenge = _challenge_from_state(state)
         turns = db.query(ReviewTurn).filter_by(session_id=session_id).order_by(ReviewTurn.sequence).all()
@@ -659,7 +771,8 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
             student_name=student.display_name if student else "",
         )
         db.add(ReviewTurn(
-            session_id=session_id, sequence=sequence, actor="student", lens="conversation", content=req.question,
+            session_id=session_id, sequence=sequence, client_turn_id=req.client_turn_id,
+            actor="student", lens="conversation", content=req.question,
             evidence_refs_json="[]", signals_json=json.dumps({
                 "kind": "student_conversation", "selected_intent": "clarify",
                 "interpreted_intent": reply.get("interpreted_intent"), "client_turn_id": req.client_turn_id,
@@ -695,10 +808,30 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
     if not lock.acquire(blocking=False):
         raise HTTPException(409, "The reviewer is still responding to the previous turn. Please wait for that response.")
     try:
+        # Same-process locking is only a fast-fail optimization. The database
+        # row lock is the authoritative serializer across application replicas.
+        locked_session = (
+            db.execute(_review_session_for_update_stmt(session_id))
+            .scalar_one_or_none()
+        )
+        if not locked_session:
+            raise HTTPException(404, "Review session not found")
+
+        session = locked_session
+        _authorize_session(db, session, auth_context(request))
+        if session.status != "active":
+            raise HTTPException(409, "Review session is not active")
+
+        # Re-check idempotency while holding the authoritative database lock.
         duplicate = _idempotent_result(db, session_id, req.client_turn_id)
         if duplicate:
             state = _safe_json(session.challenge_state_json, {})
-            return {**duplicate, "evaluation": state.get("evaluation"), "reasoning_state": state.get("reasoning_state", {})}
+            return {
+                **duplicate,
+                "evaluation": state.get("evaluation"),
+                "reasoning_state": state.get("reasoning_state", {}),
+            }
+
         state = _safe_json(session.challenge_state_json, {})
         challenge = _challenge_from_state(state)
         level = min(state.get("coaching_level", 0) + 1, 5)
@@ -712,7 +845,8 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
         )
         sequence = (turns[-1].sequence if turns else 0) + 1
         db.add(ReviewTurn(
-            session_id=session_id, sequence=sequence, actor="student", lens="conversation", content=text, evidence_refs_json="[]",
+            session_id=session_id, sequence=sequence, client_turn_id=req.client_turn_id,
+            actor="student", lens="conversation", content=text, evidence_refs_json="[]",
             signals_json=json.dumps({"kind": "student_coach_request", "selected_intent": "coach", "client_turn_id": req.client_turn_id}),
         ))
         _add_reviewer_turn(db, session_id, sequence + 1, reply)
@@ -747,11 +881,35 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
     if not lock.acquire(blocking=False):
         raise HTTPException(409, "The reviewer is still responding to the previous turn. Please wait for that response.")
     try:
-        # Check again after acquiring the lock in case an HTTP retry arrived as the first request completed.
+        # The process-local lock is only a same-process fast-fail optimization.
+        # Correctness across independent application replicas is enforced by
+        # the database row lock below.
+        locked_session = (
+            db.execute(_review_session_for_update_stmt(session_id))
+            .scalar_one_or_none()
+        )
+        if not locked_session:
+            raise HTTPException(404, "Review session not found")
+
+        session = locked_session
+
+        # Re-evaluate authorization and mutable session state after acquiring
+        # the database lock because another replica may have committed changes
+        # while this request was waiting.
+        _authorize_session(db, session, auth_context(request))
+        if session.status != "active":
+            raise HTTPException(409, "Review session is not active")
+
+        # Re-check the database idempotency key while holding the authoritative
+        # lock. A competing replica may have completed this logical turn first.
         duplicate = _idempotent_result(db, session_id, req.client_turn_id)
         if duplicate:
             state = _safe_json(session.challenge_state_json, {})
-            return {**duplicate, "evaluation": state.get("evaluation"), "turn_count": state.get("turn_count", 0)}
+            return {
+                **duplicate,
+                "evaluation": state.get("evaluation"),
+                "turn_count": state.get("turn_count", 0),
+            }
 
         state = _safe_json(session.challenge_state_json, {})
         challenge = _challenge_from_state(state)
@@ -769,7 +927,8 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
         )
 
         db.add(ReviewTurn(
-            session_id=session_id, sequence=sequence, actor="student", lens="conversation",
+            session_id=session_id, sequence=sequence, client_turn_id=req.client_turn_id,
+            actor="student", lens="conversation",
             content=req.response, evidence_refs_json=json.dumps(req.evidence_refs),
             signals_json=json.dumps({
                 **evaluation, "decision": req.decision, "selected_intent": req.intent,
@@ -798,50 +957,217 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
     if not session:
         raise HTTPException(404, "Review session not found")
     _authorize_session(db, session, auth_context(request))
-    state = _safe_json(session.challenge_state_json, {})
-    snapshot = db.get(EvidenceSnapshot, state.get("evidence_snapshot_id"))
-    evidence = _safe_json(snapshot.summary_json, {}) if snapshot else {}
-    path = req.path.strip().lstrip('/')
-    artifact = next((a for a in evidence.get("artifacts", []) if a.get("path") == path), None)
-    turns = db.query(ReviewTurn).filter_by(session_id=session_id).order_by(ReviewTurn.sequence).all()
-    sequence = (turns[-1].sequence if turns else 0) + 1
-    db.add(ReviewTurn(session_id=session_id, sequence=sequence, actor="student", lens="evidence_dispute", content=f"Evidence dispute: {path} — {req.explanation}", evidence_refs_json=json.dumps([f"PATH:{path}"]), signals_json=json.dumps({"kind": "evidence_dispute"})))
-    reviewer = reviewer_profile("evidence_auditor")
-    finding_id=req.finding_id or ((state.get("challenge") or {}).get("finding") or {}).get("id") or next(iter(state.get("requested_finding_ids") or []), state.get("requested_finding_id"))
-    if artifact:
-        text = (
-            f"Good catch. `{path}` is in the frozen snapshot, so the board should consider it. "
-            f"I see it as {artifact.get('provenance','UNKNOWN').lower().replace('_',' ')} evidence with quality `{artifact.get('quality','unknown')}`. "
-            "That may change the finding. I have recorded your dispute rather than treating the original review statement as unquestionable. "
-            "Now let's test whether the artifact actually supports the claim you say it supports."
+
+    lock = _session_lock(session_id)
+    if not lock.acquire(blocking=False):
+        raise HTTPException(
+            409,
+            "The reviewer is still responding to the previous turn. Please wait for that response.",
         )
-        disposition = "artifact_found"
-        if finding_id:
-            _upsert_finding_state(db,team_id=session.team_id,snapshot_id=snapshot.id,finding_id=finding_id,status="evidence_disputed",user_id=session.user_id,evidence_path=path,rationale=req.explanation)
-    else:
-        text = (
-            f"I checked the frozen snapshot used for this review and `{path}` is not in it. That does not prove the evidence never existed; "
-            "it means this review baseline cannot see it. If the repository changed after the snapshot, we should refresh evidence rather than argue from two different baselines."
+
+    try:
+        # Process-local locking is only a same-process fast-fail optimization.
+        # Database row locking provides authoritative serialization across
+        # independent application replicas.
+        locked_session = (
+            db.execute(_review_session_for_update_stmt(session_id))
+            .scalar_one_or_none()
         )
-        disposition = "not_in_snapshot"
-    payload = {"text": text, "lens": "evidence_auditor", "reviewer": reviewer, "provider": "deterministic", "kind": "evidence dispute", "evidence_refs": [f"PATH:{path}"]}
-    _add_reviewer_turn(db, session_id, sequence + 1, payload)
-    state.setdefault("evidence_disputes", []).append({"path": path, "explanation": req.explanation, "disposition": disposition, "at": datetime.now(timezone.utc).isoformat()})
-    state["turn_count"] = state.get("turn_count", 1) + 2
-    session.challenge_state_json = json.dumps(state)
-    db.commit()
-    return {"disposition": disposition, "artifact": artifact, "reply": payload}
+        if not locked_session:
+            raise HTTPException(404, "Review session not found")
+
+        session = locked_session
+
+        # Authorization and mutable state must be re-evaluated after waiting
+        # for another replica's transaction to finish.
+        _authorize_session(db, session, auth_context(request))
+        if session.status != "active":
+            raise HTTPException(409, "Review session is not active")
+
+        state = _safe_json(session.challenge_state_json, {})
+        snapshot_id = state.get("evidence_snapshot_id")
+        if not snapshot_id:
+            raise HTTPException(
+                409,
+                "No frozen snapshot is attached to this review",
+            )
+
+        # Evidence disputes can change ReviewFindingState, which is shared by
+        # every review session attached to the same frozen snapshot. Acquire
+        # the snapshot row lock after the session lock so transcript ordering
+        # and shared finding-state mutation are both serialized.
+        snapshot = (
+            db.execute(_evidence_snapshot_for_update_stmt(snapshot_id))
+            .scalar_one_or_none()
+        )
+        if not snapshot:
+            raise HTTPException(
+                409,
+                "No frozen snapshot is attached to this review",
+            )
+
+        # Authority may have changed while waiting for the snapshot lock.
+        _authorize_session(db, session, auth_context(request))
+
+        evidence = _safe_json(snapshot.summary_json, {})
+
+        path = req.path.strip().lstrip("/")
+        artifact = next(
+            (
+                a
+                for a in evidence.get("artifacts", [])
+                if a.get("path") == path
+            ),
+            None,
+        )
+
+        turns = (
+            db.query(ReviewTurn)
+            .filter_by(session_id=session_id)
+            .order_by(ReviewTurn.sequence)
+            .all()
+        )
+        sequence = (turns[-1].sequence if turns else 0) + 1
+
+        db.add(
+            ReviewTurn(
+                session_id=session_id,
+                sequence=sequence,
+                actor="student",
+                lens="evidence_dispute",
+                content=(
+                    f"Evidence dispute: {path} — {req.explanation}"
+                ),
+                evidence_refs_json=json.dumps([f"PATH:{path}"]),
+                signals_json=json.dumps(
+                    {"kind": "evidence_dispute"}
+                ),
+            )
+        )
+
+        reviewer = reviewer_profile("evidence_auditor")
+        finding_id = (
+            req.finding_id
+            or (
+                (state.get("challenge") or {}).get("finding") or {}
+            ).get("id")
+            or next(
+                iter(state.get("requested_finding_ids") or []),
+                state.get("requested_finding_id"),
+            )
+        )
+
+        if artifact:
+            text = (
+                f"Good catch. `{path}` is in the frozen snapshot, so the board should consider it. "
+                f"I see it as {artifact.get('provenance','UNKNOWN').lower().replace('_',' ')} "
+                f"evidence with quality `{artifact.get('quality','unknown')}`. "
+                "That may change the finding. I have recorded your dispute rather than treating "
+                "the original review statement as unquestionable. "
+                "Now let's test whether the artifact actually supports the claim you say it supports."
+            )
+            disposition = "artifact_found"
+
+            if finding_id:
+                _upsert_finding_state(
+                    db,
+                    team_id=session.team_id,
+                    snapshot_id=snapshot.id,
+                    finding_id=finding_id,
+                    status="evidence_disputed",
+                    user_id=session.user_id,
+                    evidence_path=path,
+                    rationale=req.explanation,
+                )
+        else:
+            text = (
+                f"I checked the frozen snapshot used for this review and `{path}` is not in it. "
+                "That does not prove the evidence never existed; it means this review baseline "
+                "cannot see it. If the repository changed after the snapshot, we should refresh "
+                "evidence rather than argue from two different baselines."
+            )
+            disposition = "not_in_snapshot"
+
+        payload = {
+            "text": text,
+            "lens": "evidence_auditor",
+            "reviewer": reviewer,
+            "provider": "deterministic",
+            "kind": "evidence dispute",
+            "evidence_refs": [f"PATH:{path}"],
+        }
+
+        _add_reviewer_turn(
+            db,
+            session_id,
+            sequence + 1,
+            payload,
+        )
+
+        state.setdefault("evidence_disputes", []).append(
+            {
+                "path": path,
+                "explanation": req.explanation,
+                "disposition": disposition,
+                "at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        state["turn_count"] = state.get("turn_count", 1) + 2
+        session.challenge_state_json = json.dumps(state)
+
+        db.commit()
+
+        return {
+            "disposition": disposition,
+            "artifact": artifact,
+            "reply": payload,
+        }
+    finally:
+        lock.release()
+
 
 
 @router.post("/{session_id}/findings/{finding_id}/disposition")
-def finding_disposition(session_id:int, finding_id:str, req:FindingDispositionRequest, request:Request, db:Session=Depends(get_db)):
-    session=db.get(ReviewSession,session_id)
-    if not session: raise HTTPException(404,"Review session not found")
-    ctx=auth_context(request)
+def finding_disposition(
+    session_id: int,
+    finding_id: str,
+    req: FindingDispositionRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    session = db.get(ReviewSession, session_id)
+    if not session:
+        raise HTTPException(404, "Review session not found")
+
+    ctx = auth_context(request)
     _authorize_session(db, session, ctx)
-    state=_safe_json(session.challenge_state_json,{})
-    snapshot=db.get(EvidenceSnapshot,state.get("evidence_snapshot_id"))
-    if not snapshot: raise HTTPException(409,"No frozen snapshot is attached to this review")
+
+    state = _safe_json(session.challenge_state_json, {})
+    snapshot_id = state.get("evidence_snapshot_id")
+    if not snapshot_id:
+        raise HTTPException(
+            409,
+            "No frozen snapshot is attached to this review",
+        )
+
+    # Finding state is shared by every review session using this frozen
+    # snapshot. The snapshot row is therefore the authoritative serialization
+    # boundary across independent application replicas.
+    snapshot = (
+        db.execute(_evidence_snapshot_for_update_stmt(snapshot_id))
+        .scalar_one_or_none()
+    )
+    if not snapshot:
+        raise HTTPException(
+            409,
+            "No frozen snapshot is attached to this review",
+        )
+
+    # Re-evaluate current authority after any snapshot-lock wait. A staff
+    # assignment may have been revoked while this request was blocked.
+    ctx = auth_context(request)
+    _authorize_session(db, session, ctx)
+
     # Students may express disposition and risk decisions, but they cannot
     # unilaterally declare a board finding confirmed/corrected/resolved. Those
     # states require current database-backed teaching-staff authority or the
@@ -868,9 +1194,25 @@ def finding_disposition(session_id:int, finding_id:str, req:FindingDispositionRe
                 section_link.section_id,
                 STAFF_ROLES,
             )
-    _upsert_finding_state(db,team_id=session.team_id,snapshot_id=snapshot.id,finding_id=finding_id,status=req.status,user_id=session.user_id,evidence_path=req.evidence_path,rationale=req.rationale)
+
+    _upsert_finding_state(
+        db,
+        team_id=session.team_id,
+        snapshot_id=snapshot.id,
+        finding_id=finding_id,
+        status=req.status,
+        user_id=session.user_id,
+        evidence_path=req.evidence_path,
+        rationale=req.rationale,
+    )
     db.commit()
-    return {"finding_id":finding_id,"status":req.status,"snapshot_id":snapshot.id}
+
+    return {
+        "finding_id": finding_id,
+        "status": req.status,
+        "snapshot_id": snapshot.id,
+    }
+
 
 
 @router.post("/{session_id}/commit")
@@ -879,41 +1221,121 @@ def commit_position(session_id: int, request:Request, db: Session = Depends(get_
     if not session:
         raise HTTPException(404, "Review session not found")
     _authorize_session(db, session, auth_context(request))
-    if session.status != "active":
-        raise HTTPException(409, "Review session is not active")
 
-    state = _safe_json(session.challenge_state_json, {})
-    evaluation = state.get("evaluation") or {}
-    position = state.get("last_student_position")
-    if not position:
-        raise HTTPException(409, "Discuss a decision before stating a recommendation")
-    if not evaluation.get("ready_to_commit"):
-        raise HTTPException(409, "The recommendation still has material reasoning gaps. Continue the review before recording it.")
+    lock = _session_lock(session_id)
+    if not lock.acquire(blocking=False):
+        raise HTTPException(
+            409,
+            "The reviewer is still responding to the previous turn. Please wait for that response.",
+        )
 
-    student = _student_for_session(db, session)
-    first_name = (student.display_name.split(" ")[0] if student and student.display_name else "")
-    profile = reviewer_profile("chief_architect")
-    prefix = f"{first_name}, " if first_name else ""
-    reply = {
-        "lens": "chief_architect",
-        "reviewer": profile,
-        "kind": "recommendation_confirmation",
-        "provider": "deterministic",
-        "text": (
-            f"{prefix}your recommendation is now defensible enough to record. The important point is not that the board has declared it permanently correct; "
-            "it is that your decision, evidence boundary, consequence, ownership, and closure condition are visible and challengeable. "
-            "This records the judgment you are prepared to defend now. You can revise it when new evidence or better reasoning changes your view."
-        ),
-    }
-    turns = db.query(ReviewTurn).filter_by(session_id=session_id).order_by(ReviewTurn.sequence).all()
-    sequence = (turns[-1].sequence if turns else 0) + 1
-    _add_reviewer_turn(db, session_id, sequence, reply)
-    state["committed_position"] = {**position, "committed_at": datetime.now(timezone.utc).isoformat()}
-    state["active_reviewer"] = reply["reviewer"]
-    state["turn_count"] = state.get("turn_count", 1) + 1
-    session.challenge_state_json = json.dumps(state)
-    db.commit()
-    return {"status": "committed", "position": state["committed_position"], "reply": reply}
+    try:
+        # Recommendation recording changes both ReviewTurn ordering and
+        # ReviewSession state, so PostgreSQL is the authoritative serializer
+        # across independent application replicas.
+        locked_session = (
+            db.execute(_review_session_for_update_stmt(session_id))
+            .scalar_one_or_none()
+        )
+        if not locked_session:
+            raise HTTPException(404, "Review session not found")
+
+        session = locked_session
+
+        # Re-check authority and mutable state after any database lock wait.
+        _authorize_session(db, session, auth_context(request))
+        if session.status != "active":
+            raise HTTPException(409, "Review session is not active")
+
+        state = _safe_json(session.challenge_state_json, {})
+        evaluation = state.get("evaluation") or {}
+        position = state.get("last_student_position")
+
+        if not position:
+            raise HTTPException(
+                409,
+                "Discuss a decision before stating a recommendation",
+            )
+        if not evaluation.get("ready_to_commit"):
+            raise HTTPException(
+                409,
+                "The recommendation still has material reasoning gaps. "
+                "Continue the review before recording it.",
+            )
+
+        student = _student_for_session(db, session)
+        first_name = (
+            student.display_name.split(" ")[0]
+            if student and student.display_name
+            else ""
+        )
+        profile = reviewer_profile("chief_architect")
+        prefix = f"{first_name}, " if first_name else ""
+        reply = {
+            "lens": "chief_architect",
+            "reviewer": profile,
+            "kind": "recommendation_confirmation",
+            "provider": "deterministic",
+            "text": (
+                f"{prefix}your recommendation is now defensible enough to record. "
+                "The important point is not that the board has declared it permanently correct; "
+                "it is that your decision, evidence boundary, consequence, ownership, and closure "
+                "condition are visible and challengeable. This records the judgment you are "
+                "prepared to defend now. You can revise it when new evidence or better reasoning "
+                "changes your view."
+            ),
+        }
+
+        # An identical retry is idempotent, but a later changed student
+        # position remains eligible to become a revised recommendation.
+        committed = state.get("committed_position")
+        if committed:
+            committed_position = {
+                key: value
+                for key, value in committed.items()
+                if key != "committed_at"
+            }
+            if committed_position == position:
+                return {
+                    "status": "committed",
+                    "position": committed,
+                    "reply": reply,
+                    "duplicate": True,
+                }
+
+        turns = (
+            db.query(ReviewTurn)
+            .filter_by(session_id=session_id)
+            .order_by(ReviewTurn.sequence)
+            .all()
+        )
+        sequence = (turns[-1].sequence if turns else 0) + 1
+
+        _add_reviewer_turn(
+            db,
+            session_id,
+            sequence,
+            reply,
+        )
+
+        state["committed_position"] = {
+            **position,
+            "committed_at": datetime.now(timezone.utc).isoformat(),
+        }
+        state["active_reviewer"] = reply["reviewer"]
+        state["turn_count"] = state.get("turn_count", 1) + 1
+        session.challenge_state_json = json.dumps(state)
+
+        db.commit()
+
+        return {
+            "status": "committed",
+            "position": state["committed_position"],
+            "reply": reply,
+            "duplicate": False,
+        }
+    finally:
+        lock.release()
 
 
 @router.post("/{session_id}/complete")
@@ -922,7 +1344,53 @@ def complete(session_id: int, request:Request, db: Session = Depends(get_db)):
     if not session:
         raise HTTPException(404, "Review session not found")
     _authorize_session(db, session, auth_context(request))
-    session.status = "completed"
-    session.completed_at = datetime.now(timezone.utc)
-    db.commit()
-    return {"session_id": session.id, "status": session.status, "completed_at": session.completed_at.isoformat()}
+
+    lock = _session_lock(session_id)
+    if not lock.acquire(blocking=False):
+        raise HTTPException(
+            409,
+            "The reviewer is still responding to the previous turn. Please wait for that response.",
+        )
+
+    try:
+        # Completion participates in the same authoritative database locking
+        # protocol as every other ReviewSession mutation.
+        locked_session = (
+            db.execute(_review_session_for_update_stmt(session_id))
+            .scalar_one_or_none()
+        )
+        if not locked_session:
+            raise HTTPException(404, "Review session not found")
+
+        session = locked_session
+
+        # Re-check authority after waiting for any competing replica.
+        _authorize_session(db, session, auth_context(request))
+
+        # Completion is idempotent. A retry must not rewrite the historical
+        # completion timestamp.
+        if session.status == "completed":
+            return {
+                "session_id": session.id,
+                "status": session.status,
+                "completed_at": (
+                    session.completed_at.isoformat()
+                    if session.completed_at
+                    else None
+                ),
+            }
+
+        if session.status != "active":
+            raise HTTPException(409, "Review session is not active")
+
+        session.status = "completed"
+        session.completed_at = datetime.now(timezone.utc)
+        db.commit()
+
+        return {
+            "session_id": session.id,
+            "status": session.status,
+            "completed_at": session.completed_at.isoformat(),
+        }
+    finally:
+        lock.release()
