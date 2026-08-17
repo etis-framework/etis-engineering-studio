@@ -1223,3 +1223,1864 @@ def test_dev_login_is_unavailable_outside_development(monkeypatch):
 
     assert response.status_code == 404
     assert seed_calls == []
+
+
+def test_entra_exchange_rejects_identity_from_wrong_tenant(monkeypatch):
+    """
+    Loyola institutional identity requires both the authorized email domain
+    and the exact configured Loyola Entra tenant.
+
+    A token from another tenant must be rejected even if it presents a
+    luc.edu preferred_username.
+    """
+    from types import SimpleNamespace
+
+    from apps.api.app.services import auth as auth_service
+
+    expected_tenant = "11111111-1111-1111-1111-111111111111"
+    wrong_tenant = "22222222-2222-2222-2222-222222222222"
+
+    monkeypatch.setattr(
+        auth_service,
+        "get_settings",
+        lambda: SimpleNamespace(
+            entra_tenant=expected_tenant,
+            entra_client_id="test-client-id",
+            entra_client_secret="test-client-secret",
+            entra_redirect_uri="https://studio.example.test/auth/entra/callback",
+            entra_allowed_domain="luc.edu",
+        ),
+    )
+
+    class FakeTokenResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"id_token": "fake-id-token"}
+
+    class FakeHttpClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def post(self, *args, **kwargs):
+            return FakeTokenResponse()
+
+    monkeypatch.setattr(auth_service.httpx, "Client", FakeHttpClient)
+
+    decode_calls = []
+
+    def fake_decode(token, *args, **kwargs):
+        decode_calls.append(kwargs)
+
+        # First call is the intentionally unverified tenant discovery.
+        if kwargs.get("options") is not None:
+            return {
+                "tid": wrong_tenant,
+            }
+
+        # Simulate an otherwise valid Microsoft-signed identity whose email
+        # appears to belong to Loyola.
+        return {
+            "tid": wrong_tenant,
+            "nonce": "expected-nonce",
+            "preferred_username": "student@luc.edu",
+        }
+
+    monkeypatch.setattr(auth_service.jwt, "decode", fake_decode)
+
+    class FakeSigningKey:
+        key = object()
+
+    class FakeJWKClient:
+        def __init__(self, url):
+            self.url = url
+
+        def get_signing_key_from_jwt(self, token):
+            return FakeSigningKey()
+
+    monkeypatch.setattr(auth_service, "PyJWKClient", FakeJWKClient)
+
+    try:
+        auth_service.entra_exchange(
+            code="authorization-code",
+            expected_nonce="expected-nonce",
+        )
+    except Exception as exc:
+        # We deliberately assert the HTTP semantics below rather than allowing
+        # a generic exception to count as a security success.
+        from fastapi import HTTPException
+
+        assert isinstance(exc, HTTPException)
+        assert exc.status_code == 403
+        assert "tenant" in str(exc.detail).lower()
+    else:
+        raise AssertionError(
+            "Entra identity from a non-Loyola tenant was accepted"
+        )
+
+
+def test_entra_exchange_accepts_identity_from_configured_tenant(monkeypatch):
+    """
+    Exact tenant enforcement must preserve legitimate Loyola authentication.
+
+    An otherwise valid Microsoft identity from the configured tenant with the
+    authorized Loyola email domain and expected nonce must be accepted.
+    """
+    from types import SimpleNamespace
+
+    from apps.api.app.services import auth as auth_service
+
+    configured_tenant = "11111111-1111-1111-1111-111111111111"
+
+    monkeypatch.setattr(
+        auth_service,
+        "get_settings",
+        lambda: SimpleNamespace(
+            entra_tenant=configured_tenant,
+            entra_client_id="test-client-id",
+            entra_client_secret="test-client-secret",
+            entra_redirect_uri="https://studio.example.test/auth/entra/callback",
+            entra_allowed_domain="luc.edu",
+        ),
+    )
+
+    class FakeTokenResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"id_token": "fake-id-token"}
+
+    class FakeHttpClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def post(self, *args, **kwargs):
+            return FakeTokenResponse()
+
+    monkeypatch.setattr(auth_service.httpx, "Client", FakeHttpClient)
+
+    def fake_decode(token, *args, **kwargs):
+        # Unverified tenant discovery.
+        if kwargs.get("options") is not None:
+            return {
+                "tid": configured_tenant,
+            }
+
+        # Verified-token result.
+        return {
+            "tid": configured_tenant,
+            "nonce": "expected-nonce",
+            "preferred_username": "student@luc.edu",
+            "name": "Loyola Student",
+            "sub": "configured-tenant-subject",
+        }
+
+    monkeypatch.setattr(auth_service.jwt, "decode", fake_decode)
+
+    class FakeSigningKey:
+        key = object()
+
+    class FakeJWKClient:
+        def __init__(self, url):
+            self.url = url
+
+        def get_signing_key_from_jwt(self, token):
+            return FakeSigningKey()
+
+    monkeypatch.setattr(auth_service, "PyJWKClient", FakeJWKClient)
+
+    claims = auth_service.entra_exchange(
+        code="authorization-code",
+        expected_nonce="expected-nonce",
+    )
+
+    assert claims["tid"] == configured_tenant
+    assert claims["preferred_username"] == "student@luc.edu"
+    assert claims["sub"] == "configured-tenant-subject"
+
+
+def test_revoked_staff_assignment_invalidates_existing_staff_session():
+    """
+    Staff authority must come from current database state, not a stale role
+    embedded in an already-issued session token.
+
+    Once the user's last active teaching-staff assignment is revoked, the same
+    still-unexpired session must no longer authorize instructor-only routes.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import CourseSection, CourseTerm, SectionStaff, User
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    db = SessionLocal()
+
+    try:
+        term = CourseTerm(
+            course_code="COMP 330",
+            namespace=f"TEST-STAFF-REVOKE-{suffix}",
+            term_label="Staff Revocation Test",
+            starts_on="2026-08-01",
+            ends_on="2026-12-31",
+            timezone="America/Chicago",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key=f"A-{suffix}",
+            display_name="Revocation Test Section",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        instructor = User(
+            github_login=f"revoked-instructor-{suffix}",
+            display_name="Revoked Instructor",
+            role="instructor",
+        )
+        db.add(instructor)
+        db.flush()
+
+        assignment = SectionStaff(
+            section_id=section.id,
+            user_id=instructor.id,
+            staff_role="instructor",
+            is_active=True,
+        )
+        db.add(assignment)
+        db.commit()
+
+        instructor_id = instructor.id
+
+    finally:
+        db.close()
+
+    # The session is legitimately issued while the assignment is active.
+    token = create_session_token(
+        instructor_id,
+        f"revoked-instructor-{suffix}@luc.edu",
+        "instructor",
+    )
+
+    # Revoke the teaching-staff assignment after the session has been issued.
+    db = SessionLocal()
+    try:
+        assignment = (
+            db.query(SectionStaff)
+            .filter_by(
+                user_id=instructor_id,
+                staff_role="instructor",
+            )
+            .one()
+        )
+        assignment.is_active = False
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(
+        "/api/v1/instructor/overview",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_revoked_staff_session_cannot_bind_team_repository(monkeypatch):
+    """
+    Revoking teaching-staff authority must immediately remove privileged
+    onboarding authority from an already-issued session.
+
+    A stale instructor token must not bypass team membership, invoke GitHub,
+    create a RepositoryConnection, or change the team's authoritative
+    repository binding.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        CourseSection,
+        CourseTerm,
+        RepositoryConnection,
+        SectionStaff,
+        Team,
+        TeamSection,
+        User,
+    )
+    from apps.api.app.routers import onboarding as onboarding_router
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+    candidate_repo = f"example/stale-staff-{suffix}"
+
+    db = SessionLocal()
+
+    try:
+        term = CourseTerm(
+            course_code="COMP 330",
+            namespace=f"TEST-STALE-BIND-{suffix}",
+            term_label="Stale Staff Repository Test",
+            starts_on="2026-08-01",
+            ends_on="2026-12-31",
+            timezone="America/Chicago",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key=f"A-{suffix}",
+            display_name="Stale Staff Repository Section",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        instructor = User(
+            github_login=f"stale-bind-instructor-{suffix}",
+            display_name="Stale Repository Instructor",
+            role="instructor",
+        )
+        db.add(instructor)
+        db.flush()
+
+        assignment = SectionStaff(
+            section_id=section.id,
+            user_id=instructor.id,
+            staff_role="instructor",
+            is_active=True,
+        )
+        db.add(assignment)
+
+        team = Team(
+            course_namespace=term.namespace,
+            team_key=f"team-{suffix}",
+            name="Protected Repository Team",
+            repo_full_name=None,
+            project_name="Project not confirmed",
+            current_phase="A1",
+        )
+        db.add(team)
+        db.flush()
+
+        db.add(
+            TeamSection(
+                team_id=team.id,
+                section_id=section.id,
+            )
+        )
+
+        db.commit()
+
+        instructor_id = instructor.id
+        team_id = team.id
+
+    finally:
+        db.close()
+
+    # Session is legitimately issued while the instructor assignment is active.
+    token = create_session_token(
+        instructor_id,
+        f"stale-bind-instructor-{suffix}@luc.edu",
+        "instructor",
+    )
+
+    # Revoke the instructor before the privileged onboarding operation.
+    db = SessionLocal()
+    try:
+        assignment = (
+            db.query(SectionStaff)
+            .filter_by(
+                user_id=instructor_id,
+                staff_role="instructor",
+            )
+            .one()
+        )
+        assignment.is_active = False
+        db.commit()
+    finally:
+        db.close()
+
+    github_calls = []
+
+    class TrackingEvidenceProvider:
+        def head_sha(self, repo_full_name):
+            github_calls.append(repo_full_name)
+            return "0123456789abcdef"
+
+    monkeypatch.setattr(
+        onboarding_router,
+        "GitHubEvidenceProvider",
+        TrackingEvidenceProvider,
+    )
+
+    response = client.post(
+        f"/api/v1/onboarding/teams/{team_id}/repository",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "clone_url": f"https://github.com/{candidate_repo}.git",
+            "user_id": instructor_id,
+        },
+    )
+
+    assert response.status_code == 404
+    assert github_calls == []
+
+    verify_db = SessionLocal()
+    try:
+        team = verify_db.get(Team, team_id)
+        assert team.repo_full_name == ""
+
+        connection = (
+            verify_db.query(RepositoryConnection)
+            .filter_by(team_id=team_id)
+            .first()
+        )
+        assert connection is None
+    finally:
+        verify_db.close()
+
+
+def test_revoked_staff_session_cannot_validate_finding_state():
+    """
+    Revoking teaching-staff authority must immediately remove privileged
+    authority over the formal engineering finding record.
+
+    A stale instructor session must not be able to mark a finding confirmed,
+    corrected, or resolved after the instructor's active staff assignment has
+    been revoked.
+    """
+    import json
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        CourseSection,
+        CourseTerm,
+        EvidenceSnapshot,
+        ReviewFindingState,
+        ReviewSession,
+        SectionStaff,
+        Team,
+        TeamMembership,
+        TeamSection,
+        User,
+    )
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+    finding_id = f"FINDING-{suffix}"
+
+    db = SessionLocal()
+
+    try:
+        term = CourseTerm(
+            course_code="COMP 330",
+            namespace=f"TEST-FINDING-REVOKE-{suffix}",
+            term_label="Finding Revocation Test",
+            starts_on="2026-08-01",
+            ends_on="2026-12-31",
+            timezone="America/Chicago",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key=f"A-{suffix}",
+            display_name="Finding Revocation Section",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        instructor = User(
+            github_login=f"finding-instructor-{suffix}",
+            display_name="Finding Test Instructor",
+            role="instructor",
+        )
+
+        student = User(
+            github_login=f"finding-student-{suffix}",
+            display_name="Finding Test Student",
+            role="student",
+        )
+
+        db.add_all([instructor, student])
+        db.flush()
+
+        assignment = SectionStaff(
+            section_id=section.id,
+            user_id=instructor.id,
+            staff_role="instructor",
+            is_active=True,
+        )
+        db.add(assignment)
+
+        team = Team(
+            course_namespace=term.namespace,
+            team_key=f"team-{suffix}",
+            name="Finding Test Team",
+            repo_full_name=f"demo/finding-revoke-{suffix}",
+            project_name="Finding Revocation Test",
+            current_phase="A1",
+        )
+        db.add(team)
+        db.flush()
+
+        db.add(
+            TeamSection(
+                team_id=team.id,
+                section_id=section.id,
+            )
+        )
+
+        db.add(
+            TeamMembership(
+                team_id=team.id,
+                user_id=student.id,
+                responsibility_role="Engineering Contributor",
+                is_primary=True,
+            )
+        )
+
+        snapshot = EvidenceSnapshot(
+            team_id=team.id,
+            phase_id="A1",
+            source="demo",
+            commit_sha=f"sha-{suffix}",
+            summary_json=json.dumps(
+                {
+                    "findings": [
+                        {
+                            "id": finding_id,
+                            "title": "Protected finding",
+                        }
+                    ]
+                }
+            ),
+        )
+        db.add(snapshot)
+        db.flush()
+
+        session = ReviewSession(
+            team_id=team.id,
+            user_id=student.id,
+            phase_id="A1",
+            mode="board_review",
+            status="active",
+            challenge_state_json=json.dumps(
+                {
+                    "evidence_snapshot_id": snapshot.id,
+                }
+            ),
+        )
+        db.add(session)
+        db.commit()
+
+        instructor_id = instructor.id
+        snapshot_id = snapshot.id
+        session_id = session.id
+
+    finally:
+        db.close()
+
+    # Session is legitimately issued while staff authority is active.
+    token = create_session_token(
+        instructor_id,
+        f"finding-instructor-{suffix}@luc.edu",
+        "instructor",
+    )
+
+    # Revoke the assignment before the formal finding-state action.
+    db = SessionLocal()
+    try:
+        assignment = (
+            db.query(SectionStaff)
+            .filter_by(
+                user_id=instructor_id,
+                staff_role="instructor",
+            )
+            .one()
+        )
+        assignment.is_active = False
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.post(
+        f"/api/v1/reviews/{session_id}/findings/{finding_id}/disposition",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "status": "confirmed",
+            "rationale": "Stale staff session must not be allowed to validate this.",
+            "evidence_path": "docs/protected-evidence.md",
+        },
+    )
+
+    assert response.status_code == 403
+
+    verify_db = SessionLocal()
+    try:
+        persisted = (
+            verify_db.query(ReviewFindingState)
+            .filter_by(
+                snapshot_id=snapshot_id,
+                finding_id=finding_id,
+            )
+            .first()
+        )
+        assert persisted is None
+    finally:
+        verify_db.close()
+
+
+def test_revoked_staff_session_cannot_read_student_review():
+    """
+    Revoking teaching-staff authority must immediately remove access to
+    another student's Review Room record.
+
+    A stale instructor session must not expose the student's conversation,
+    review state, turns, or evidence after the instructor's active staff
+    assignment has been revoked.
+    """
+    import json
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        CourseSection,
+        CourseTerm,
+        ReviewSession,
+        ReviewTurn,
+        SectionStaff,
+        Team,
+        TeamMembership,
+        TeamSection,
+        User,
+    )
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    db = SessionLocal()
+
+    try:
+        term = CourseTerm(
+            course_code="COMP 330",
+            namespace=f"TEST-REVIEW-READ-REVOKE-{suffix}",
+            term_label="Review Read Revocation Test",
+            starts_on="2026-08-01",
+            ends_on="2026-12-31",
+            timezone="America/Chicago",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key=f"A-{suffix}",
+            display_name="Review Read Revocation Section",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        instructor = User(
+            github_login=f"review-read-instructor-{suffix}",
+            display_name="Review Read Instructor",
+            role="instructor",
+        )
+
+        student = User(
+            github_login=f"review-read-student-{suffix}",
+            display_name="Protected Review Student",
+            role="student",
+        )
+
+        db.add_all([instructor, student])
+        db.flush()
+
+        assignment = SectionStaff(
+            section_id=section.id,
+            user_id=instructor.id,
+            staff_role="instructor",
+            is_active=True,
+        )
+        db.add(assignment)
+
+        team = Team(
+            course_namespace=term.namespace,
+            team_key=f"team-{suffix}",
+            name="Protected Review Team",
+            repo_full_name=f"demo/review-read-{suffix}",
+            project_name="Review Confidentiality Test",
+            current_phase="A1",
+        )
+        db.add(team)
+        db.flush()
+
+        db.add(
+            TeamSection(
+                team_id=team.id,
+                section_id=section.id,
+            )
+        )
+
+        db.add(
+            TeamMembership(
+                team_id=team.id,
+                user_id=student.id,
+                responsibility_role="Engineering Contributor",
+                is_primary=True,
+            )
+        )
+
+        session = ReviewSession(
+            team_id=team.id,
+            user_id=student.id,
+            phase_id="A1",
+            mode="board_review",
+            status="active",
+            challenge_state_json=json.dumps(
+                {
+                    "challenge": {
+                        "title": "Protected review",
+                    },
+                    "private_test_marker": "must-not-be-exposed",
+                }
+            ),
+        )
+        db.add(session)
+        db.flush()
+
+        db.add(
+            ReviewTurn(
+                session_id=session.id,
+                sequence=1,
+                actor="student",
+                lens="conversation",
+                content="Protected student reasoning",
+                evidence_refs_json="[]",
+                signals_json="{}",
+            )
+        )
+
+        db.commit()
+
+        instructor_id = instructor.id
+        session_id = session.id
+
+    finally:
+        db.close()
+
+    # Session is validly issued while the staff assignment exists.
+    token = create_session_token(
+        instructor_id,
+        f"review-read-instructor-{suffix}@luc.edu",
+        "instructor",
+    )
+
+    # Revoke the assignment before the protected read.
+    db = SessionLocal()
+    try:
+        assignment = (
+            db.query(SectionStaff)
+            .filter_by(
+                user_id=instructor_id,
+                staff_role="instructor",
+            )
+            .one()
+        )
+        assignment.is_active = False
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(
+        f"/api/v1/reviews/{session_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+    assert "must-not-be-exposed" not in response.text
+    assert "Protected student reasoning" not in response.text
+
+
+def test_revoked_staff_session_cannot_complete_student_review():
+    """
+    Revoked staff authority must not permit mutation of another student's
+    Review Room session through an already-issued staff token.
+
+    The protected review must remain active after the denied request.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        CourseSection,
+        CourseTerm,
+        ReviewSession,
+        SectionStaff,
+        Team,
+        TeamMembership,
+        TeamSection,
+        User,
+    )
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    db = SessionLocal()
+
+    try:
+        term = CourseTerm(
+            course_code="COMP 330",
+            namespace=f"TEST-REVIEW-COMPLETE-REVOKE-{suffix}",
+            term_label="Review Completion Revocation Test",
+            starts_on="2026-08-01",
+            ends_on="2026-12-31",
+            timezone="America/Chicago",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key=f"A-{suffix}",
+            display_name="Review Completion Revocation Section",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        instructor = User(
+            github_login=f"review-complete-instructor-{suffix}",
+            display_name="Review Completion Instructor",
+            role="instructor",
+        )
+
+        student = User(
+            github_login=f"review-complete-student-{suffix}",
+            display_name="Protected Review Student",
+            role="student",
+        )
+
+        db.add_all([instructor, student])
+        db.flush()
+
+        assignment = SectionStaff(
+            section_id=section.id,
+            user_id=instructor.id,
+            staff_role="instructor",
+            is_active=True,
+        )
+        db.add(assignment)
+
+        team = Team(
+            course_namespace=term.namespace,
+            team_key=f"team-{suffix}",
+            name="Protected Completion Team",
+            repo_full_name=f"demo/review-complete-{suffix}",
+            project_name="Review Completion Test",
+            current_phase="A1",
+        )
+        db.add(team)
+        db.flush()
+
+        db.add(
+            TeamSection(
+                team_id=team.id,
+                section_id=section.id,
+            )
+        )
+
+        db.add(
+            TeamMembership(
+                team_id=team.id,
+                user_id=student.id,
+                responsibility_role="Engineering Contributor",
+                is_primary=True,
+            )
+        )
+
+        session = ReviewSession(
+            team_id=team.id,
+            user_id=student.id,
+            phase_id="A1",
+            mode="board_review",
+            status="active",
+            challenge_state_json="{}",
+        )
+        db.add(session)
+
+        db.commit()
+
+        instructor_id = instructor.id
+        session_id = session.id
+
+    finally:
+        db.close()
+
+    token = create_session_token(
+        instructor_id,
+        f"review-complete-instructor-{suffix}@luc.edu",
+        "instructor",
+    )
+
+    # Revoke staff authority after the session token was issued.
+    db = SessionLocal()
+    try:
+        assignment = (
+            db.query(SectionStaff)
+            .filter_by(
+                user_id=instructor_id,
+                staff_role="instructor",
+            )
+            .one()
+        )
+        assignment.is_active = False
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.post(
+        f"/api/v1/reviews/{session_id}/complete",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+
+    verify_db = SessionLocal()
+    try:
+        persisted = verify_db.get(ReviewSession, session_id)
+        assert persisted.status == "active"
+        assert persisted.completed_at is None
+    finally:
+        verify_db.close()
+
+
+def test_revoked_staff_session_cannot_read_team_evidence():
+    """
+    Revoking teaching-staff authority must immediately remove access to another
+    team's frozen engineering evidence.
+
+    A stale instructor token must not expose snapshot contents after the
+    instructor's active section assignment has been revoked.
+    """
+    import json
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        CourseSection,
+        CourseTerm,
+        EvidenceSnapshot,
+        SectionStaff,
+        Team,
+        TeamMembership,
+        TeamSection,
+        User,
+    )
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    db = SessionLocal()
+
+    try:
+        term = CourseTerm(
+            course_code="COMP 330",
+            namespace=f"TEST-EVIDENCE-REVOKE-{suffix}",
+            term_label="Evidence Revocation Test",
+            starts_on="2026-08-01",
+            ends_on="2026-12-31",
+            timezone="America/Chicago",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key=f"A-{suffix}",
+            display_name="Evidence Revocation Section",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        instructor = User(
+            github_login=f"evidence-instructor-{suffix}",
+            display_name="Evidence Instructor",
+            role="instructor",
+        )
+
+        student = User(
+            github_login=f"evidence-student-{suffix}",
+            display_name="Protected Evidence Student",
+            role="student",
+        )
+
+        db.add_all([instructor, student])
+        db.flush()
+
+        assignment = SectionStaff(
+            section_id=section.id,
+            user_id=instructor.id,
+            staff_role="instructor",
+            is_active=True,
+        )
+        db.add(assignment)
+
+        team = Team(
+            course_namespace=term.namespace,
+            team_key=f"team-{suffix}",
+            name="Protected Evidence Team",
+            repo_full_name=f"demo/evidence-revoke-{suffix}",
+            project_name="Evidence Confidentiality Test",
+            current_phase="A1",
+        )
+        db.add(team)
+        db.flush()
+
+        db.add(
+            TeamSection(
+                team_id=team.id,
+                section_id=section.id,
+            )
+        )
+
+        db.add(
+            TeamMembership(
+                team_id=team.id,
+                user_id=student.id,
+                responsibility_role="Engineering Contributor",
+                is_primary=True,
+            )
+        )
+
+        snapshot = EvidenceSnapshot(
+            team_id=team.id,
+            phase_id="A1",
+            source="demo",
+            commit_sha=f"sha-{suffix}",
+            summary_json=json.dumps(
+                {
+                    "private_test_marker": "protected-frozen-evidence",
+                    "findings": [],
+                }
+            ),
+        )
+        db.add(snapshot)
+
+        db.commit()
+
+        instructor_id = instructor.id
+        team_id = team.id
+
+    finally:
+        db.close()
+
+    token = create_session_token(
+        instructor_id,
+        f"evidence-instructor-{suffix}@luc.edu",
+        "instructor",
+    )
+
+    # Revoke staff authority after issuing the session.
+    db = SessionLocal()
+    try:
+        assignment = (
+            db.query(SectionStaff)
+            .filter_by(
+                user_id=instructor_id,
+                staff_role="instructor",
+            )
+            .one()
+        )
+        assignment.is_active = False
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(
+        "/api/v1/reviews/evidence/current",
+        headers={"Authorization": f"Bearer {token}"},
+        params={
+            "team_id": team_id,
+            "phase_id": "A1",
+        },
+    )
+
+    # Team-scoped resources deliberately conceal unauthorized existence.
+    assert response.status_code == 404
+    assert "protected-frozen-evidence" not in response.text
+
+
+def test_revoked_staff_session_cannot_list_student_reviews():
+    """
+    Revoking teaching-staff authority must immediately remove the ability to
+    enumerate another student's Review Room sessions.
+
+    A stale instructor token must not use its embedded staff role to query
+    another student's review history after the active section assignment has
+    been revoked.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        CourseSection,
+        CourseTerm,
+        ReviewSession,
+        SectionStaff,
+        Team,
+        TeamMembership,
+        TeamSection,
+        User,
+    )
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    db = SessionLocal()
+
+    try:
+        term = CourseTerm(
+            course_code="COMP 330",
+            namespace=f"TEST-REVIEW-LIST-REVOKE-{suffix}",
+            term_label="Review List Revocation Test",
+            starts_on="2026-08-01",
+            ends_on="2026-12-31",
+            timezone="America/Chicago",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key=f"A-{suffix}",
+            display_name="Review List Revocation Section",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        instructor = User(
+            github_login=f"review-list-instructor-{suffix}",
+            display_name="Review List Instructor",
+            role="instructor",
+        )
+
+        student = User(
+            github_login=f"review-list-student-{suffix}",
+            display_name="Protected Review Student",
+            role="student",
+        )
+
+        db.add_all([instructor, student])
+        db.flush()
+
+        assignment = SectionStaff(
+            section_id=section.id,
+            user_id=instructor.id,
+            staff_role="instructor",
+            is_active=True,
+        )
+        db.add(assignment)
+
+        team = Team(
+            course_namespace=term.namespace,
+            team_key=f"team-{suffix}",
+            name="Protected Review List Team",
+            repo_full_name=f"demo/review-list-{suffix}",
+            project_name="Review Enumeration Test",
+            current_phase="A1",
+        )
+        db.add(team)
+        db.flush()
+
+        db.add(
+            TeamSection(
+                team_id=team.id,
+                section_id=section.id,
+            )
+        )
+
+        db.add(
+            TeamMembership(
+                team_id=team.id,
+                user_id=student.id,
+                responsibility_role="Engineering Contributor",
+                is_primary=True,
+            )
+        )
+
+        review = ReviewSession(
+            team_id=team.id,
+            user_id=student.id,
+            phase_id="A1",
+            mode="board_review",
+            status="active",
+            scenario_id=f"protected-review-{suffix}",
+            challenge_state_json="{}",
+        )
+        db.add(review)
+
+        db.commit()
+
+        instructor_id = instructor.id
+        student_id = student.id
+        review_id = review.id
+
+    finally:
+        db.close()
+
+    # Issue the session while staff authority is legitimate.
+    token = create_session_token(
+        instructor_id,
+        f"review-list-instructor-{suffix}@luc.edu",
+        "instructor",
+    )
+
+    # Revoke that authority before the list request.
+    db = SessionLocal()
+    try:
+        assignment = (
+            db.query(SectionStaff)
+            .filter_by(
+                user_id=instructor_id,
+                staff_role="instructor",
+            )
+            .one()
+        )
+        assignment.is_active = False
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(
+        "/api/v1/reviews",
+        headers={"Authorization": f"Bearer {token}"},
+        params={
+            "user_id": student_id,
+        },
+    )
+
+    assert response.status_code == 403
+
+    # The protected student's review identifier must not be disclosed.
+    assert f'"id":{review_id}' not in response.text.replace(" ", "")
+
+
+def test_revoked_staff_session_cannot_change_team_project_metadata():
+    """
+    Revoking teaching-staff authority must immediately remove privileged
+    authority to alter another team's authoritative project metadata.
+
+    A stale instructor token must not change either the project name or team
+    name after the instructor's active section assignment has been revoked.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        CourseSection,
+        CourseTerm,
+        SectionStaff,
+        Team,
+        TeamSection,
+        User,
+    )
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    original_team_name = f"Protected Team {suffix}"
+    original_project_name = f"Protected Project {suffix}"
+
+    db = SessionLocal()
+
+    try:
+        term = CourseTerm(
+            course_code="COMP 330",
+            namespace=f"TEST-PROJECT-REVOKE-{suffix}",
+            term_label="Project Metadata Revocation Test",
+            starts_on="2026-08-01",
+            ends_on="2026-12-31",
+            timezone="America/Chicago",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key=f"A-{suffix}",
+            display_name="Project Metadata Revocation Section",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        instructor = User(
+            github_login=f"project-instructor-{suffix}",
+            display_name="Project Metadata Instructor",
+            role="instructor",
+        )
+        db.add(instructor)
+        db.flush()
+
+        assignment = SectionStaff(
+            section_id=section.id,
+            user_id=instructor.id,
+            staff_role="instructor",
+            is_active=True,
+        )
+        db.add(assignment)
+
+        team = Team(
+            course_namespace=term.namespace,
+            team_key=f"team-{suffix}",
+            name=original_team_name,
+            repo_full_name=f"demo/project-metadata-{suffix}",
+            project_name=original_project_name,
+            current_phase="A1",
+        )
+        db.add(team)
+        db.flush()
+
+        db.add(
+            TeamSection(
+                team_id=team.id,
+                section_id=section.id,
+            )
+        )
+
+        db.commit()
+
+        instructor_id = instructor.id
+        team_id = team.id
+
+    finally:
+        db.close()
+
+    # Issue the session while the instructor assignment is legitimate.
+    token = create_session_token(
+        instructor_id,
+        f"project-instructor-{suffix}@luc.edu",
+        "instructor",
+    )
+
+    # Revoke teaching-staff authority before the metadata mutation.
+    db = SessionLocal()
+    try:
+        assignment = (
+            db.query(SectionStaff)
+            .filter_by(
+                user_id=instructor_id,
+                staff_role="instructor",
+            )
+            .one()
+        )
+        assignment.is_active = False
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.put(
+        f"/api/v1/onboarding/teams/{team_id}/project",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "project_name": "Unauthorized Project Change",
+            "team_name": "Unauthorized Team Rename",
+        },
+    )
+
+    # Team-scoped protected resources conceal unauthorized existence.
+    assert response.status_code == 404
+
+    verify_db = SessionLocal()
+    try:
+        persisted = verify_db.get(Team, team_id)
+        assert persisted.project_name == original_project_name
+        assert persisted.name == original_team_name
+    finally:
+        verify_db.close()
+
+
+def test_revoked_staff_session_cannot_verify_team_repository(monkeypatch):
+    """
+    Revoking teaching-staff authority must immediately remove privileged
+    authority to verify another team's repository.
+
+    A stale instructor token must not invoke GitHub or change repository
+    verification state after the active section assignment has been revoked.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        CourseSection,
+        CourseTerm,
+        RepositoryConnection,
+        SectionStaff,
+        Team,
+        TeamSection,
+        User,
+    )
+    from apps.api.app.routers import onboarding as onboarding_router
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+    repo_full_name = f"example/verify-protected-{suffix}"
+
+    db = SessionLocal()
+
+    try:
+        term = CourseTerm(
+            course_code="COMP 330",
+            namespace=f"TEST-VERIFY-REVOKE-{suffix}",
+            term_label="Repository Verification Revocation Test",
+            starts_on="2026-08-01",
+            ends_on="2026-12-31",
+            timezone="America/Chicago",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key=f"A-{suffix}",
+            display_name="Repository Verification Revocation Section",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        instructor = User(
+            github_login=f"verify-instructor-{suffix}",
+            display_name="Repository Verification Instructor",
+            role="instructor",
+        )
+        db.add(instructor)
+        db.flush()
+
+        assignment = SectionStaff(
+            section_id=section.id,
+            user_id=instructor.id,
+            staff_role="instructor",
+            is_active=True,
+        )
+        db.add(assignment)
+
+        team = Team(
+            course_namespace=term.namespace,
+            team_key=f"team-{suffix}",
+            name="Protected Verification Team",
+            repo_full_name=repo_full_name,
+            project_name="Repository Verification Test",
+            current_phase="A1",
+        )
+        db.add(team)
+        db.flush()
+
+        db.add(
+            TeamSection(
+                team_id=team.id,
+                section_id=section.id,
+            )
+        )
+
+        connection = RepositoryConnection(
+            team_id=team.id,
+            repo_full_name=repo_full_name,
+            clone_url=f"https://github.com/{repo_full_name}.git",
+            status="identified",
+            github_app_installed=False,
+            connected_by_user_id=instructor.id,
+        )
+        db.add(connection)
+
+        db.commit()
+
+        instructor_id = instructor.id
+        team_id = team.id
+        connection_id = connection.id
+
+    finally:
+        db.close()
+
+    # Issue the session while the instructor assignment is valid.
+    token = create_session_token(
+        instructor_id,
+        f"verify-instructor-{suffix}@luc.edu",
+        "instructor",
+    )
+
+    # Revoke teaching-staff authority before repository verification.
+    db = SessionLocal()
+    try:
+        assignment = (
+            db.query(SectionStaff)
+            .filter_by(
+                user_id=instructor_id,
+                staff_role="instructor",
+            )
+            .one()
+        )
+        assignment.is_active = False
+        db.commit()
+    finally:
+        db.close()
+
+    github_calls = []
+
+    class TrackingEvidenceProvider:
+        def head_sha(self, requested_repo):
+            github_calls.append(requested_repo)
+            return "0123456789abcdef"
+
+    monkeypatch.setattr(
+        onboarding_router,
+        "GitHubEvidenceProvider",
+        TrackingEvidenceProvider,
+    )
+
+    response = client.post(
+        f"/api/v1/onboarding/teams/{team_id}/repository/verify",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    # Team-scoped protected resources conceal unauthorized existence.
+    assert response.status_code == 404
+
+    # Authorization must fail before any external GitHub interaction.
+    assert github_calls == []
+
+    verify_db = SessionLocal()
+    try:
+        persisted = verify_db.get(RepositoryConnection, connection_id)
+        assert persisted.status == "identified"
+        assert persisted.verified_at is None
+        assert persisted.github_app_installed is False
+    finally:
+        verify_db.close()
+
+
+def test_revoked_staff_session_cannot_read_another_users_onboarding_context():
+    """
+    Revoking teaching-staff authority must immediately remove privileged
+    access to another user's onboarding and institutional identity context.
+
+    A stale instructor token must not expose student identity or onboarding
+    information after the instructor's active staff assignment is revoked.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        CourseSection,
+        CourseTerm,
+        InstitutionalIdentity,
+        SectionStaff,
+        User,
+    )
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+
+    protected_student_id = f"STUDENT-{suffix}"
+    protected_email = f"protected-{suffix}@luc.edu"
+
+    db = SessionLocal()
+
+    try:
+        term = CourseTerm(
+            course_code="COMP 330",
+            namespace=f"TEST-ONBOARDING-PRIVACY-{suffix}",
+            term_label="Onboarding Privacy Revocation Test",
+            starts_on="2026-08-01",
+            ends_on="2026-12-31",
+            timezone="America/Chicago",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key=f"A-{suffix}",
+            display_name="Onboarding Privacy Section",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        instructor = User(
+            github_login=f"privacy-instructor-{suffix}",
+            display_name="Onboarding Privacy Instructor",
+            role="instructor",
+        )
+
+        student = User(
+            github_login=f"privacy-student-{suffix}",
+            display_name="Protected Onboarding Student",
+            role="student",
+        )
+
+        db.add_all([instructor, student])
+        db.flush()
+
+        assignment = SectionStaff(
+            section_id=section.id,
+            user_id=instructor.id,
+            staff_role="instructor",
+            is_active=True,
+        )
+        db.add(assignment)
+
+        db.add(
+            InstitutionalIdentity(
+                user_id=student.id,
+                student_id=protected_student_id,
+                institutional_email=protected_email,
+            )
+        )
+
+        db.commit()
+
+        instructor_id = instructor.id
+        student_user_id = student.id
+
+    finally:
+        db.close()
+
+    # Issue the session while teaching-staff authority is legitimate.
+    token = create_session_token(
+        instructor_id,
+        f"privacy-instructor-{suffix}@luc.edu",
+        "instructor",
+    )
+
+    # Revoke the assignment before reading another user's onboarding context.
+    db = SessionLocal()
+    try:
+        assignment = (
+            db.query(SectionStaff)
+            .filter_by(
+                user_id=instructor_id,
+                staff_role="instructor",
+            )
+            .one()
+        )
+        assignment.is_active = False
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(
+        f"/api/v1/onboarding/users/{student_user_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+
+    # Institutional identity information must not be disclosed.
+    assert protected_student_id not in response.text
+    assert protected_email not in response.text
+    assert "Protected Onboarding Student" not in response.text
+
+
+def test_revoked_staff_role_cannot_impersonate_team_member_when_caller_retains_team_access():
+    """
+    Revoking teaching-staff authority must immediately remove the ability to
+    select another team member as the subject of a new review.
+
+    If the caller independently retains legitimate team access through team
+    membership, the request may still start a review, but the authenticated
+    caller must become the authoritative review subject. A stale instructor
+    role embedded in the session must not preserve impersonation authority.
+    """
+    from uuid import uuid4
+
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        CourseSection,
+        CourseTerm,
+        ReviewSession,
+        SectionStaff,
+        Team,
+        TeamMembership,
+        User,
+    )
+    from apps.api.app.services.auth import create_session_token
+
+    suffix = uuid4().hex[:10]
+    authoritative_repo = f"demo/stale-start-{suffix}"
+
+    db = SessionLocal()
+
+    try:
+        term = CourseTerm(
+            course_code="COMP 330",
+            namespace=f"TEST-STALE-START-{suffix}",
+            term_label="Stale Review Start Authority Test",
+            starts_on="2026-08-01",
+            ends_on="2026-12-31",
+            timezone="America/Chicago",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key=f"A-{suffix}",
+            display_name="Stale Review Start Section",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        caller = User(
+            github_login=f"stale-start-caller-{suffix}",
+            display_name="Stale Staff Caller",
+            role="student",
+        )
+
+        other_student = User(
+            github_login=f"stale-start-other-{suffix}",
+            display_name="Other Team Student",
+            role="student",
+        )
+
+        db.add_all([caller, other_student])
+        db.flush()
+
+        assignment = SectionStaff(
+            section_id=section.id,
+            user_id=caller.id,
+            staff_role="instructor",
+            is_active=True,
+        )
+        db.add(assignment)
+
+        # Keep this team intentionally unsectioned so the caller's independent
+        # TeamMembership remains the access path after staff revocation,
+        # without involving phase-release policy in this identity regression.
+        team = Team(
+            course_namespace=term.namespace,
+            team_key=f"team-{suffix}",
+            name="Stale Review Start Team",
+            repo_full_name=authoritative_repo,
+            project_name="Review Subject Integrity Test",
+            current_phase="A1",
+        )
+        db.add(team)
+        db.flush()
+
+        db.add_all(
+            [
+                TeamMembership(
+                    team_id=team.id,
+                    user_id=caller.id,
+                    responsibility_role="Engineering Contributor",
+                    is_primary=True,
+                ),
+                TeamMembership(
+                    team_id=team.id,
+                    user_id=other_student.id,
+                    responsibility_role="Engineering Contributor",
+                    is_primary=False,
+                ),
+            ]
+        )
+
+        db.commit()
+
+        caller_id = caller.id
+        other_student_id = other_student.id
+        team_id = team.id
+
+    finally:
+        db.close()
+
+    # The instructor token is legitimately issued while staff authority exists.
+    token = create_session_token(
+        caller_id,
+        f"stale-start-caller-{suffix}@luc.edu",
+        "instructor",
+    )
+
+    # Remove staff authority while preserving the caller's team membership.
+    db = SessionLocal()
+    try:
+        assignment = (
+            db.query(SectionStaff)
+            .filter_by(
+                user_id=caller_id,
+                staff_role="instructor",
+            )
+            .one()
+        )
+        assignment.is_active = False
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.post(
+        "/api/v1/reviews/start",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "team_id": team_id,
+            "user_id": other_student_id,
+            "phase_id": "A1",
+            "mode": "board_review",
+            "repo_full_name": authoritative_repo,
+        },
+    )
+
+    # The caller still legitimately belongs to the team, so starting their
+    # own review remains valid.
+    assert response.status_code == 200
+
+    session_id = response.json()["session_id"]
+
+    verify_db = SessionLocal()
+    try:
+        persisted = verify_db.get(ReviewSession, session_id)
+
+        # Current identity authority, not the stale staff role, determines
+        # whose Review Room record is created.
+        assert persisted.user_id == caller_id
+        assert persisted.user_id != other_student_id
+    finally:
+        verify_db.close()

@@ -14,7 +14,14 @@ from ..services.evidence import snapshot_from_dict
 from ..services.evidence_package import EvidencePackageBuilder
 from ..services.usage_store import record_usage_events
 from ..services.course_admin import phase_access
-from ..services.auth import require_authenticated, auth_context, STAFF_ROLES, require_team_access
+from ..services.auth import (
+    STAFF_ROLES,
+    accessible_section_ids,
+    auth_context,
+    require_authenticated,
+    require_section_role,
+    require_team_access,
+)
 
 router = APIRouter(prefix="/api/v1/reviews", tags=["reviews"], dependencies=[Depends(require_authenticated)])
 
@@ -161,21 +168,103 @@ def _save_memory(state: dict, reply: dict):
 
 
 
-def _authorize_session(session: ReviewSession, ctx: dict):
-    if ctx.get("role") in STAFF_ROLES or ctx.get("role")=="developer":
+def _authorize_session(
+    db: Session,
+    session: ReviewSession,
+    ctx: dict,
+):
+    if ctx.get("role") == "developer":
         return
-    if session.user_id != ctx.get("uid"):
-        raise HTTPException(403, "Students may only access their own review conversations")
+
+    # A student always retains access to their own Review Room conversation.
+    if session.user_id == ctx.get("uid"):
+        return
+
+    # Access to another student's review requires current database-backed
+    # teaching-staff authority for the team's section. A stale role embedded
+    # in an unexpired session token is not sufficient.
+    section_link = (
+        db.query(TeamSection)
+        .filter_by(team_id=session.team_id)
+        .first()
+    )
+    if not section_link:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to access this review conversation",
+        )
+
+    try:
+        require_section_role(
+            db,
+            ctx,
+            section_link.section_id,
+            STAFF_ROLES,
+        )
+    except HTTPException as exc:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to access this review conversation",
+        ) from exc
 @router.get("")
 def list_reviews(request:Request, team_id: int | None = None, user_id: int | None = None, limit: int = 12, db: Session = Depends(get_db)):
-    ctx=auth_context(request)
-    if ctx.get("role") not in STAFF_ROLES|{"developer"}: user_id=ctx.get("uid")
+    ctx = auth_context(request)
+    caller_user_id = ctx.get("uid")
+
     query = db.query(ReviewSession)
+
+    if ctx.get("role") == "developer":
+        # Local developer access is intentionally unrestricted.
+        pass
+    else:
+        section_ids = accessible_section_ids(db, ctx)
+
+        # An explicit request for another user's review history requires
+        # current database-backed teaching-staff authority.
+        if (
+            user_id is not None
+            and user_id != caller_user_id
+            and section_ids == set()
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="You are not authorized to view this student's reviews",
+            )
+
+        if section_ids is None:
+            # Active course-owner authority is global.
+            pass
+        elif section_ids:
+            # Current teaching staff may only enumerate reviews for teams in
+            # sections to which they are actively assigned.
+            authorized_team_ids = (
+                db.query(TeamSection.team_id)
+                .filter(TeamSection.section_id.in_(section_ids))
+            )
+            query = query.filter(
+                ReviewSession.team_id.in_(authorized_team_ids)
+            )
+        else:
+            # No current teaching-staff authority: self-service only. This
+            # deliberately ignores any stale staff role embedded in the token.
+            user_id = caller_user_id
+
     if team_id:
+        # Explicit team selection must independently satisfy the current
+        # database-backed team authorization contract.
+        require_team_access(db, ctx, team_id)
         query = query.filter_by(team_id=team_id)
+
     if user_id:
         query = query.filter_by(user_id=user_id)
-    sessions = query.order_by(ReviewSession.started_at.desc()).limit(min(max(limit, 1), 50)).all()
+
+    sessions = (
+        query
+        .order_by(ReviewSession.started_at.desc())
+        .limit(min(max(limit, 1), 50))
+        .all()
+    )
+
     return {
         "sessions": [
             {
@@ -255,11 +344,46 @@ def _prior_student_review_context(db: Session, user_id: int, team_id: int, phase
 
 @router.post("/start")
 def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db)):
-    ctx=auth_context(request)
+    ctx = auth_context(request)
     team = require_team_access(db, ctx, req.team_id)
-    if ctx.get("role") not in STAFF_ROLES|{"developer"}:
-        req.user_id=ctx.get("uid")
-        if not db.query(TeamMembership).filter_by(team_id=team.id,user_id=req.user_id).first(): raise HTTPException(403,"You are not assigned to this team")
+
+    # Selecting another person as the subject of a Review Room session is
+    # privileged authority. Derive that authority from current database state,
+    # never from a staff role embedded in an already-issued session token.
+    can_select_review_subject = ctx.get("role") == "developer"
+
+    if not can_select_review_subject:
+        section_ids = accessible_section_ids(db, ctx)
+
+        if section_ids is None:
+            # Active course-owner authority is intentionally global.
+            can_select_review_subject = True
+        else:
+            section_link = (
+                db.query(TeamSection)
+                .filter_by(team_id=team.id)
+                .first()
+            )
+            can_select_review_subject = bool(
+                section_link
+                and section_link.section_id in section_ids
+            )
+
+    if not can_select_review_subject:
+        # The authenticated caller is authoritative. A stale staff token must
+        # not preserve the ability to create a review attributed to another
+        # team member.
+        req.user_id = ctx.get("uid")
+
+        if not db.query(TeamMembership).filter_by(
+            team_id=team.id,
+            user_id=req.user_id,
+        ).first():
+            raise HTTPException(
+                status_code=403,
+                detail="You are not assigned to this team",
+            )
+
     user = db.get(User, req.user_id) if req.user_id else None
     if not user or not user.is_active:
         raise HTTPException(
@@ -441,12 +565,12 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
 @router.get("/evidence/current")
 def current_evidence(team_id: int, phase_id: str | None, request: Request, db: Session = Depends(get_db)):
     ctx = auth_context(request)
-    team = db.get(Team, team_id)
-    if not team:
-        raise HTTPException(404, "Team not found")
-    if ctx.get("role") not in STAFF_ROLES | {"developer"}:
-        if not db.query(TeamMembership).filter_by(team_id=team_id, user_id=ctx.get("uid")).first():
-            raise HTTPException(403, "You are not assigned to this team")
+
+    # Frozen engineering evidence is team-scoped protected data. Authorization
+    # is determined from current database state rather than the role embedded
+    # in an already-issued session token.
+    team = require_team_access(db, ctx, team_id)
+
     q = db.query(EvidenceSnapshot).filter_by(team_id=team_id)
     if phase_id:
         q = q.filter_by(phase_id=phase_id)
@@ -469,7 +593,7 @@ def get_review(session_id: int, request:Request, db: Session = Depends(get_db)):
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(session, auth_context(request))
+    _authorize_session(db, session, auth_context(request))
     turns = db.query(ReviewTurn).filter_by(session_id=session_id).order_by(ReviewTurn.sequence).all()
     state = _safe_json(session.challenge_state_json, {})
     snapshot = db.get(EvidenceSnapshot, state.get("evidence_snapshot_id")) if state.get("evidence_snapshot_id") else None
@@ -507,7 +631,7 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(session, auth_context(request))
+    _authorize_session(db, session, auth_context(request))
     if session.status != "active":
         raise HTTPException(409, "Review session is not active")
     duplicate = _idempotent_result(db, session_id, req.client_turn_id)
@@ -560,7 +684,7 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(session, auth_context(request))
+    _authorize_session(db, session, auth_context(request))
     if session.status != "active":
         raise HTTPException(409, "Review session is not active")
     duplicate = _idempotent_result(db, session_id, req.client_turn_id)
@@ -610,7 +734,7 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(session, auth_context(request))
+    _authorize_session(db, session, auth_context(request))
     if session.status != "active":
         raise HTTPException(409, "Review session is not active")
 
@@ -673,7 +797,7 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(session, auth_context(request))
+    _authorize_session(db, session, auth_context(request))
     state = _safe_json(session.challenge_state_json, {})
     snapshot = db.get(EvidenceSnapshot, state.get("evidence_snapshot_id"))
     evidence = _safe_json(snapshot.summary_json, {}) if snapshot else {}
@@ -714,15 +838,36 @@ def finding_disposition(session_id:int, finding_id:str, req:FindingDispositionRe
     session=db.get(ReviewSession,session_id)
     if not session: raise HTTPException(404,"Review session not found")
     ctx=auth_context(request)
-    _authorize_session(session,ctx)
+    _authorize_session(db, session, ctx)
     state=_safe_json(session.challenge_state_json,{})
     snapshot=db.get(EvidenceSnapshot,state.get("evidence_snapshot_id"))
     if not snapshot: raise HTTPException(409,"No frozen snapshot is attached to this review")
-    # Students may express disposition and risk decisions, but they cannot unilaterally
-    # declare a board finding confirmed/corrected/resolved. Those states require a
-    # validated evidence workflow or teaching-staff/system action.
-    if ctx.get('role') not in STAFF_ROLES|{'developer'} and req.status in {'confirmed','corrected','resolved'}:
-        raise HTTPException(403,"This finding state requires board evidence validation or teaching-staff action")
+    # Students may express disposition and risk decisions, but they cannot
+    # unilaterally declare a board finding confirmed/corrected/resolved. Those
+    # states require current database-backed teaching-staff authority or the
+    # local developer identity.
+    if req.status in {"confirmed", "corrected", "resolved"}:
+        if ctx.get("role") != "developer":
+            section_link = (
+                db.query(TeamSection)
+                .filter_by(team_id=session.team_id)
+                .first()
+            )
+            if not section_link:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "This finding state requires board evidence validation "
+                        "or teaching-staff action"
+                    ),
+                )
+
+            require_section_role(
+                db,
+                ctx,
+                section_link.section_id,
+                STAFF_ROLES,
+            )
     _upsert_finding_state(db,team_id=session.team_id,snapshot_id=snapshot.id,finding_id=finding_id,status=req.status,user_id=session.user_id,evidence_path=req.evidence_path,rationale=req.rationale)
     db.commit()
     return {"finding_id":finding_id,"status":req.status,"snapshot_id":snapshot.id}
@@ -733,7 +878,7 @@ def commit_position(session_id: int, request:Request, db: Session = Depends(get_
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(session, auth_context(request))
+    _authorize_session(db, session, auth_context(request))
     if session.status != "active":
         raise HTTPException(409, "Review session is not active")
 
@@ -776,7 +921,7 @@ def complete(session_id: int, request:Request, db: Session = Depends(get_db)):
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(session, auth_context(request))
+    _authorize_session(db, session, auth_context(request))
     session.status = "completed"
     session.completed_at = datetime.now(timezone.utc)
     db.commit()

@@ -4,8 +4,10 @@ from urllib.parse import urlencode
 import httpx
 import jwt
 from jwt import PyJWKClient
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
+from sqlalchemy.orm import Session
 from ..config import get_settings
+from ..db import get_db
 
 COOKIE_NAME="etis_session"
 
@@ -79,11 +81,28 @@ def entra_exchange(code:str,expected_nonce:str) -> dict:
     id_token=payload.get("id_token")
     if not id_token: raise HTTPException(401,"Microsoft sign-in did not return an identity token")
     unverified=jwt.decode(id_token,options={"verify_signature":False,"verify_aud":False})
-    tid=unverified.get("tid")
-    if not tid: raise HTTPException(401,"Microsoft identity is missing tenant information")
-    issuer=f"https://login.microsoftonline.com/{tid}/v2.0"
+    tid=str(unverified.get("tid") or "").strip()
+    if not tid:
+        raise HTTPException(401,"Microsoft identity is missing tenant information")
+
+    configured_tenant=str(s.entra_tenant or "").strip()
+    if not configured_tenant or tid.casefold()!=configured_tenant.casefold():
+        raise HTTPException(
+            status_code=403,
+            detail="Microsoft identity tenant is not authorized",
+        )
+
+    issuer=f"https://login.microsoftonline.com/{configured_tenant}/v2.0"
     jwk=PyJWKClient("https://login.microsoftonline.com/common/discovery/v2.0/keys").get_signing_key_from_jwt(id_token)
     claims=jwt.decode(id_token,jwk.key,algorithms=["RS256"],audience=s.entra_client_id,issuer=issuer)
+
+    verified_tid=str(claims.get("tid") or "").strip()
+    if not verified_tid or verified_tid.casefold()!=configured_tenant.casefold():
+        raise HTTPException(
+            status_code=403,
+            detail="Microsoft identity tenant is not authorized",
+        )
+
     if expected_nonce and claims.get("nonce")!=expected_nonce: raise HTTPException(401,"Microsoft sign-in nonce did not match")
     email=(claims.get("preferred_username") or claims.get("email") or "").lower()
     if not email.endswith("@"+s.entra_allowed_domain.lower()): raise HTTPException(403,"Use your authorized Loyola account")
@@ -104,11 +123,54 @@ def auth_context(request: Request) -> dict:
 def require_authenticated(request: Request) -> dict:
     return auth_context(request)
 
-def require_staff(request: Request) -> dict:
-    ctx=auth_context(request)
-    if ctx.get("role")=="developer" or ctx.get("role") in STAFF_ROLES:
+def require_staff(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict:
+    ctx = auth_context(request)
+
+    if ctx.get("role") == "developer":
         return ctx
-    raise HTTPException(403,"Teaching-staff authorization is required")
+
+    user_id = ctx.get("uid")
+    if not user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Teaching-staff authorization is required",
+        )
+
+    from ..models import SectionStaff, User
+
+    user = db.get(User, user_id)
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Teaching-staff authorization is required",
+        )
+
+    assignments = (
+        db.query(SectionStaff)
+        .filter_by(
+            user_id=user_id,
+            is_active=True,
+        )
+        .all()
+    )
+
+    current_role = highest_staff_role(
+        [assignment.staff_role for assignment in assignments]
+    )
+    if not current_role:
+        raise HTTPException(
+            status_code=403,
+            detail="Teaching-staff authorization is required",
+        )
+
+    # Do not propagate stale role authority from the signed session. Return a
+    # normalized context whose staff role reflects current database state.
+    current_ctx = dict(ctx)
+    current_ctx["role"] = current_role
+    return current_ctx
 
 def highest_staff_role(roles) -> str|None:
     values=[r for r in roles if r in STAFF_RANK]

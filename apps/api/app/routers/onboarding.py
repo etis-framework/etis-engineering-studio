@@ -7,7 +7,12 @@ from ..db import get_db
 from ..config import get_settings
 from ..models import User, Team, TeamMembership, TeamSection, CourseSection, SectionEnrollment, InstitutionalIdentity, GitHubIdentity, RepositoryConnection
 from ..services.course_admin import phase_access, repo_name_from_clone, suggest_project_name
-from ..services.auth import require_authenticated, STAFF_ROLES
+from ..services.auth import (
+    STAFF_ROLES,
+    accessible_section_ids,
+    require_authenticated,
+    require_team_access,
+)
 from ..services.evidence import GitHubEvidenceProvider
 
 router=APIRouter(prefix="/api/v1/onboarding",tags=["onboarding"])
@@ -22,10 +27,47 @@ class ConfirmProject(BaseModel):
 
 @router.get("/users/{user_id}")
 def user_context(user_id:int,request:Request,db:Session=Depends(get_db)):
-    ctx=require_authenticated(request)
-    if ctx.get("role") not in STAFF_ROLES|{"developer"} and ctx.get("uid")!=user_id: raise HTTPException(403,"Students may only view their own onboarding context")
-    user=db.get(User,user_id)
-    if not user: raise HTTPException(404,"User not found")
+    ctx = require_authenticated(request)
+    caller_user_id = ctx.get("uid")
+
+    # Users may always view their own onboarding context. Access to another
+    # user's institutional and onboarding information must come from current
+    # database-backed teaching-staff authority, not a stale role claim carried
+    # in an already-issued session token.
+    if ctx.get("role") != "developer" and caller_user_id != user_id:
+        section_ids = accessible_section_ids(db, ctx)
+
+        if section_ids is None:
+            # Active course-owner authority is intentionally global.
+            pass
+        elif not section_ids:
+            raise HTTPException(
+                status_code=403,
+                detail="You are not authorized to view this user's onboarding context",
+            )
+        else:
+            target_section_ids = {
+                row.section_id
+                for row in (
+                    db.query(SectionEnrollment)
+                    .filter_by(
+                        user_id=user_id,
+                        status="active",
+                    )
+                    .all()
+                )
+            }
+
+            if not target_section_ids.intersection(section_ids):
+                raise HTTPException(
+                    status_code=403,
+                    detail="You are not authorized to view this user's onboarding context",
+                )
+
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+
     ident=db.query(InstitutionalIdentity).filter_by(user_id=user_id).first(); gh=db.query(GitHubIdentity).filter_by(user_id=user_id).first()
     enrollments=db.query(SectionEnrollment).filter_by(user_id=user_id,status="active").all()
     sections=[]
@@ -47,10 +89,50 @@ def user_context(user_id:int,request:Request,db:Session=Depends(get_db)):
 @router.post("/teams/{team_id}/repository")
 def connect_repository(team_id:int,req:ConnectRepository,request:Request,db:Session=Depends(get_db)):
     ctx=require_authenticated(request)
-    if ctx.get("role") not in STAFF_ROLES|{"developer"}:
-        if not db.query(TeamMembership).filter_by(team_id=team_id,user_id=ctx.get("uid")).first(): raise HTTPException(403,"Only a member of this team may connect its repository")
-        if not db.query(GitHubIdentity).filter_by(user_id=ctx.get("uid")).first(): raise HTTPException(409,"Connect your GitHub identity before connecting the team repository")
-        req.user_id=ctx.get("uid")
+
+    # Team access is determined from current database state. A stale staff role
+    # embedded in an unexpired session must not grant repository-binding access.
+    authorized_team = require_team_access(db, ctx, team_id)
+
+    actor_user_id = ctx.get("uid")
+
+    if ctx.get("role") == "developer":
+        # Local development may explicitly attribute seeded actions.
+        actor_user_id = req.user_id
+    else:
+        section_link = (
+            db.query(TeamSection)
+            .filter_by(team_id=authorized_team.id)
+            .first()
+        )
+
+        staff_sections = accessible_section_ids(db, ctx)
+        is_current_staff = (
+            staff_sections is None
+            or (
+                section_link is not None
+                and section_link.section_id in staff_sections
+            )
+        )
+
+        if not is_current_staff:
+            if not db.query(TeamMembership).filter_by(
+                team_id=team_id,
+                user_id=actor_user_id,
+            ).first():
+                raise HTTPException(
+                    403,
+                    "Only a member of this team may connect its repository",
+                )
+
+            if not db.query(GitHubIdentity).filter_by(
+                user_id=actor_user_id,
+            ).first():
+                raise HTTPException(
+                    409,
+                    "Connect your GitHub identity before connecting the team repository",
+                )
+
     # Lock the team row while binding the one authoritative repository so two
     # teammates onboarding at the same moment cannot create competing bindings.
     team=db.query(Team).filter_by(id=team_id).with_for_update().first()
@@ -65,10 +147,10 @@ def connect_repository(team_id:int,req:ConnectRepository,request:Request,db:Sess
     except Exception:
         status="awaiting_access"
     if not existing:
-        existing=RepositoryConnection(team_id=team_id,repo_full_name=full_name,clone_url=clone,status=status,connected_by_user_id=req.user_id,github_app_installed=False)
+        existing=RepositoryConnection(team_id=team_id,repo_full_name=full_name,clone_url=clone,status=status,connected_by_user_id=actor_user_id,github_app_installed=False)
         db.add(existing)
     else:
-        existing.repo_full_name=full_name; existing.clone_url=clone; existing.status=status; existing.connected_by_user_id=req.user_id
+        existing.repo_full_name=full_name; existing.clone_url=clone; existing.status=status; existing.connected_by_user_id=actor_user_id
     if verified: existing.verified_at=datetime.now(timezone.utc)
     team.repo_full_name=full_name
     suggested_project=suggest_project_name(full_name) if verified else full_name.split("/",1)[-1].replace("-"," ").title()
@@ -79,27 +161,105 @@ def connect_repository(team_id:int,req:ConnectRepository,request:Request,db:Sess
 
 @router.put("/teams/{team_id}/project")
 def confirm_project(team_id:int,req:ConfirmProject,request:Request,db:Session=Depends(get_db)):
-    ctx=require_authenticated(request)
-    if ctx.get("role") not in STAFF_ROLES|{"developer"} and not db.query(TeamMembership).filter_by(team_id=team_id,user_id=ctx.get("uid")).first(): raise HTTPException(403,"Only a member of this team may confirm project metadata")
-    team=db.get(Team,team_id)
-    if not team: raise HTTPException(404,"Team not found")
-    team.project_name=req.project_name.strip()
-    if req.team_name: team.name=req.team_name.strip()
-    db.commit(); return {"team_id":team.id,"team_name":team.name,"project_name":team.project_name}
+    ctx = require_authenticated(request)
+
+    # Project metadata is authoritative team configuration. Resolve permission
+    # from current database relationships rather than a role embedded in an
+    # already-issued session token.
+    team = require_team_access(db, ctx, team_id)
+
+    team.project_name = req.project_name.strip()
+    if req.team_name:
+        team.name = req.team_name.strip()
+
+    db.commit()
+    return {
+        "team_id": team.id,
+        "team_name": team.name,
+        "project_name": team.project_name,
+    }
 
 @router.post("/teams/{team_id}/repository/verify")
 def verify_repository(team_id:int,request:Request,db:Session=Depends(get_db)):
-    ctx=require_authenticated(request)
-    team=db.get(Team,team_id)
-    if not team: raise HTTPException(404,"Team not found")
-    if ctx.get("role") not in STAFF_ROLES|{"developer"}:
-        if not db.query(TeamMembership).filter_by(team_id=team_id,user_id=ctx.get("uid")).first(): raise HTTPException(403,"Only a member of this team may verify its repository")
-        if not db.query(GitHubIdentity).filter_by(user_id=ctx.get("uid")).first(): raise HTTPException(409,"Connect your GitHub identity before verifying the team repository")
-    conn=db.query(RepositoryConnection).filter_by(team_id=team_id).first()
-    if not conn: raise HTTPException(404,"No repository has been identified for this team")
+    ctx = require_authenticated(request)
+
+    # Repository verification is a protected team-scoped operation.
+    # Authorization must be resolved from current database state before any
+    # external GitHub interaction occurs.
+    team = require_team_access(db, ctx, team_id)
+
+    if ctx.get("role") != "developer":
+        actor_user_id = ctx.get("uid")
+
+        section_link = (
+            db.query(TeamSection)
+            .filter_by(team_id=team.id)
+            .first()
+        )
+
+        staff_sections = accessible_section_ids(db, ctx)
+        is_current_staff = (
+            staff_sections is None
+            or (
+                section_link is not None
+                and section_link.section_id in staff_sections
+            )
+        )
+
+        if not is_current_staff:
+            membership = (
+                db.query(TeamMembership)
+                .filter_by(
+                    team_id=team.id,
+                    user_id=actor_user_id,
+                )
+                .first()
+            )
+            if not membership:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Team not found",
+                )
+
+            if not db.query(GitHubIdentity).filter_by(
+                user_id=actor_user_id,
+            ).first():
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Connect your GitHub identity before verifying "
+                        "the team repository"
+                    ),
+                )
+
+    conn = (
+        db.query(RepositoryConnection)
+        .filter_by(team_id=team.id)
+        .first()
+    )
+    if not conn:
+        raise HTTPException(
+            status_code=404,
+            detail="No repository has been identified for this team",
+        )
+
     try:
         GitHubEvidenceProvider().head_sha(conn.repo_full_name)
     except Exception as e:
-        raise HTTPException(502,f"Repository access is not ready: {e}") from e
-    conn.status="verified"; conn.github_app_installed=bool(get_settings().github_app_id); conn.verified_at=datetime.now(timezone.utc); team.repo_full_name=conn.repo_full_name; db.commit()
-    return {"verified":True,"repo_full_name":conn.repo_full_name,"status":conn.status}
+        raise HTTPException(
+            status_code=502,
+            detail=f"Repository access is not ready: {e}",
+        ) from e
+
+    conn.status = "verified"
+    conn.github_app_installed = bool(get_settings().github_app_id)
+    conn.verified_at = datetime.now(timezone.utc)
+    team.repo_full_name = conn.repo_full_name
+
+    db.commit()
+
+    return {
+        "verified": True,
+        "repo_full_name": conn.repo_full_name,
+        "status": conn.status,
+    }
