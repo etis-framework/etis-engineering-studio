@@ -35,8 +35,7 @@ Implemented in this package:
 
 ```bash
 cp .env.example .env
-# When applying the v0.11 overlay, merge the new identity/integration keys from
-# ENV_EXAMPLE_v0.11.0.txt into .env before production-authentication testing.
+# Review .env.example and update .env before authentication/integration testing.
 python -m venv .venv
 source .venv/bin/activate
 pip install -r apps/api/requirements.txt

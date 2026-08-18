@@ -399,7 +399,7 @@ Before student access is enabled, operations readiness must verify:
 - incident and recovery runbooks have been reviewed;
 - escalation ownership is known;
 - GitHub production deployment protection is active;
-- operational evidence is retained for Gate 17 review.
+- operational evidence is retained for Post-Provisioning Production Acceptance.
 
 ## 15. Gate 16 / Gate 17 boundary
 
@@ -409,12 +409,22 @@ production use.
 Because Azure resources have not yet been provisioned during pre-deployment
 hardening, some evidence can only be collected after provisioning.
 
-Gate 17 must distinguish:
+**Gate 17 — Final Pre-Azure Go/No-Go occurs before production Azure
+provisioning.** It must distinguish:
 
 - controls proven before deployment;
 - controls verified by CI;
-- controls requiring live Azure validation;
-- any remaining production-access blockers.
+- controls that explicitly require live post-provisioning validation;
+- any blockers that prevent Azure provisioning;
+- any deferred item with explicit acceptance.
 
-Student access must not be enabled simply because the infrastructure can be
-deployed.
+A Gate 17 GO authorizes production Azure provisioning only. It does not
+authorize student access.
+
+After provisioning, the live Gate 16 validations in this runbook must be
+executed and retained as evidence for **Post-Provisioning Production
+Acceptance**. Student access must not be enabled until that acceptance review
+reaches an explicit GO.
+
+Student access must never be enabled simply because the infrastructure can be
+deployed or because `/ready` returns successfully.

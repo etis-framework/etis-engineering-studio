@@ -418,5 +418,6 @@ After Azure provisioning, Gate 16 evidence must additionally prove:
 - actual alert delivery;
 - actual production readiness after restoration.
 
-Those live results become evidence for the final Gate 17 production go/no-go
-decision.
+Those live results become evidence for the **Post-Provisioning Production
+Acceptance** decision that occurs after Gate 17 has authorized Azure
+provisioning and before student production access is enabled.

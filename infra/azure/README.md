@@ -186,17 +186,27 @@ resources exist and before student production access is approved.
 These templates define the intended production infrastructure, but source code
 alone does not authorize deployment or student use.
 
-Production rollout still requires:
+Before production Azure provisioning begins, the project still requires:
 
 - protected GitHub production-environment configuration;
 - Azure OIDC configuration;
-- production secrets;
-- final hostname and DNS;
+- production secret values at the deployment boundary;
+- the intended production hostname and DNS plan;
 - Microsoft Entra callback configuration;
 - GitHub App/OAuth configuration;
+- explicit **Gate 17 — Final Pre-Azure Go/No-Go** approval.
+
+A Gate 17 GO authorizes provisioning and deployment only.
+
+After provisioning and before student production access, the project still
+requires:
+
+- final hostname, DNS, HTTPS, and callback validation;
 - live Azure operational validation;
 - Gate 16 post-provisioning evidence;
-- explicit Gate 17 go/no-go approval.
+- live point-in-time recovery validation;
+- production authentication and authorization validation;
+- explicit **Post-Provisioning Production Acceptance** GO.
 
 No infrastructure requirement should be weakened merely to simplify local
 development or initial deployment.

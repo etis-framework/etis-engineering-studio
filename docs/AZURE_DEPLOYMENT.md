@@ -367,7 +367,12 @@ callback URI must agree with the hostname actually presented to users.
 
 ## Controlled rollout sequence
 
-After the infrastructure and application have been successfully deployed:
+**Gate 17 — Final Pre-Azure Go/No-Go must reach an explicit GO before any
+production Azure resources are provisioned or the production deployment
+workflow is authorized.**
+
+After Gate 17 GO and after the infrastructure and application have been
+successfully deployed:
 
 1. verify production readiness;
 2. configure/verify the final HTTPS hostname;
@@ -377,9 +382,10 @@ After the infrastructure and application have been successfully deployed:
 6. import the COMP330-F26 roster and team mappings;
 7. test instructor and student authorization;
 8. test at least one authorized private repository;
-9. perform Gate 16 operational and recovery validation;
-10. complete the final pre-Azure/student-access go/no-go gate;
-11. enable student access only after all production controls pass.
+9. perform the required Gate 16 live operational and recovery validation;
+10. complete the post-provisioning **Production Acceptance** review;
+11. enable student access only after Production Acceptance reaches an explicit
+    GO and all production controls pass.
 
 ## Gate boundaries
 
@@ -388,15 +394,17 @@ deployment path.
 
 It does **not** itself authorize student production use.
 
-The following remain later-gate responsibilities:
+The following remain later-stage responsibilities:
 
 - operational alerts and escalation;
 - backup/restore testing;
 - recovery exercises;
 - incident runbooks;
 - final production configuration verification;
-- final DNS/callback validation;
-- final go/no-go decision.
+- Gate 17 pre-Azure deployment authorization;
+- final DNS/callback validation after provisioning;
+- live Gate 16 operational/recovery evidence;
+- post-provisioning Production Acceptance before student access.
 
 No production-control requirement should be weakened merely to simplify local
 development or initial Azure provisioning.

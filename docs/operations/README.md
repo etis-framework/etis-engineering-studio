@@ -175,23 +175,34 @@ not yet been provisioned.
 
 ## Gate 17 relationship
 
-**Gate 17 — Final Pre-Azure / Production Go-No-Go** consumes the evidence from
-all prior gates.
+**Gate 17 — Final Pre-Azure Go/No-Go** consumes the pre-deployment evidence from
+all prior gates and decides whether production Azure provisioning may begin.
 
-Gate 17 must identify each production control as one of:
+At Gate 17, each production control must be identified as one of:
 
 - proven;
 - verified in CI;
-- verified post-provisioning;
+- requires post-provisioning validation;
 - blocked;
 - deferred with explicit acceptance.
 
-Gate 17 must specifically verify that the required Gate 16 post-provisioning
-evidence exists before student production access is enabled.
+Gate 17 must not classify a live Azure control as verified when the production
+resources required to test that control do not yet exist.
+
+An explicit Gate 17 GO authorizes Azure provisioning and deployment. It does
+**not** authorize student production use.
+
+After provisioning, the required Gate 16 live evidence must be collected and
+evaluated through a separate **Post-Provisioning Production Acceptance**
+review. That review must verify the required telemetry, alerting, health,
+readiness, backup, point-in-time recovery, networking, authentication,
+authorization, DNS, and other live production controls before student access is
+enabled.
 
 A successful deployment is not itself a go-live decision.
 
-A successful `/ready` response is necessary but not sufficient for production
-authorization.
+A successful `/ready` response is necessary but not sufficient for student
+production authorization.
 
-Student access remains disabled until Gate 17 reaches an explicit go decision.
+Student access remains disabled until Post-Provisioning Production Acceptance
+reaches an explicit GO.
