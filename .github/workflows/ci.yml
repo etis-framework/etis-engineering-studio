@@ -43,6 +43,7 @@ jobs:
           cache: pip
           cache-dependency-path: |
             apps/api/requirements.txt
+            apps/api/requirements.lock
             requirements-dev.txt
 
       - name: Install development dependencies
@@ -56,8 +57,57 @@ jobs:
           mkdir -p artifacts
           python -m pip_audit -r apps/api/requirements.lock -f cyclonedx-json -o artifacts/etis-api-sbom.cdx.json
 
+      - name: Validate production database migrations
+        run: python -m pytest -q tests/test_v016_database_migrations.py
+
       - name: Build production API container
         run: docker build -f apps/api/Dockerfile -t etis-engineering-studio:ci .
+
+      - name: Smoke test production API container
+        run: |
+          set -euo pipefail
+
+          cleanup() {
+            docker rm -f etis-api-smoke >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker run \
+            --detach \
+            --name etis-api-smoke \
+            --network host \
+            -e ETIS_ENV=production \
+            -e ETIS_DATABASE_URL="${ETIS_TEST_POSTGRES_URL}" \
+            -e ETIS_WEB_ORIGIN=https://studio.example.edu \
+            -e ETIS_SESSION_SECRET=ci-production-session-secret-at-least-32-characters \
+            -e ETIS_DEV_LOGIN=false \
+            -e ENTRA_CLIENT_ID=ci-entra-client \
+            -e ENTRA_CLIENT_SECRET=ci-entra-secret \
+            -e ENTRA_REDIRECT_URI=https://studio.example.edu/auth/entra/callback \
+            -e ENTRA_TENANT=11111111-2222-3333-4444-555555555555 \
+            -e GITHUB_APP_ID=12345 \
+            -e GITHUB_APP_PRIVATE_KEY=ci-placeholder-private-key \
+            -e GITHUB_OAUTH_CLIENT_ID=ci-github-client \
+            -e GITHUB_OAUTH_CLIENT_SECRET=ci-github-secret \
+            -e GITHUB_OAUTH_REDIRECT_URI=https://studio.example.edu/auth/github/callback \
+            -e OPENAI_API_KEY=sk-proj-ci-placeholder \
+            etis-engineering-studio:ci
+
+          for attempt in $(seq 1 30); do
+            payload="$(curl -fsS http://127.0.0.1:8000/ready 2>/dev/null || true)"
+
+            if printf '%s' "${payload}" | grep -q '"status":"ready"' \
+              && printf '%s' "${payload}" | grep -q '"migration_current":true'; then
+              printf '%s\n' "${payload}"
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          echo "Production container did not become ready."
+          docker logs etis-api-smoke || true
+          exit 1
 
       - name: Preserve production Python SBOM
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
