@@ -51,6 +51,52 @@ def api_proxy(base_url: str, state: dict | None = None):
         path = parsed.path
         query = f"?{parsed.query}" if parsed.query else ""
 
+
+        if path == "/api/v1/admin/setup" and request.method.upper() == "GET":
+            target = base_url.rstrip("/") + path + query
+            req = urllib.request.Request(target, headers={
+                k: v for k, v in request.headers.items()
+                if k.lower() not in {"host", "content-length", "origin", "referer", "sec-fetch-site", "sec-fetch-mode", "sec-fetch-dest"}
+            }, method="GET")
+            try:
+                with urllib.request.urlopen(req, timeout=20) as response:
+                    payload = json.loads(response.read())
+                    status = response.status
+            except urllib.error.HTTPError as exc:
+                payload = json.loads(exc.read() or b"{}")
+                status = exc.code
+
+            archived_term_id = state.get("archived_term_id")
+            if archived_term_id is not None:
+                for term in payload.get("terms", []):
+                    if str(term.get("id")) == str(archived_term_id):
+                        term["status"] = "archived"
+
+            route.fulfill(
+                status=status,
+                content_type="application/json",
+                body=json.dumps(payload),
+            )
+            return
+
+        archive_match = re.fullmatch(r"/api/v1/admin/terms/(\d+)/status", path)
+        if (
+            archive_match
+            and request.method.upper() == "PUT"
+            and "status=archived" in query
+            and state.get("simulate_semester_archive")
+        ):
+            state["archived_term_id"] = int(archive_match.group(1))
+            archive_session_id = state.get("archive_session_id")
+            if archive_session_id is not None:
+                state.setdefault("archived_review_ids", set()).add(int(archive_session_id))
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps({"status": "archived"}),
+            )
+            return
+
         # Keep UI conversation tests deterministic and inexpensive. Repository/session
         # start calls still use the real local API and frozen evidence.
         if path.endswith("/respond"):
@@ -326,6 +372,24 @@ def api_proxy(base_url: str, state: dict | None = None):
 
             start_record["browser_status"] = status
 
+        archived_review_ids = state.get("archived_review_ids", set())
+        if archived_review_ids and status == 200:
+            detail_match = re.fullmatch(r"/api/v1/reviews/(\d+)", path)
+            if detail_match and int(detail_match.group(1)) in archived_review_ids:
+                payload = json.loads(response_body)
+                if payload.get("session"):
+                    payload["session"]["status"] = "archived_incomplete"
+                response_body = json.dumps(payload).encode()
+                ctype = "application/json"
+            elif path == "/api/v1/reviews" and request.method.upper() == "GET":
+                payload = json.loads(response_body)
+                for session in payload.get("sessions", []):
+                    if int(session.get("id", -1)) in archived_review_ids:
+                        session["status"] = "archived_incomplete"
+
+                response_body = json.dumps(payload).encode()
+                ctype = "application/json"
+
         if path == "/health" and status == 200:
             health = json.loads(response_body)
             health["semantic_coaching_ready"] = True
@@ -366,6 +430,10 @@ def main() -> int:
         "fail_next_start_after_commit": False,
         "fail_next_respond_after_commit": False,
         "expected_503_console_errors": 0,
+        "simulate_semester_archive": False,
+        "archived_term_id": None,
+        "archive_session_id": None,
+        "archived_review_ids": set(),
     }
     proxy = api_proxy(args.base_url, proxy_state)
 
@@ -412,6 +480,8 @@ def main() -> int:
             page.route("**/api/v1/reviews/*/coach", proxy)
             page.route("**/api/v1/reviews/*/evidence-dispute", proxy)
             page.route("**/api/v1/reviews/start", proxy)
+            page.route("**/api/v1/admin/setup", proxy)
+            page.route(re.compile(r".*/api/v1/admin/terms/\d+/status(?:\?.*)?$"), proxy)
             page.goto(args.base_url, wait_until="networkidle")
         page.wait_for_timeout(600)
 
@@ -928,6 +998,113 @@ def main() -> int:
             save.click(); page.wait_for_timeout(160)
             require(page.locator('#viewTitle').inner_text() == 'Semester Setup', 'schedule save broke Semester Setup navigation')
         passed("Instructor semester schedule control")
+
+        # Gate 14 semester lifecycle war game. Keep this deterministic: the proxy
+        # simulates the archive boundary while the real API continues to supply the
+        # seeded course/review fixtures. No local term is destructively archived.
+        page.locator("#devPersona").select_option("student")
+        page.wait_for_timeout(180)
+        page.locator('button.nav[data-view="studio"]').click()
+        page.wait_for_timeout(100)
+
+        # The preceding recovery scenario intentionally leaves a completed
+        # historical session loaded. Return explicitly to the clean launcher
+        # before creating the active review that will cross the archive boundary.
+        if page.locator("#reviewHomeButton").is_visible():
+            page.locator("#reviewHomeButton").click()
+            page.wait_for_timeout(120)
+
+        require(
+            page.locator("#newReview").inner_text().startswith("Start Board Review"),
+            "archive war game did not return to a clean Board Review launcher",
+        )
+        page.locator("#newReview").click()
+        page.wait_for_timeout(350)
+        require(
+            page.locator("#conversationControls").is_visible(),
+            "could not create the active review used for semester archive war game",
+        )
+        require(proxy_state["start_requests"], "archive war game did not record a review start")
+        proxy_state["archive_session_id"] = proxy_state["start_requests"][-1]["session_id"]
+        proxy_state["simulate_semester_archive"] = True
+
+        page.locator("#devPersona").select_option("instructor")
+        page.wait_for_timeout(180)
+        page.locator('button.nav[data-view="semesterSetup"]').click()
+        page.wait_for_timeout(300)
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator("#archiveTerm").click()
+        page.wait_for_timeout(350)
+
+        notice = page.locator("#semesterLifecycleNotice")
+        require(notice.is_visible(), "archived term did not expose a lifecycle notice")
+        require(
+            "Archived semester · read-only" in notice.inner_text(),
+            "archived term did not present as read-only",
+        )
+        require(page.locator("#archiveTerm").is_disabled(), "archive action remained enabled after archive")
+        require(page.locator("#importRoster").is_disabled(), "roster mutation remained enabled on archived term")
+        require(page.locator("#createTeam").is_disabled(), "team mutation remained enabled on archived term")
+        require(page.locator("#addStaff").is_disabled(), "staff mutation remained enabled on archived term")
+        save_after_archive = page.locator("#scheduleEditor .save-phase").first
+        if save_after_archive.count():
+            require(save_after_archive.is_disabled(), "schedule mutation remained enabled on archived term")
+        passed("archived semester becomes read-only in Semester Setup")
+
+        archived_id = int(proxy_state["archive_session_id"])
+        require(
+            archived_id in proxy_state["archived_review_ids"],
+            "semester archive did not transition the active review fixture",
+        )
+
+        # Only after the simulated archive, route history and this archived
+        # session detail through the lifecycle proxy. Earlier product journeys
+        # continue to use the real API unchanged; these narrow routes let the
+        # deterministic fixture expose the archive transition to the browser.
+        page.route(
+            re.compile(r".*/api/v1/reviews(?:\?.*)?$"),
+            proxy,
+        )
+        page.route(
+            re.compile(
+                rf".*/api/v1/reviews/{archived_id}(?:\?.*)?$"
+            ),
+            proxy,
+        )
+
+        page.locator("#devPersona").select_option("student")
+        page.wait_for_timeout(180)
+        page.locator('button.nav[data-view="history"]').click()
+        page.wait_for_timeout(220)
+        archived_history = page.locator(
+            f'#reviewHistoryPage .history-item[data-session="{archived_id}"]'
+        )
+        require(archived_history.count() == 1, "archived active review was not preserved in history")
+        require(
+            "archived_incomplete" in archived_history.inner_text().lower(),
+            "active review did not become archived incomplete at semester close",
+        )
+        passed("active review becomes archived incomplete at semester close")
+
+        archived_history.click()
+        page.wait_for_timeout(220)
+        require(
+            page.locator("#reviewStatusLabel").inner_text()
+            == "Archived semester · incomplete review · read-only",
+            "archived incomplete review was mislabeled as an ordinary completed review",
+        )
+        require(
+            not page.locator("#conversationControls").is_visible(),
+            "archived incomplete review incorrectly remained mutable",
+        )
+        require(
+            "archive ended the active review" in page.locator("#reviewStatusText").inner_text(),
+            "archived incomplete review did not explain why the review ended",
+        )
+        passed("archived incomplete review opens with accurate historical status")
+
+        page.locator("#devPersona").select_option("instructor")
+        page.wait_for_timeout(150)
 
         # Help is role-aware on staff surfaces.
         page.locator('#helpButton').click(); page.wait_for_timeout(50)
