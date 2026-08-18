@@ -36,6 +36,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
+      - name: Install pinned Bicep CLI
+        run: az bicep install --version v0.46.1
+
+      - name: Compile Gate 15 Bicep templates
+        run: |
+          set -euo pipefail
+          az bicep build --file infra/azure/main.bicep --stdout >/dev/null
+          az bicep build --file infra/azure/secrets.bicep --stdout >/dev/null
+          az bicep build --file infra/azure/migration.bicep --stdout >/dev/null
+          az bicep build --file infra/azure/app.bicep --stdout >/dev/null
+
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:

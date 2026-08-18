@@ -111,7 +111,7 @@ jobs:
         run: python scripts/validate_course_model.py
 
   deploy:
-    name: Deploy Production Container
+    name: Deploy Production Infrastructure and Application
     needs: release_gate
     runs-on: ubuntu-latest
     environment: production
@@ -119,6 +119,27 @@ jobs:
     permissions:
       id-token: write
       contents: read
+
+    env:
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+      ETIS_WEB_ORIGIN: ${{ vars.ETIS_WEB_ORIGIN }}
+
+      POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+      ETIS_SESSION_SECRET: ${{ secrets.ETIS_SESSION_SECRET }}
+
+      ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
+      ENTRA_CLIENT_SECRET: ${{ secrets.ENTRA_CLIENT_SECRET }}
+      ENTRA_TENANT: ${{ secrets.AZURE_TENANT_ID }}
+
+      GITHUB_APP_ID: ${{ vars.GITHUB_APP_ID }}
+      GITHUB_APP_SLUG: ${{ vars.GITHUB_APP_SLUG }}
+      GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+
+      GITHUB_OAUTH_CLIENT_ID: ${{ vars.GITHUB_OAUTH_CLIENT_ID }}
+      GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.GITHUB_OAUTH_CLIENT_SECRET }}
+
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     steps:
       - name: Check out validated commit
@@ -131,19 +152,244 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Validate deployment configuration
+        run: |
+          set -euo pipefail
+
+          required=(
+            AZURE_RESOURCE_GROUP
+            AZURE_LOCATION
+            ETIS_WEB_ORIGIN
+            POSTGRES_ADMIN_PASSWORD
+            ETIS_SESSION_SECRET
+            ENTRA_CLIENT_ID
+            ENTRA_CLIENT_SECRET
+            ENTRA_TENANT
+            GITHUB_APP_ID
+            GITHUB_APP_PRIVATE_KEY
+            GITHUB_OAUTH_CLIENT_ID
+            GITHUB_OAUTH_CLIENT_SECRET
+            OPENAI_API_KEY
+          )
+
+          for name in "${required[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              echo "Required production deployment setting is missing: ${name}"
+              exit 1
+            fi
+          done
+
+          case "${ETIS_WEB_ORIGIN}" in
+            https://*) ;;
+            *)
+              echo "ETIS_WEB_ORIGIN must be an HTTPS origin."
+              exit 1
+              ;;
+          esac
+
+          if [ "${#ETIS_SESSION_SECRET}" -lt 32 ]; then
+            echo "ETIS_SESSION_SECRET must contain at least 32 characters."
+            exit 1
+          fi
+
+      - name: Reconcile Azure foundation
+        id: foundation
+        run: |
+          set -euo pipefail
+
+          az deployment group create \
+            --name "etis-foundation-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
+            --template-file infra/azure/main.bicep \
+            --parameters \
+              location="${AZURE_LOCATION}" \
+              postgresAdminPassword="${POSTGRES_ADMIN_PASSWORD}" \
+            --only-show-errors \
+            --output none
+
+          ACR_NAME="$(
+            az deployment group show \
+              --name "etis-foundation-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+              --resource-group "${AZURE_RESOURCE_GROUP}" \
+              --query properties.outputs.containerRegistryName.value \
+              --output tsv
+          )"
+
+          ACR_LOGIN_SERVER="$(
+            az deployment group show \
+              --name "etis-foundation-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+              --resource-group "${AZURE_RESOURCE_GROUP}" \
+              --query properties.outputs.containerRegistryLoginServer.value \
+              --output tsv
+          )"
+
+          printf 'acr_name=%s\n' "${ACR_NAME}" >> "${GITHUB_OUTPUT}"
+          printf 'acr_login_server=%s\n' "${ACR_LOGIN_SERVER}" >> "${GITHUB_OUTPUT}"
+
+      - name: Provision runtime secrets
+        run: |
+          set -euo pipefail
+
+          az deployment group create \
+            --name "etis-secrets-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
+            --template-file infra/azure/secrets.bicep \
+            --parameters \
+              postgresAdminPassword="${POSTGRES_ADMIN_PASSWORD}" \
+              sessionSecret="${ETIS_SESSION_SECRET}" \
+              entraClientSecret="${ENTRA_CLIENT_SECRET}" \
+              githubAppPrivateKey="${GITHUB_APP_PRIVATE_KEY}" \
+              githubOauthClientSecret="${GITHUB_OAUTH_CLIENT_SECRET}" \
+              openAiApiKey="${OPENAI_API_KEY}" \
+            --only-show-errors \
+            --output none
+
       - name: Login to ACR
-        run: az acr login --name "${{ vars.AZURE_ACR_NAME }}"
+        run: az acr login --name "${{ steps.foundation.outputs.acr_name }}"
 
       - name: Build and push validated commit
+        id: image
         run: |
-          IMAGE="${{ vars.AZURE_ACR_LOGIN_SERVER }}/${IMAGE_NAME}:${GITHUB_SHA}"
-          docker build -f apps/api/Dockerfile -t "$IMAGE" .
-          docker push "$IMAGE"
-          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          set -euo pipefail
 
-      - name: Deploy container app
-        run: >
-          az containerapp update
-          --name "${{ vars.AZURE_CONTAINER_APP_NAME }}"
-          --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}"
-          --image "$IMAGE"
+          IMAGE="${{ steps.foundation.outputs.acr_login_server }}/${IMAGE_NAME}:${GITHUB_SHA}"
+
+          docker build \
+            -f apps/api/Dockerfile \
+            -t "${IMAGE}" \
+            .
+
+          docker push "${IMAGE}"
+
+          printf 'image=%s\n' "${IMAGE}" >> "${GITHUB_OUTPUT}"
+
+      - name: Reconcile migration job
+        id: migration
+        run: |
+          set -euo pipefail
+
+          az deployment group create \
+            --name "etis-migration-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
+            --template-file infra/azure/migration.bicep \
+            --parameters \
+              location="${AZURE_LOCATION}" \
+              containerImage="${{ steps.image.outputs.image }}" \
+            --only-show-errors \
+            --output none
+
+          MIGRATION_JOB_NAME="$(
+            az deployment group show \
+              --name "etis-migration-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+              --resource-group "${AZURE_RESOURCE_GROUP}" \
+              --query properties.outputs.migrationJobName.value \
+              --output tsv
+          )"
+
+          printf 'job_name=%s\n' "${MIGRATION_JOB_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Run production database migration
+        run: |
+          set -euo pipefail
+
+          MIGRATION_JOB="${{ steps.migration.outputs.job_name }}"
+
+          EXECUTION_NAME="$(
+            az containerapp job start \
+              --name "${MIGRATION_JOB}" \
+              --resource-group "${AZURE_RESOURCE_GROUP}" \
+              --query name \
+              --output tsv
+          )"
+
+          if [ -z "${EXECUTION_NAME}" ]; then
+            echo "Migration job did not return an execution name."
+            exit 1
+          fi
+
+          echo "Started migration execution ${EXECUTION_NAME}."
+
+          for attempt in $(seq 1 120); do
+            STATUS="$(
+              az containerapp job execution show \
+                --name "${MIGRATION_JOB}" \
+                --resource-group "${AZURE_RESOURCE_GROUP}" \
+                --job-execution-name "${EXECUTION_NAME}" \
+                --query properties.status \
+                --output tsv
+            )"
+
+            case "${STATUS}" in
+              Succeeded)
+                echo "Production database migration succeeded."
+                exit 0
+                ;;
+              Failed)
+                echo "Production database migration failed."
+                exit 1
+                ;;
+              *)
+                sleep 5
+                ;;
+            esac
+          done
+
+          echo "Timed out waiting for production database migration."
+          exit 1
+
+      - name: Deploy production application
+        id: application
+        run: |
+          set -euo pipefail
+
+          ENTRA_REDIRECT_URI="${ETIS_WEB_ORIGIN%/}/auth/entra/callback"
+          GITHUB_OAUTH_REDIRECT_URI="${ETIS_WEB_ORIGIN%/}/auth/github/callback"
+
+          az deployment group create \
+            --name "etis-app-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
+            --template-file infra/azure/app.bicep \
+            --parameters \
+              location="${AZURE_LOCATION}" \
+              containerImage="${{ steps.image.outputs.image }}" \
+              webOrigin="${ETIS_WEB_ORIGIN}" \
+              entraClientId="${ENTRA_CLIENT_ID}" \
+              entraTenant="${ENTRA_TENANT}" \
+              entraRedirectUri="${ENTRA_REDIRECT_URI}" \
+              githubAppId="${GITHUB_APP_ID}" \
+              githubAppSlug="${GITHUB_APP_SLUG}" \
+              githubOauthClientId="${GITHUB_OAUTH_CLIENT_ID}" \
+              githubOauthRedirectUri="${GITHUB_OAUTH_REDIRECT_URI}" \
+            --only-show-errors \
+            --output none
+
+          APP_URL="$(
+            az deployment group show \
+              --name "etis-app-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+              --resource-group "${AZURE_RESOURCE_GROUP}" \
+              --query properties.outputs.containerAppUrl.value \
+              --output tsv
+          )"
+
+          printf 'app_url=%s\n' "${APP_URL}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify production readiness
+        run: |
+          set -euo pipefail
+
+          READY_URL="${{ steps.application.outputs.app_url }}/ready"
+
+          for attempt in $(seq 1 60); do
+            payload="$(curl -fsS "${READY_URL}" 2>/dev/null || true)"
+
+            if printf '%s' "${payload}" | grep -q '"status":"ready"' \
+              && printf '%s' "${payload}" | grep -q '"migration_current":true'; then
+              printf '%s\n' "${payload}"
+              exit 0
+            fi
+
+            sleep 5
+          done
+
+          echo "Production application did not report ready."
+          exit 1
