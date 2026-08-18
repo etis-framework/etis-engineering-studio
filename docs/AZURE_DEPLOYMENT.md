@@ -295,6 +295,19 @@ secure values consumed by the Key Vault provisioning deployment.
 Exact production values are established during the controlled Azure deployment
 preparation process. They must not be added to source control.
 
+GitHub reserves the `GITHUB_` prefix for Actions-provided values. Therefore the
+protected GitHub `production` environment uses these operator-facing names:
+
+- `ETIS_GITHUB_APP_ID`
+- `ETIS_GITHUB_APP_SLUG`
+- `ETIS_GITHUB_APP_PRIVATE_KEY`
+- `ETIS_GITHUB_OAUTH_CLIENT_ID`
+- `ETIS_GITHUB_OAUTH_CLIENT_SECRET`
+
+The deployment workflow maps those values into the application's existing
+`GITHUB_*` runtime configuration. Do not create custom GitHub Actions variables
+or secrets beginning with `GITHUB_`.
+
 The GitHub production environment should use appropriate repository/environment
 protection settings before student rollout.
 

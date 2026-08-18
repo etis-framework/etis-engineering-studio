@@ -275,6 +275,13 @@ Required configuration includes:
 - `ETIS_WEB_ORIGIN`
 - `OPERATIONS_ALERT_EMAIL`
 
+- `ETIS_GITHUB_APP_ID`
+
+- `ETIS_GITHUB_APP_SLUG`
+
+- `ETIS_GITHUB_OAUTH_CLIENT_ID`
+
+
 ### Sensitive values
 
 Required protected values include:
@@ -282,8 +289,8 @@ Required protected values include:
 - `POSTGRES_ADMIN_PASSWORD`
 - `ETIS_SESSION_SECRET`
 - `ENTRA_CLIENT_SECRET`
-- `GITHUB_APP_PRIVATE_KEY`
-- `GITHUB_OAUTH_CLIENT_SECRET`
+- `ETIS_GITHUB_APP_PRIVATE_KEY`
+- `ETIS_GITHUB_OAUTH_CLIENT_SECRET`
 - `OPENAI_API_KEY`
 
 Do not record secret values.

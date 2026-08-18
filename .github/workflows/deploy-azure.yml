@@ -138,12 +138,12 @@ jobs:
       ETIS_PRODUCTION_TEST_SECTION_KEY: ${{ vars.ETIS_PRODUCTION_TEST_SECTION_KEY }}
       ETIS_PRODUCTION_TEST_TEAM_KEY: ${{ vars.ETIS_PRODUCTION_TEST_TEAM_KEY }}
 
-      GITHUB_APP_ID: ${{ vars.GITHUB_APP_ID }}
-      GITHUB_APP_SLUG: ${{ vars.GITHUB_APP_SLUG }}
-      GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+      ETIS_GITHUB_APP_ID: ${{ vars.ETIS_GITHUB_APP_ID }}
+      ETIS_GITHUB_APP_SLUG: ${{ vars.ETIS_GITHUB_APP_SLUG }}
+      ETIS_GITHUB_APP_PRIVATE_KEY: ${{ secrets.ETIS_GITHUB_APP_PRIVATE_KEY }}
 
-      GITHUB_OAUTH_CLIENT_ID: ${{ vars.GITHUB_OAUTH_CLIENT_ID }}
-      GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.GITHUB_OAUTH_CLIENT_SECRET }}
+      ETIS_GITHUB_OAUTH_CLIENT_ID: ${{ vars.ETIS_GITHUB_OAUTH_CLIENT_ID }}
+      ETIS_GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.ETIS_GITHUB_OAUTH_CLIENT_SECRET }}
 
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
@@ -178,10 +178,10 @@ jobs:
             ETIS_PRODUCTION_TEST_STUDENT_ID
             ETIS_PRODUCTION_TEST_SECTION_KEY
             ETIS_PRODUCTION_TEST_TEAM_KEY
-            GITHUB_APP_ID
-            GITHUB_APP_PRIVATE_KEY
-            GITHUB_OAUTH_CLIENT_ID
-            GITHUB_OAUTH_CLIENT_SECRET
+            ETIS_GITHUB_APP_ID
+            ETIS_GITHUB_APP_PRIVATE_KEY
+            ETIS_GITHUB_OAUTH_CLIENT_ID
+            ETIS_GITHUB_OAUTH_CLIENT_SECRET
             OPENAI_API_KEY
             OPERATIONS_ALERT_EMAIL
           )
@@ -252,8 +252,8 @@ jobs:
               postgresAdminPassword="${POSTGRES_ADMIN_PASSWORD}" \
               sessionSecret="${ETIS_SESSION_SECRET}" \
               entraClientSecret="${ENTRA_CLIENT_SECRET}" \
-              githubAppPrivateKey="${GITHUB_APP_PRIVATE_KEY}" \
-              githubOauthClientSecret="${GITHUB_OAUTH_CLIENT_SECRET}" \
+              githubAppPrivateKey="${ETIS_GITHUB_APP_PRIVATE_KEY}" \
+              githubOauthClientSecret="${ETIS_GITHUB_OAUTH_CLIENT_SECRET}" \
               openAiApiKey="${OPENAI_API_KEY}" \
             --only-show-errors \
             --output none
@@ -375,9 +375,9 @@ jobs:
               productionTestStudentId="${ETIS_PRODUCTION_TEST_STUDENT_ID}" \
               productionTestSectionKey="${ETIS_PRODUCTION_TEST_SECTION_KEY}" \
               productionTestTeamKey="${ETIS_PRODUCTION_TEST_TEAM_KEY}" \
-              githubAppId="${GITHUB_APP_ID}" \
-              githubAppSlug="${GITHUB_APP_SLUG}" \
-              githubOauthClientId="${GITHUB_OAUTH_CLIENT_ID}" \
+              githubAppId="${ETIS_GITHUB_APP_ID}" \
+              githubAppSlug="${ETIS_GITHUB_APP_SLUG}" \
+              githubOauthClientId="${ETIS_GITHUB_OAUTH_CLIENT_ID}" \
               githubOauthRedirectUri="${GITHUB_OAUTH_REDIRECT_URI}" \
             --only-show-errors \
             --output none

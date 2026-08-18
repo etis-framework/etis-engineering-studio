@@ -223,3 +223,31 @@ def test_deployment_document_explains_reproducible_gate15_sequence():
             "github actions",
         ],
     )
+
+
+def test_production_workflow_avoids_reserved_github_prefix_for_operator_settings():
+    text = read_required(WORKFLOW)
+
+    required_operator_names = [
+        "ETIS_GITHUB_APP_ID",
+        "ETIS_GITHUB_APP_SLUG",
+        "ETIS_GITHUB_APP_PRIVATE_KEY",
+        "ETIS_GITHUB_OAUTH_CLIENT_ID",
+        "ETIS_GITHUB_OAUTH_CLIENT_SECRET",
+    ]
+    require_all(text, required_operator_names)
+
+    forbidden = [
+        "${{ vars.GITHUB_APP_ID }}",
+        "${{ vars.GITHUB_APP_SLUG }}",
+        "${{ secrets.GITHUB_APP_PRIVATE_KEY }}",
+        "${{ vars.GITHUB_OAUTH_CLIENT_ID }}",
+        "${{ secrets.GITHUB_OAUTH_CLIENT_SECRET }}",
+    ]
+    for value in forbidden:
+        assert value not in text
+
+    # Runtime application configuration remains intentionally GITHUB_*.
+    assert 'githubAppId="${ETIS_GITHUB_APP_ID}"' in text
+    assert 'githubAppSlug="${ETIS_GITHUB_APP_SLUG}"' in text
+    assert 'githubOauthClientId="${ETIS_GITHUB_OAUTH_CLIENT_ID}"' in text
