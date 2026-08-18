@@ -332,3 +332,16 @@ def test_production_python_lockfile_uses_hash_verification():
         "pip install --no-cache-dir --require-hashes -r /app/requirements.lock"
         in dockerfile
     ), "production image must enforce lockfile hashes during installation"
+
+def test_production_container_includes_alembic_migration_scripts():
+    dockerfile = (ROOT / "apps/api/Dockerfile").read_text()
+    alembic_ini = (ROOT / "alembic.ini").read_text()
+
+    assert "script_location = %(here)s/migrations" in alembic_ini, (
+        "Alembic configuration must point to the production migration directory"
+    )
+
+    assert "COPY migrations /app/migrations" in dockerfile, (
+        "production image must include the Alembic migration scripts required "
+        "by fail-closed /ready migration validation"
+    )
