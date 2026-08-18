@@ -5,13 +5,18 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from ..db import get_db
 from ..config import get_settings
-from ..models import User, Team, TeamMembership, TeamSection, CourseSection, SectionEnrollment, InstitutionalIdentity, GitHubIdentity, RepositoryConnection
+from ..models import User, Team, TeamMembership, TeamSection, CourseSection, InstitutionalIdentity, GitHubIdentity, RepositoryConnection
 from ..services.course_admin import phase_access, repo_name_from_clone, suggest_project_name
 from ..services.auth import (
     STAFF_ROLES,
     accessible_section_ids,
     require_authenticated,
     require_team_access,
+)
+from ..services.semester_lifecycle import (
+    active_student_enrollments,
+    active_student_section_ids,
+    require_team_mutable,
 )
 from ..services.evidence import GitHubEvidenceProvider
 
@@ -30,15 +35,13 @@ def user_context(user_id:int,request:Request,db:Session=Depends(get_db)):
     ctx = require_authenticated(request)
     caller_user_id = ctx.get("uid")
 
-    # Users may always view their own onboarding context. Access to another
-    # user's institutional and onboarding information must come from current
-    # database-backed teaching-staff authority, not a stale role claim carried
-    # in an already-issued session token.
+    # Users may always view their own current onboarding context. Access to
+    # another user's current onboarding information must come from
+    # lifecycle-valid, database-backed teaching-staff authority.
     if ctx.get("role") != "developer" and caller_user_id != user_id:
         section_ids = accessible_section_ids(db, ctx)
 
         if section_ids is None:
-            # Active course-owner authority is intentionally global.
             pass
         elif not section_ids:
             raise HTTPException(
@@ -46,17 +49,7 @@ def user_context(user_id:int,request:Request,db:Session=Depends(get_db)):
                 detail="You are not authorized to view this user's onboarding context",
             )
         else:
-            target_section_ids = {
-                row.section_id
-                for row in (
-                    db.query(SectionEnrollment)
-                    .filter_by(
-                        user_id=user_id,
-                        status="active",
-                    )
-                    .all()
-                )
-            }
+            target_section_ids = active_student_section_ids(db, user_id)
 
             if not target_section_ids.intersection(section_ids):
                 raise HTTPException(
@@ -69,7 +62,7 @@ def user_context(user_id:int,request:Request,db:Session=Depends(get_db)):
         raise HTTPException(404, "User not found")
 
     ident=db.query(InstitutionalIdentity).filter_by(user_id=user_id).first(); gh=db.query(GitHubIdentity).filter_by(user_id=user_id).first()
-    enrollments=db.query(SectionEnrollment).filter_by(user_id=user_id,status="active").all()
+    enrollments=active_student_enrollments(db,user_id)
     sections=[]
     for enr in enrollments:
         sec=db.get(CourseSection,enr.section_id)
@@ -93,6 +86,7 @@ def connect_repository(team_id:int,req:ConnectRepository,request:Request,db:Sess
     # Team access is determined from current database state. A stale staff role
     # embedded in an unexpired session must not grant repository-binding access.
     authorized_team = require_team_access(db, ctx, team_id)
+    require_team_mutable(db, authorized_team.id)
 
     actor_user_id = ctx.get("uid")
 
@@ -167,6 +161,7 @@ def confirm_project(team_id:int,req:ConfirmProject,request:Request,db:Session=De
     # from current database relationships rather than a role embedded in an
     # already-issued session token.
     team = require_team_access(db, ctx, team_id)
+    require_team_mutable(db, team.id)
 
     team.project_name = req.project_name.strip()
     if req.team_name:
@@ -187,6 +182,7 @@ def verify_repository(team_id:int,request:Request,db:Session=Depends(get_db)):
     # Authorization must be resolved from current database state before any
     # external GitHub interaction occurs.
     team = require_team_access(db, ctx, team_id)
+    require_team_mutable(db, team.id)
 
     if ctx.get("role") != "developer":
         actor_user_id = ctx.get("uid")

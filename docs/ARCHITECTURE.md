@@ -73,7 +73,7 @@ Every AI reviewer is bounded by the same rules:
 
 ### Human login
 
-Production recommendation: GitHub OAuth because student engineering identity already maps to GitHub activity and repository access. Login proves identity; **course enrollment still gates access**. An arbitrary GitHub account is not admitted.
+Production human authentication uses Loyola Microsoft Entra. Authentication proves the human identity; **current course authorization still gates access**. GitHub is linked separately as the student's engineering identity for repository and engineering-activity attribution. An authenticated Loyola identity without current Studio authorization is not admitted to an active semester.
 
 ### Repository access
 
@@ -81,11 +81,15 @@ Production recommendation: a read-only GitHub App installed on course team repos
 
 ### Instructor
 
-The instructor role can view all teams in the active course namespace and aggregate learning/review signals. Students can view only their teams and their own review history unless course policy exposes more.
+Teaching-staff authority is derived from current term and section assignments rather than from an application-global role. During an active semester, authorized teaching staff may view the sections and teams within their assigned scope. After archive, assigned Course Owners and Instructors may retain read-only historical access for that archived semester; TA and Reviewer authority does not survive archive. Students can access only their current active semester/team context and their own permitted review history.
 
 ## 7. Semester isolation
 
-Every durable record is scoped by a course namespace (for example `COMP330-F26`). Semester rollover creates a new namespace. Finalized historical records can be retained without mixing them into the active term.
+Every durable record is scoped through the course/term hierarchy and course namespace (for example `COMP330-F26`). Normal semester lifecycle is forward-only: `setup -> active -> archived`.
+
+Archive removes current operational authority without deleting the historical engineering record. Frozen evidence, review conversations, finding lifecycle state, attribution, and membership history remain associated with the archived semester rather than being mixed into a later active term. Active reviews present at archive become explicitly `archived_incomplete`, not ordinarily completed.
+
+The authoritative privacy, retention, archive, deletion, and data-classification policy is defined in [SECURITY_AND_PRIVACY.md](SECURITY_AND_PRIVACY.md). Semester rollover or archive must not invent a destructive retention period.
 
 ## 8. Deployment decision
 

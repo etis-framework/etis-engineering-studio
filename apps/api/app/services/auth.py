@@ -62,7 +62,11 @@ def create_session_token(
     """
     del role
 
-    from ..models import AuthSession, SectionEnrollment, SectionStaff, User
+    from ..models import AuthSession, User
+    from .semester_lifecycle import (
+        active_student_enrollments,
+        valid_staff_assignments,
+    )
 
     token = secrets.token_urlsafe(32)
     now = datetime.now(timezone.utc)
@@ -76,27 +80,15 @@ def create_session_token(
                 detail="Cannot create a session for an inactive user",
             )
 
-        has_active_enrollment = (
-            db.query(SectionEnrollment)
-            .filter_by(
-                user_id=user_id,
-                status="active",
-            )
-            .first()
-            is not None
+        has_active_enrollment = bool(
+            active_student_enrollments(db, user_id)
         )
-        has_active_staff = (
-            db.query(SectionStaff)
-            .filter_by(
-                user_id=user_id,
-                is_active=True,
-            )
-            .first()
-            is not None
+        has_valid_staff = bool(
+            valid_staff_assignments(db, user_id)
         )
 
         requires_course_authorization = (
-            has_active_enrollment or has_active_staff
+            has_active_enrollment or has_valid_staff
         )
 
         # Production authentication must always correspond to current course
@@ -128,7 +120,11 @@ def create_session_token(
 
 
 def parse_session_token(token: str) -> dict:
-    from ..models import AuthSession, SectionEnrollment, SectionStaff, User
+    from ..models import AuthSession, User
+    from .semester_lifecycle import (
+        active_student_enrollments,
+        valid_staff_assignments,
+    )
 
     token_hash = _session_token_hash(token)
     now = datetime.now(timezone.utc)
@@ -166,35 +162,20 @@ def parse_session_token(token: str) -> dict:
                 detail="Invalid or expired session",
             )
 
-        staff_rows = (
-            db.query(SectionStaff)
-            .filter_by(
-                user_id=user.id,
-                is_active=True,
-            )
-            .all()
-        )
-
-        active_enrollment = (
-            db.query(SectionEnrollment)
-            .filter_by(
-                user_id=user.id,
-                status="active",
-            )
-            .first()
+        staff_rows = valid_staff_assignments(db, user.id)
+        active_enrollment = bool(
+            active_student_enrollments(db, user.id)
         )
 
         # Sessions issued under real course authorization remain valid only
-        # while that authorization still exists. Removing the final active
-        # enrollment/staff assignment therefore takes effect immediately.
+        # while lifecycle-valid authorization still exists. Archiving a term
+        # removes student authorization immediately; only Course Owner and
+        # Instructor assignments remain eligible for historical read access.
         if (
             row.requires_course_authorization
             and not active_enrollment
             and not staff_rows
         ):
-            # Losing the final course authorization permanently invalidates
-            # this authenticated session. If the user is later reauthorized,
-            # they must authenticate again and receive a new credential.
             row.revoked_at = now
             db.commit()
 
@@ -389,7 +370,8 @@ def require_staff(
             detail="Teaching-staff authorization is required",
         )
 
-    from ..models import SectionStaff, User
+    from ..models import User
+    from .semester_lifecycle import valid_staff_assignments
 
     user = db.get(User, user_id)
     if not user or not user.is_active:
@@ -398,14 +380,7 @@ def require_staff(
             detail="Teaching-staff authorization is required",
         )
 
-    assignments = (
-        db.query(SectionStaff)
-        .filter_by(
-            user_id=user_id,
-            is_active=True,
-        )
-        .all()
-    )
+    assignments = valid_staff_assignments(db, user_id)
 
     current_role = highest_staff_role(
         [assignment.staff_role for assignment in assignments]
@@ -427,36 +402,28 @@ def highest_staff_role(roles) -> str|None:
     return max(values,key=lambda r:STAFF_RANK[r]) if values else None
 
 def section_staff_role(db, user_id:int|None, section_id:int) -> str|None:
-    if not user_id: return None
-    from ..models import SectionStaff
-    rows=db.query(SectionStaff).filter_by(section_id=section_id,user_id=user_id,is_active=True).all()
-    return highest_staff_role([r.staff_role for r in rows])
+    from .semester_lifecycle import staff_role_for_section
+    return staff_role_for_section(db, user_id, section_id)
 
 def accessible_section_ids(db, ctx:dict) -> set[int]|None:
-    """Return None for unrestricted developer/course-owner access, else assigned sections."""
+    """Return None for development's unrestricted identity, else lifecycle-valid staff sections."""
     if ctx.get("role")=="developer": return None
     uid=ctx.get("uid")
     if not uid: return set()
-    from ..models import SectionStaff
-    rows=db.query(SectionStaff).filter_by(user_id=uid,is_active=True).all()
-    if any(r.staff_role=="course_owner" for r in rows): return None
-    return {r.section_id for r in rows}
+    from .semester_lifecycle import accessible_staff_section_ids
+    return accessible_staff_section_ids(db, uid)
 
 def require_course_owner_ctx(db, ctx:dict) -> dict:
     if ctx.get("role")=="developer": return ctx
     uid=ctx.get("uid")
-    from ..models import SectionStaff
-    if uid and db.query(SectionStaff).filter_by(user_id=uid,staff_role="course_owner",is_active=True).first(): return ctx
+    from .semester_lifecycle import has_course_owner_assignment
+    if has_course_owner_assignment(db, uid): return ctx
     raise HTTPException(403,"Course Owner authorization is required")
 
 def require_section_role(db,ctx:dict,section_id:int,allowed:set[str]) -> str:
     if ctx.get("role")=="developer": return "developer"
     role=section_staff_role(db,ctx.get("uid"),section_id)
     if role and role in allowed: return role
-    # A course owner assignment is intentionally global across the term/application course context.
-    if ctx.get("uid"):
-        from ..models import SectionStaff
-        if db.query(SectionStaff).filter_by(user_id=ctx["uid"],staff_role="course_owner",is_active=True).first(): return "course_owner"
     raise HTTPException(403,"You do not have the required authorization for this section")
 
 
@@ -466,28 +433,30 @@ TEAM_READ_STAFF_ROLES = {"course_owner", "instructor", "ta", "reviewer"}
 def require_team_access(db, ctx: dict, team_id: int):
     """
     Resolve an active team only when the authenticated identity is authorized
-    to access it.
-
-    Authorization is derived from current database state rather than trusting
-    the role embedded in the session token.
+    to access it under the current semester lifecycle.
 
     Access is granted to:
     - the local developer identity in development;
-    - an active student who is a member of the team and, when the team is
-      section-bound, remains actively enrolled in that section;
-    - an active course owner;
-    - active teaching staff assigned to the team's section.
+    - an active student who is a member of the team and remains actively
+      enrolled in the team's active term;
+    - lifecycle-valid teaching staff assigned to the team's section.
+
+    Archived Course Owner and Instructor assignments retain read-only team
+    access. Archived TA/Reviewer assignments and archived student enrollments
+    do not grant access.
 
     Missing and unauthorized teams deliberately produce the same 404 response
     so callers cannot use the API to enumerate protected teams.
     """
     from ..models import (
-        SectionEnrollment,
-        SectionStaff,
         Team,
         TeamMembership,
         TeamSection,
         User,
+    )
+    from .semester_lifecycle import (
+        staff_role_for_section,
+        student_has_active_section_access,
     )
 
     team = db.get(Team, team_id)
@@ -505,19 +474,6 @@ def require_team_access(db, ctx: dict, team_id: int):
     if not user or not user.is_active:
         raise HTTPException(status_code=404, detail="Team not found")
 
-    # Course Owner is intentionally global across the course context.
-    course_owner = (
-        db.query(SectionStaff)
-        .filter_by(
-            user_id=user_id,
-            staff_role="course_owner",
-            is_active=True,
-        )
-        .first()
-    )
-    if course_owner:
-        return team
-
     team_section = (
         db.query(TeamSection)
         .filter_by(team_id=team.id)
@@ -532,33 +488,22 @@ def require_team_access(db, ctx: dict, team_id: int):
 
     if membership:
         # Older/local fixture teams may not yet be section-bound. Preserve
-        # that deterministic development behavior. Once section-bound,
-        # enrollment must still be active.
-        if team_section:
-            enrollment = (
-                db.query(SectionEnrollment)
-                .filter_by(
-                    section_id=team_section.section_id,
-                    user_id=user_id,
-                    status="active",
-                )
-                .first()
-            )
-            if not enrollment:
-                raise HTTPException(status_code=404, detail="Team not found")
+        # deterministic development compatibility for those fixtures.
+        if team_section and not student_has_active_section_access(
+            db,
+            user_id,
+            team_section.section_id,
+        ):
+            raise HTTPException(status_code=404, detail="Team not found")
         return team
 
     if team_section:
-        staff_rows = (
-            db.query(SectionStaff)
-            .filter_by(
-                section_id=team_section.section_id,
-                user_id=user_id,
-                is_active=True,
-            )
-            .all()
+        role = staff_role_for_section(
+            db,
+            user_id,
+            team_section.section_id,
         )
-        if any(row.staff_role in TEAM_READ_STAFF_ROLES for row in staff_rows):
+        if role in TEAM_READ_STAFF_ROLES:
             return team
 
     raise HTTPException(status_code=404, detail="Team not found")

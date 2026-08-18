@@ -21,11 +21,11 @@ A term may contain multiple parallel COMP 330 sections. Sections inherit the sam
 
 ## Teaching-staff authorization
 
-- **Course Owner**: creates/archives terms, creates sections, grants elevated staff roles, and has full course authority.
-- **Instructor**: manages assigned section rosters, teams, schedules, students, and may add bounded TA/Reviewer access.
-- **TA**: section-scoped review/read access; does not alter roster, schedule, term lifecycle, or elevated privileges.
-- **Reviewer**: section-scoped review/read access; does not alter course administration.
-- **Student**: only their active section/team context, shared team evidence, and their own review conversations/history.
+- **Course Owner**: term-scoped elevated authority. May create and prepare terms, create sections, grant elevated staff roles, activate/archive semesters, and manage permitted setup/active-semester administration. An archived-term assignment provides only the historical authority permitted for that archived term; it is not application-global authority over another semester.
+- **Instructor**: manages assigned setup/active section rosters, teams, schedules, students, and may add bounded TA/Reviewer access. An Instructor assigned to an archived semester may retain read-only historical access.
+- **TA**: bounded section-scoped review/read authority while the semester lifecycle permits it; does not alter roster, schedule, term lifecycle, or elevated privileges, and does not retain archived-semester authority.
+- **Reviewer**: bounded section-scoped review/read authority while the semester lifecycle permits it; does not alter course administration and does not retain archived-semester authority.
+- **Student**: only current active section/team context, shared team evidence, and review activity authorized by the active semester. Semester archive ends student operational access without deleting the historical engineering record.
 
 Authentication answers *who are you?* Authorization answers *what are you allowed to do here?*
 
@@ -50,6 +50,33 @@ A repository refresh never mutates evidence underneath an active review. The act
 ## Enrollment changes
 
 Roster imports are repeatable and use only `Student ID` and `Name`. Grade columns are ignored. Missing students are not deactivated unless the instructor explicitly chooses that option. Drops preserve historical reviews. Moving a student records a membership event; earlier reviews remain associated with the earlier team context.
+
+## Semester lifecycle and archive
+
+The normal term lifecycle is forward-only:
+
+`setup -> active -> archived`
+
+`setup` is administrative preparation. Course Owner and Instructor authority may be used to prepare the semester, but setup status does not provide normal student semester access.
+
+`active` is the operational teaching state. Student access, team authority, review access, and staff privileges are resolved from the current database-backed term, section, enrollment, membership, and staff relationships.
+
+`archived` is the normal terminal state. Archive:
+
+- ends student operational access for that semester;
+- makes semester administration and review state read-only;
+- revokes outstanding sessions associated with the archived semester so authorization is reevaluated;
+- preserves enrollment and membership history;
+- preserves frozen evidence and review transcripts;
+- preserves finding corrections, disputes, resolutions, accepted risks, and deferrals;
+- preserves identity attribution required to interpret the engineering record;
+- closes still-active reviews as `archived_incomplete` rather than ordinary successful completions.
+
+Course Owners and Instructors assigned to the archived semester may retain read-only historical access. TA and Reviewer authority ends at archive.
+
+Archive is not deletion. There is no normal Delete Term lifecycle operation, and an archived semester is not normally reactivated.
+
+Retention, deletion, anonymization, external-processing, and data-classification rules are governed by [`../SECURITY_AND_PRIVACY.md`](../SECURITY_AND_PRIVACY.md). No calendar-based retention period is implied merely because a semester has ended.
 
 ## Semester and section calendar
 

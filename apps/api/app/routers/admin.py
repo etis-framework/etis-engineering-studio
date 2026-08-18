@@ -8,6 +8,12 @@ from ..services.auth import (
     require_staff, require_course_owner_ctx, require_section_role,
     accessible_section_ids,
 )
+from ..services.semester_lifecycle import (
+    has_course_owner_assignment,
+    require_section_mutable,
+    require_term_mutable,
+    set_term_status,
+)
 from ..config import get_settings
 from ..models import (
     User, Team, TeamMembership, TeamSection, CourseTerm, CourseSection,
@@ -78,6 +84,7 @@ def _can_view_section(db:Session,ctx:dict,section_id:int):
 
 
 def _can_manage_section(db:Session,ctx:dict,section_id:int):
+    require_section_mutable(db,section_id)
     return require_section_role(db,ctx,section_id,MANAGE_SECTION_ROLES)
 
 
@@ -97,7 +104,11 @@ def setup(db:Session=Depends(get_db),ctx:dict=Depends(require_staff)):
             "starts_on":t.starts_on,"ends_on":t.ends_on,"status":t.status,
             "sections":[{"id":x.id,"section_key":x.section_key,"display_name":x.display_name,"meeting_pattern":x.meeting_pattern,"active":x.is_active,"phase_access":phase_access(db,x.id)} for x in sections],
         })
-    return {"terms":result,"default_namespace":s.etis_course_namespace,"can_create_term":ctx.get("role")=="developer" or allowed is None}
+    can_create_term=(
+        ctx.get("role")=="developer"
+        or has_course_owner_assignment(db,ctx.get("uid"))
+    )
+    return {"terms":result,"default_namespace":s.etis_course_namespace,"can_create_term":can_create_term}
 
 
 @router.post("/terms")
@@ -111,7 +122,7 @@ def create_term(req:TermCreate,db:Session=Depends(get_db),ctx:dict=Depends(requi
 @router.post("/terms/default")
 def default_term(db:Session=Depends(get_db),ctx:dict=Depends(require_staff)):
     require_course_owner_ctx(db,ctx)
-    s=get_settings(); term=ensure_term(db,s.etis_course_namespace); section=ensure_section(db,term); generate_schedule(db,section,term.starts_on or "2026-08-25")
+    s=get_settings(); term=ensure_term(db,s.etis_course_namespace); require_term_mutable(db,term.id); section=ensure_section(db,term); generate_schedule(db,section,term.starts_on or "2026-08-25")
     if ctx.get("uid") and not db.query(SectionStaff).filter_by(section_id=section.id,user_id=ctx["uid"],staff_role="course_owner").first():
         db.add(SectionStaff(section_id=section.id,user_id=ctx["uid"],staff_role="course_owner",is_active=True))
     db.commit(); return {"term_id":term.id,"section_id":section.id}
@@ -119,7 +130,7 @@ def default_term(db:Session=Depends(get_db),ctx:dict=Depends(require_staff)):
 
 @router.post("/terms/{term_id}/sections")
 def create_section(term_id:int,req:SectionCreate,db:Session=Depends(get_db),ctx:dict=Depends(require_staff)):
-    require_course_owner_ctx(db,ctx); term=_term(db,term_id)
+    require_course_owner_ctx(db,ctx); term=require_term_mutable(db,term_id)
     if db.query(CourseSection).filter_by(term_id=term_id,section_key=req.section_key).first(): raise HTTPException(409,"Section already exists")
     section=CourseSection(term_id=term_id,section_key=req.section_key,display_name=req.display_name or f"{term.course_code} · {term.term_label} · Section {req.section_key}",meeting_pattern=req.meeting_pattern)
     db.add(section); db.flush(); generate_schedule(db,section,term.starts_on or "2026-08-25")
@@ -216,7 +227,7 @@ def staff(section_id:int,db:Session=Depends(get_db),ctx:dict=Depends(require_sta
 
 @router.post("/sections/{section_id}/staff")
 def add_staff(section_id:int,req:StaffAdd,db:Session=Depends(get_db),ctx:dict=Depends(require_staff)):
-    _section(db,section_id)
+    _section(db,section_id); require_section_mutable(db,section_id)
     # Course Owner controls elevated roles. Instructors may add bounded TA/reviewer access to their own section.
     if req.role in {"course_owner","instructor"}: require_course_owner_ctx(db,ctx)
     else: require_section_role(db,ctx,section_id,{"course_owner","instructor"})
@@ -237,4 +248,4 @@ def add_staff(section_id:int,req:StaffAdd,db:Session=Depends(get_db),ctx:dict=De
 def term_status(term_id:int,status:str,db:Session=Depends(get_db),ctx:dict=Depends(require_staff)):
     require_course_owner_ctx(db,ctx)
     if status not in {"setup","active","archived"}: raise HTTPException(400,"Invalid term status")
-    term=_term(db,term_id); term.status=status; db.commit(); return {"id":term.id,"status":term.status}
+    term=_term(db,term_id); set_term_status(db,term,status); db.commit(); return {"id":term.id,"status":term.status}

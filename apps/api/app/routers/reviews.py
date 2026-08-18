@@ -1610,77 +1610,108 @@ def finding_disposition(
 
     ctx = auth_context(request)
     _authorize_session(db, session, ctx)
+    if session.status != "active":
+        raise HTTPException(409, "Review session is not active")
 
-    state = _safe_json(session.challenge_state_json, {})
-    snapshot_id = state.get("evidence_snapshot_id")
-    if not snapshot_id:
+    lock = _session_lock(session_id)
+    if not lock.acquire(blocking=False):
         raise HTTPException(
             409,
-            "No frozen snapshot is attached to this review",
+            "The reviewer is still responding to the previous turn. Please wait for that response.",
         )
 
-    # Finding state is shared by every review session using this frozen
-    # snapshot. The snapshot row is therefore the authoritative serialization
-    # boundary across independent application replicas.
-    snapshot = (
-        db.execute(_evidence_snapshot_for_update_stmt(snapshot_id))
-        .scalar_one_or_none()
-    )
-    if not snapshot:
-        raise HTTPException(
-            409,
-            "No frozen snapshot is attached to this review",
+    try:
+        # Finding disposition changes snapshot-scoped lifecycle state, but it is
+        # still a ReviewSession mutation. Lock the session first, matching the
+        # ordering used by evidence-dispute, so semester archive and concurrent
+        # review requests cannot race a stale pre-archive session state.
+        locked_session = (
+            db.execute(_review_session_for_update_stmt(session_id))
+            .scalar_one_or_none()
         )
+        if not locked_session:
+            raise HTTPException(404, "Review session not found")
 
-    # Re-evaluate current authority after any snapshot-lock wait. A staff
-    # assignment may have been revoked while this request was blocked.
-    ctx = auth_context(request)
-    _authorize_session(db, session, ctx)
+        session = locked_session
+        ctx = auth_context(request)
+        _authorize_session(db, session, ctx)
+        if session.status != "active":
+            raise HTTPException(409, "Review session is not active")
 
-    # Students may express disposition and risk decisions, but they cannot
-    # unilaterally declare a board finding confirmed/corrected/resolved. Those
-    # states require current database-backed teaching-staff authority or the
-    # local developer identity.
-    if req.status in {"confirmed", "corrected", "resolved"}:
-        if ctx.get("role") != "developer":
-            section_link = (
-                db.query(TeamSection)
-                .filter_by(team_id=session.team_id)
-                .first()
+        state = _safe_json(session.challenge_state_json, {})
+        snapshot_id = state.get("evidence_snapshot_id")
+        if not snapshot_id:
+            raise HTTPException(
+                409,
+                "No frozen snapshot is attached to this review",
             )
-            if not section_link:
-                raise HTTPException(
-                    status_code=403,
-                    detail=(
-                        "This finding state requires board evidence validation "
-                        "or teaching-staff action"
-                    ),
+
+        # Finding state is shared by every review session using this frozen
+        # snapshot. Session -> snapshot is the established lock order.
+        snapshot = (
+            db.execute(_evidence_snapshot_for_update_stmt(snapshot_id))
+            .scalar_one_or_none()
+        )
+        if not snapshot:
+            raise HTTPException(
+                409,
+                "No frozen snapshot is attached to this review",
+            )
+
+        # Authority and lifecycle state may have changed while waiting for the
+        # snapshot lock. Re-read the session before committing shared state.
+        db.refresh(session)
+        ctx = auth_context(request)
+        _authorize_session(db, session, ctx)
+        if session.status != "active":
+            raise HTTPException(409, "Review session is not active")
+
+        # Students may express disposition and risk decisions, but they cannot
+        # unilaterally declare a board finding confirmed/corrected/resolved.
+        # Those states require current database-backed teaching-staff authority
+        # or the local developer identity.
+        if req.status in {"confirmed", "corrected", "resolved"}:
+            if ctx.get("role") != "developer":
+                section_link = (
+                    db.query(TeamSection)
+                    .filter_by(team_id=session.team_id)
+                    .first()
+                )
+                if not section_link:
+                    raise HTTPException(
+                        status_code=403,
+                        detail=(
+                            "This finding state requires board evidence validation "
+                            "or teaching-staff action"
+                        ),
+                    )
+
+                require_section_role(
+                    db,
+                    ctx,
+                    section_link.section_id,
+                    STAFF_ROLES,
                 )
 
-            require_section_role(
-                db,
-                ctx,
-                section_link.section_id,
-                STAFF_ROLES,
-            )
+        _upsert_finding_state(
+            db,
+            team_id=session.team_id,
+            snapshot_id=snapshot.id,
+            finding_id=finding_id,
+            status=req.status,
+            user_id=session.user_id,
+            evidence_path=req.evidence_path,
+            rationale=req.rationale,
+        )
+        db.commit()
 
-    _upsert_finding_state(
-        db,
-        team_id=session.team_id,
-        snapshot_id=snapshot.id,
-        finding_id=finding_id,
-        status=req.status,
-        user_id=session.user_id,
-        evidence_path=req.evidence_path,
-        rationale=req.rationale,
-    )
-    db.commit()
-
-    return {
-        "finding_id": finding_id,
-        "status": req.status,
-        "snapshot_id": snapshot.id,
-    }
+        return {
+            "finding_id": finding_id,
+            "status": req.status,
+            "snapshot_id": snapshot.id,
+        }
+    finally:
+        lock.release()
 
 
 
