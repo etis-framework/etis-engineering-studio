@@ -168,19 +168,159 @@ def teams(section_id:int,db:Session=Depends(get_db),ctx:dict=Depends(require_sta
 
 @router.post("/sections/{section_id}/students")
 def add_student(section_id:int,req:StudentAdd,db:Session=Depends(get_db),ctx:dict=Depends(require_staff)):
-    _section(db,section_id); _can_manage_section(db,ctx,section_id)
-    sid=req.student_id.strip().lower(); ident=db.query(InstitutionalIdentity).filter_by(student_id=sid).first()
-    if ident: user=db.get(User,ident.user_id); user.display_name=display_name(req.name)
+    section=_section(db,section_id); _can_manage_section(db,ctx,section_id)
+    s=get_settings()
+    sid=req.student_id.strip().lower()
+
+    production_test_student=bool(
+        s.etis_production_test_student_id.strip()
+        and sid==s.etis_production_test_student_id.strip().lower()
+    )
+
+    if production_test_student:
+        test_oid=s.etis_production_test_student_oid.strip()
+        test_email=s.etis_production_test_student_email.strip().lower()
+        test_section_key=s.etis_production_test_section_key.strip()
+        test_team_key=s.etis_production_test_team_key.strip()
+
+        if not test_oid or not test_email:
+            raise HTTPException(
+                409,
+                "Production test student identity is not fully configured",
+            )
+
+        if section.section_key.casefold()!=test_section_key.casefold():
+            raise HTTPException(
+                403,
+                "Production test student may only be enrolled in the designated test section",
+            )
+
+        if not req.team_id:
+            raise HTTPException(
+                400,
+                "Production test student must be assigned to the designated test team",
+            )
+
+        team=(
+            db.query(Team)
+            .join(TeamSection,TeamSection.team_id==Team.id)
+            .filter(
+                Team.id==req.team_id,
+                TeamSection.section_id==section_id,
+            )
+            .first()
+        )
+        if not team or team.team_key.casefold()!=test_team_key.casefold():
+            raise HTTPException(
+                403,
+                "Production test student may only be assigned to the designated test team",
+            )
+
+        ident=(
+            db.query(InstitutionalIdentity)
+            .filter(
+                (InstitutionalIdentity.provider_subject==test_oid)
+                | (InstitutionalIdentity.institutional_email==test_email)
+                | (InstitutionalIdentity.student_id==sid)
+            )
+            .first()
+        )
+
+        if ident:
+            if (
+                ident.provider_subject
+                and ident.provider_subject.casefold()!=test_oid.casefold()
+            ):
+                raise HTTPException(
+                    409,
+                    "Production test student identity binding conflicts with the configured Entra principal",
+                )
+            user=db.get(User,ident.user_id)
+            user.display_name=display_name(req.name)
+            ident.student_id=sid
+            ident.institutional_email=test_email
+            ident.identity_provider="entra_production_test_guest"
+            ident.provider_subject=test_oid
+        else:
+            user=User(
+                github_login=f"test:{sid}",
+                display_name=display_name(req.name),
+                role="student",
+            )
+            db.add(user)
+            db.flush()
+            ident=InstitutionalIdentity(
+                user_id=user.id,
+                student_id=sid,
+                institutional_email=test_email,
+                identity_provider="entra_production_test_guest",
+                provider_subject=test_oid,
+            )
+            db.add(ident)
+
     else:
-        user=User(github_login=f"luc:{sid}",display_name=display_name(req.name),role="student"); db.add(user); db.flush(); db.add(InstitutionalIdentity(user_id=user.id,student_id=sid,institutional_email=f"{sid}@luc.edu"))
-    enr=db.query(SectionEnrollment).filter_by(section_id=section_id,user_id=user.id).first()
-    if not enr: db.add(SectionEnrollment(section_id=section_id,user_id=user.id,status="active"))
-    else: enr.status="active"; enr.left_at=None
+        ident=db.query(InstitutionalIdentity).filter_by(student_id=sid).first()
+        if ident:
+            user=db.get(User,ident.user_id)
+            user.display_name=display_name(req.name)
+        else:
+            user=User(
+                github_login=f"luc:{sid}",
+                display_name=display_name(req.name),
+                role="student",
+            )
+            db.add(user)
+            db.flush()
+            db.add(
+                InstitutionalIdentity(
+                    user_id=user.id,
+                    student_id=sid,
+                    institutional_email=f"{sid}@luc.edu",
+                )
+            )
+
+    enr=db.query(SectionEnrollment).filter_by(
+        section_id=section_id,
+        user_id=user.id,
+    ).first()
+    if not enr:
+        db.add(
+            SectionEnrollment(
+                section_id=section_id,
+                user_id=user.id,
+                status="active",
+            )
+        )
+    else:
+        enr.status="active"
+        enr.left_at=None
+
     db.flush()
+
     if req.team_id:
-        if not db.query(TeamSection).filter_by(team_id=req.team_id,section_id=section_id).first(): raise HTTPException(400,"Target team does not belong to this section")
-        assign_team(db,section_id,user.id,req.team_id,ctx.get("uid"))
-    db.commit(); return {"user_id":user.id,"student_id":sid,"name":user.display_name,"team_id":req.team_id}
+        if not db.query(TeamSection).filter_by(
+            team_id=req.team_id,
+            section_id=section_id,
+        ).first():
+            raise HTTPException(
+                400,
+                "Target team does not belong to this section",
+            )
+        assign_team(
+            db,
+            section_id,
+            user.id,
+            req.team_id,
+            ctx.get("uid"),
+        )
+
+    db.commit()
+    return {
+        "user_id":user.id,
+        "student_id":sid,
+        "name":user.display_name,
+        "team_id":req.team_id,
+    }
 
 
 @router.put("/sections/{section_id}/students/{user_id}/team")

@@ -76,6 +76,45 @@ Owner:
 
 ---
 
+## 4A. Production-test student identity
+
+Production Acceptance must exercise the deployed system using the configured
+nonprivileged test student.
+
+The deployed configuration must contain:
+
+- `ETIS_PRODUCTION_TEST_STUDENT_OID`
+- `ETIS_PRODUCTION_TEST_STUDENT_EMAIL`
+- `ETIS_PRODUCTION_TEST_STUDENT_ID`
+- `ETIS_PRODUCTION_TEST_SECTION_KEY`
+- `ETIS_PRODUCTION_TEST_TEAM_KEY`
+
+Verify that authentication resolves the configured **exact Entra Object ID**
+and that the principal is recognized only after normal Studio authorization
+checks.
+
+Verify that the test student:
+
+- is enrolled only in the **designated production-test section**;
+- is assigned only to the **designated production-test team**;
+- receives student authority and no staff/admin authority;
+- can exercise the normal student workflow;
+- cannot access another team or section;
+- loses authority when its enrollment is deactivated.
+
+Also verify that another Gmail or external identity is rejected. The exception
+**does not allow gmail.com generally**.
+
+Do not record the guest principal's Object ID, access token, session cookie, or
+other credential material in acceptance evidence unless an identifier is
+strictly required and appropriately protected.
+
+Result: **PASS / FAIL**
+
+Evidence:
+
+Owner:
+
 ## 5. Microsoft Entra authentication
 
 Verify live **Microsoft Entra** behavior:

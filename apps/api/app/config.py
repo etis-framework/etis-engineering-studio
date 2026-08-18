@@ -37,6 +37,15 @@ class Settings(BaseSettings):
     etis_prompt_cache_enabled: bool = True
     etis_bootstrap_owner_email: str = ""
 
+    # Optional production-acceptance student identity. This exception is
+    # intentionally exact-principal scoped; it never broadens the normal
+    # Loyola student-domain rule.
+    etis_production_test_student_oid: str = ""
+    etis_production_test_student_email: str = ""
+    etis_production_test_student_id: str = ""
+    etis_production_test_section_key: str = "PRODUCTION-TEST"
+    etis_production_test_team_key: str = "production-test-team"
+
     github_oauth_client_id: str = ""
     github_oauth_client_secret: str = ""
     github_oauth_redirect_uri: str = "http://localhost:8000/auth/github/callback"

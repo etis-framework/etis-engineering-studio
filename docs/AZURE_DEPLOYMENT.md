@@ -254,6 +254,35 @@ The deployment order is intentionally:
 
 `release validation -> infrastructure -> secrets -> image -> migration -> application -> readiness verification`
 
+## Production-acceptance test student
+
+The production deployment supports one deliberately bounded nonprivileged
+student identity for live Production Acceptance testing.
+
+The configuration is supplied through the protected GitHub `production`
+environment:
+
+- `ETIS_PRODUCTION_TEST_STUDENT_OID`
+- `ETIS_PRODUCTION_TEST_STUDENT_EMAIL`
+- `ETIS_PRODUCTION_TEST_STUDENT_ID`
+- `ETIS_PRODUCTION_TEST_SECTION_KEY`
+- `ETIS_PRODUCTION_TEST_TEAM_KEY`
+
+`ETIS_PRODUCTION_TEST_STUDENT_OID` is the **exact Entra Object ID** of the
+authorized guest principal. The email value is its canonical Studio identity;
+email or domain alone does not grant access.
+
+The account must also be explicitly enrolled in the **designated
+production-test section** and assigned to the **designated production-test
+team**. Normal enrollment and team authorization continue to apply.
+
+This exception does **not allow gmail.com generally**, does not authorize any
+other external principal, and does not grant instructor, Entra administrator,
+or Azure authority.
+
+The operator-selected Object ID and email must not be committed to source
+control.
+
 ## GitHub production environment configuration
 
 The GitHub `production` environment is the deployment-control boundary for

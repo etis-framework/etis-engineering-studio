@@ -33,6 +33,21 @@ param entraRedirectUri string
 @description('Allowed institutional Entra email domain.')
 param entraAllowedDomain string = 'luc.edu'
 
+@description('Exact Microsoft Entra Object ID for the designated production-acceptance test student.')
+param productionTestStudentOid string
+
+@description('Canonical email for the designated production-acceptance test student.')
+param productionTestStudentEmail string
+
+@description('Studio student ID for the designated production-acceptance test student.')
+param productionTestStudentId string = 'production-test-student'
+
+@description('Section key reserved for production-acceptance student testing.')
+param productionTestSectionKey string = 'PRODUCTION-TEST'
+
+@description('Team key reserved for production-acceptance student testing.')
+param productionTestTeamKey string = 'production-test-team'
+
 @description('GitHub App ID.')
 param githubAppId string
 
@@ -242,6 +257,26 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = {
             {
               name: 'ENTRA_ALLOWED_DOMAIN'
               value: entraAllowedDomain
+            }
+            {
+              name: 'ETIS_PRODUCTION_TEST_STUDENT_OID'
+              value: productionTestStudentOid
+            }
+            {
+              name: 'ETIS_PRODUCTION_TEST_STUDENT_EMAIL'
+              value: productionTestStudentEmail
+            }
+            {
+              name: 'ETIS_PRODUCTION_TEST_STUDENT_ID'
+              value: productionTestStudentId
+            }
+            {
+              name: 'ETIS_PRODUCTION_TEST_SECTION_KEY'
+              value: productionTestSectionKey
+            }
+            {
+              name: 'ETIS_PRODUCTION_TEST_TEAM_KEY'
+              value: productionTestTeamKey
             }
 
             {

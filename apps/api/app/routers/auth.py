@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..config import get_settings
 from ..models import User, InstitutionalIdentity, SectionEnrollment, GitHubIdentity, SectionStaff
-from ..services.auth import (github_authorize_url, github_exchange, entra_authorize_url, entra_exchange,
+from ..services.auth import (github_authorize_url, github_exchange, entra_authorize_url, entra_exchange, resolve_entra_identity,
     create_session_token, request_identity, COOKIE_NAME, highest_staff_role,
     create_flow_state, parse_flow_state, request_session_token,
     revoke_session_token, csrf_token_for_session)
@@ -28,12 +28,25 @@ def entra_login():
 @router.get("/entra/callback")
 def entra_callback(code:str,state:str,db:Session=Depends(get_db)):
     pending=parse_flow_state(state,"entra")
-    claims=entra_exchange(code,pending.get("nonce","")); email=(claims.get("preferred_username") or claims.get("email") or "").lower(); sid=email.split("@",1)[0]
-    ident=db.query(InstitutionalIdentity).filter((InstitutionalIdentity.institutional_email==email)|(InstitutionalIdentity.student_id==sid)).first()
+    claims=entra_exchange(code,pending.get("nonce",""))
+    resolved=resolve_entra_identity(claims)
+    email=resolved["email"]
+    oid=resolved["oid"]
+    production_test_student=resolved["is_production_test_student"]
     s=get_settings()
+    sid=(
+        s.etis_production_test_student_id.strip().lower()
+        if production_test_student and s.etis_production_test_student_id.strip()
+        else email.split("@",1)[0]
+    )
+    ident=db.query(InstitutionalIdentity).filter(
+        (InstitutionalIdentity.provider_subject==oid)
+        | (InstitutionalIdentity.institutional_email==email)
+        | (InstitutionalIdentity.student_id==sid)
+    ).first()
     if not ident and s.etis_bootstrap_owner_email and email==s.etis_bootstrap_owner_email.lower():
         user=User(github_login=f"staff:{email}",display_name=claims.get("name") or email.split("@")[0],role="instructor")
-        db.add(user); db.flush(); ident=InstitutionalIdentity(user_id=user.id,student_id=f"staff:{sid}",institutional_email=email,provider_subject=claims.get("sub","")); db.add(ident); db.flush()
+        db.add(user); db.flush(); ident=InstitutionalIdentity(user_id=user.id,student_id=f"staff:{sid}",institutional_email=email,provider_subject=oid); db.add(ident); db.flush()
         term=ensure_term(db,s.etis_course_namespace); section=ensure_section(db,term); generate_schedule(db,section,term.starts_on or "2026-08-25")
         db.add(SectionStaff(section_id=section.id,user_id=user.id,staff_role="course_owner",is_active=True)); db.commit()
     if not ident: raise HTTPException(403,"This Loyola identity is not on an active Engineering Studio roster or teaching-staff list")
@@ -43,7 +56,7 @@ def entra_callback(code:str,state:str,db:Session=Depends(get_db)):
     user=db.get(User,ident.user_id)
     effective_role=highest_staff_role([x.staff_role for x in staff_rows]) or "student"
     user.role="instructor" if effective_role in {"course_owner","instructor"} else effective_role
-    ident.provider_subject=claims.get("sub","")
+    ident.provider_subject=oid
     from datetime import datetime,timezone
     ident.last_verified_at=datetime.now(timezone.utc)
     db.commit()

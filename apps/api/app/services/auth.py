@@ -285,6 +285,70 @@ def github_exchange(code: str) -> dict:
         if not token: raise HTTPException(401,"GitHub OAuth exchange failed")
         u=c.get("https://api.github.com/user",headers={"Authorization":f"Bearer {token}","Accept":"application/vnd.github+json"}); u.raise_for_status(); return u.json()
 
+def resolve_entra_identity(claims: dict) -> dict:
+    """
+    Resolve a verified Microsoft Entra identity into the canonical Studio
+    identity admitted at the authentication boundary.
+
+    Normal students must use the configured institutional domain.
+
+    A production-acceptance test student may be admitted only when the verified
+    tenant-scoped Entra Object ID (oid) exactly matches the configured test
+    principal. The configured test email is then used as the canonical Studio
+    identity. This never permits an external email domain generally.
+    """
+    s = get_settings()
+
+    oid = str(claims.get("oid") or "").strip()
+    if not oid:
+        raise HTTPException(
+            status_code=401,
+            detail="Microsoft identity is missing its object identifier",
+        )
+
+    configured_test_oid = str(
+        s.etis_production_test_student_oid or ""
+    ).strip()
+    configured_test_email = str(
+        s.etis_production_test_student_email or ""
+    ).strip().lower()
+
+    if configured_test_oid and oid.casefold() == configured_test_oid.casefold():
+        if not configured_test_email:
+            raise HTTPException(
+                status_code=403,
+                detail="Production test student identity is not fully configured",
+            )
+        return {
+            "oid": oid,
+            "email": configured_test_email,
+            "is_production_test_student": True,
+        }
+
+    email = str(
+        claims.get("preferred_username")
+        or claims.get("email")
+        or ""
+    ).strip().lower()
+
+    allowed_domain = str(s.entra_allowed_domain or "").strip().lower()
+    if (
+        not email
+        or not allowed_domain
+        or not email.endswith("@" + allowed_domain)
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Use your authorized Loyola account",
+        )
+
+    return {
+        "oid": oid,
+        "email": email,
+        "is_production_test_student": False,
+    }
+
+
 def entra_authorize_url(state:str,nonce:str) -> str:
     s=get_settings(); q=urlencode({"client_id":s.entra_client_id,"response_type":"code","redirect_uri":s.entra_redirect_uri,"response_mode":"query","scope":"openid profile email","state":state,"nonce":nonce,"prompt":"select_account"})
     return f"https://login.microsoftonline.com/{s.entra_tenant}/oauth2/v2.0/authorize?{q}"
@@ -319,8 +383,6 @@ def entra_exchange(code:str,expected_nonce:str) -> dict:
         )
 
     if expected_nonce and claims.get("nonce")!=expected_nonce: raise HTTPException(401,"Microsoft sign-in nonce did not match")
-    email=(claims.get("preferred_username") or claims.get("email") or "").lower()
-    if not email.endswith("@"+s.entra_allowed_domain.lower()): raise HTTPException(403,"Use your authorized Loyola account")
     return claims
 
 STAFF_ROLES={"course_owner","instructor","ta","reviewer"}

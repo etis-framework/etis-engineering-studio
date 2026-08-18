@@ -303,6 +303,34 @@ Classification: **Operator-configured / Blocking until verified**.
 
 ---
 
+## 9A. Production-test student configuration
+
+Gate 17 must verify the bounded Production Acceptance student configuration
+before Azure provisioning is authorized.
+
+Required operator-configured values are:
+
+- `ETIS_PRODUCTION_TEST_STUDENT_OID`
+- `ETIS_PRODUCTION_TEST_STUDENT_EMAIL`
+- `ETIS_PRODUCTION_TEST_STUDENT_ID`
+- `ETIS_PRODUCTION_TEST_SECTION_KEY`
+- `ETIS_PRODUCTION_TEST_TEAM_KEY`
+
+The configured principal must be bound by its **exact Entra Object ID**.
+
+The configured student may only be enrolled in the **designated
+production-test section** and assigned to the **designated production-test
+team**. It receives ordinary student authority only.
+
+The exception **does not allow gmail.com generally** and must not broaden
+`ENTRA_ALLOWED_DOMAIN` or create a general external-user authorization path.
+
+Gate 17 evidence records only the presence, ownership, and intended scope of
+these settings. The actual private Object ID and email need not be copied into
+the evidence record.
+
+Classification: **Operator-configured / Blocking until verified**.
+
 ## 10. Microsoft Entra configuration
 
 Before Gate 17 GO, verify the intended Microsoft Entra production identity

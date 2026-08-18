@@ -132,6 +132,12 @@ jobs:
       ENTRA_CLIENT_SECRET: ${{ secrets.ENTRA_CLIENT_SECRET }}
       ENTRA_TENANT: ${{ secrets.AZURE_TENANT_ID }}
 
+      ETIS_PRODUCTION_TEST_STUDENT_OID: ${{ vars.ETIS_PRODUCTION_TEST_STUDENT_OID }}
+      ETIS_PRODUCTION_TEST_STUDENT_EMAIL: ${{ vars.ETIS_PRODUCTION_TEST_STUDENT_EMAIL }}
+      ETIS_PRODUCTION_TEST_STUDENT_ID: ${{ vars.ETIS_PRODUCTION_TEST_STUDENT_ID }}
+      ETIS_PRODUCTION_TEST_SECTION_KEY: ${{ vars.ETIS_PRODUCTION_TEST_SECTION_KEY }}
+      ETIS_PRODUCTION_TEST_TEAM_KEY: ${{ vars.ETIS_PRODUCTION_TEST_TEAM_KEY }}
+
       GITHUB_APP_ID: ${{ vars.GITHUB_APP_ID }}
       GITHUB_APP_SLUG: ${{ vars.GITHUB_APP_SLUG }}
       GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
@@ -167,6 +173,11 @@ jobs:
             ENTRA_CLIENT_ID
             ENTRA_CLIENT_SECRET
             ENTRA_TENANT
+            ETIS_PRODUCTION_TEST_STUDENT_OID
+            ETIS_PRODUCTION_TEST_STUDENT_EMAIL
+            ETIS_PRODUCTION_TEST_STUDENT_ID
+            ETIS_PRODUCTION_TEST_SECTION_KEY
+            ETIS_PRODUCTION_TEST_TEAM_KEY
             GITHUB_APP_ID
             GITHUB_APP_PRIVATE_KEY
             GITHUB_OAUTH_CLIENT_ID
@@ -359,6 +370,11 @@ jobs:
               entraClientId="${ENTRA_CLIENT_ID}" \
               entraTenant="${ENTRA_TENANT}" \
               entraRedirectUri="${ENTRA_REDIRECT_URI}" \
+              productionTestStudentOid="${ETIS_PRODUCTION_TEST_STUDENT_OID}" \
+              productionTestStudentEmail="${ETIS_PRODUCTION_TEST_STUDENT_EMAIL}" \
+              productionTestStudentId="${ETIS_PRODUCTION_TEST_STUDENT_ID}" \
+              productionTestSectionKey="${ETIS_PRODUCTION_TEST_SECTION_KEY}" \
+              productionTestTeamKey="${ETIS_PRODUCTION_TEST_TEAM_KEY}" \
               githubAppId="${GITHUB_APP_ID}" \
               githubAppSlug="${GITHUB_APP_SLUG}" \
               githubOauthClientId="${GITHUB_OAUTH_CLIENT_ID}" \
