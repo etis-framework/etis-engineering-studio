@@ -1,5 +1,10 @@
 from pathlib import Path
 from contextlib import asynccontextmanager
+import json
+import logging
+import sys
+import time
+from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -8,6 +13,17 @@ from .routers import course, reviews, repositories, instructor, dev, auth, admin
 from .config import get_settings
 from .services.challenge_engine import SemanticCoachingUnavailable
 from .services.auth import COOKIE_NAME, validate_csrf_token
+
+
+observability_logger = logging.getLogger("etis.observability")
+observability_logger.setLevel(logging.INFO)
+observability_logger.propagate = False
+
+if not observability_logger.handlers:
+    observability_handler = logging.StreamHandler(sys.stdout)
+    observability_handler.setLevel(logging.INFO)
+    observability_handler.setFormatter(logging.Formatter("%(message)s"))
+    observability_logger.addHandler(observability_handler)
 
 
 @asynccontextmanager
@@ -96,6 +112,75 @@ async def add_browser_security_headers(request: Request, call_next):
             "max-age=31536000; includeSubDomains"
         )
 
+    return response
+
+
+@app.middleware("http")
+async def record_safe_request_observability(request: Request, call_next):
+    """
+    Emit bounded request telemetry without sensitive request content.
+
+    Never log query strings, headers, cookies, request bodies, email addresses,
+    bearer/session tokens, exception messages, or other caller-supplied
+    sensitive values.
+    """
+    request_id = str(uuid4())
+    started = time.perf_counter()
+
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        duration_ms = round((time.perf_counter() - started) * 1000, 3)
+
+        route_object = request.scope.get("route")
+        route_template = getattr(route_object, "path", "<unmatched>")
+
+        log_fields = {
+            "event": "http_request",
+            "request_id": request_id,
+            "method": request.method,
+            "route": route_template,
+            "status_code": 500,
+            "duration_ms": duration_ms,
+            "error_type": type(exc).__name__,
+        }
+
+        observability_logger.error(
+            json.dumps(log_fields, separators=(",", ":"), sort_keys=True),
+            extra=log_fields,
+        )
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": "Internal server error",
+                "request_id": request_id,
+            },
+            headers={
+                "X-Request-ID": request_id,
+            },
+        )
+
+    duration_ms = round((time.perf_counter() - started) * 1000, 3)
+
+    route_object = request.scope.get("route")
+    route_template = getattr(route_object, "path", "<unmatched>")
+
+    log_fields = {
+        "event": "http_request",
+        "request_id": request_id,
+        "method": request.method,
+        "route": route_template,
+        "status_code": response.status_code,
+        "duration_ms": duration_ms,
+    }
+
+    observability_logger.info(
+        json.dumps(log_fields, separators=(",", ":"), sort_keys=True),
+        extra=log_fields,
+    )
+
+    response.headers["X-Request-ID"] = request_id
     return response
 
 
