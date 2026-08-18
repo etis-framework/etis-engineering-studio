@@ -141,6 +141,8 @@ jobs:
 
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
+      OPERATIONS_ALERT_EMAIL: ${{ vars.OPERATIONS_ALERT_EMAIL }}
+
     steps:
       - name: Check out validated commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -170,6 +172,7 @@ jobs:
             GITHUB_OAUTH_CLIENT_ID
             GITHUB_OAUTH_CLIENT_SECRET
             OPENAI_API_KEY
+            OPERATIONS_ALERT_EMAIL
           )
 
           for name in "${required[@]}"; do
@@ -372,6 +375,12 @@ jobs:
           )"
 
           printf 'app_url=%s\n' "${APP_URL}" >> "${GITHUB_OUTPUT}"
+
+      - name: Reconcile production operational controls
+        run: |
+          set -euo pipefail
+
+          az deployment group create             --name "etis-operations-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"             --resource-group "${AZURE_RESOURCE_GROUP}"             --template-file infra/azure/operations.bicep             --parameters               location="${AZURE_LOCATION}"               operationsAlertEmail="${OPERATIONS_ALERT_EMAIL}"             --only-show-errors             --output none
 
       - name: Verify production readiness
         run: |
