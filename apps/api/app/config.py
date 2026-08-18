@@ -1,5 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
+from uuid import UUID
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -53,6 +55,81 @@ class Settings(BaseSettings):
     openai_repository_model: str = "gpt-5.6-luna"
     openai_critic_model: str = "gpt-5.6-luna"
     openai_base_url: str = "https://api.openai.com/v1"
+
+    @model_validator(mode="after")
+    def validate_production_configuration(self):
+        if self.etis_env.strip().lower() == "production":
+            session_secret = self.etis_session_secret.strip()
+            if (
+                session_secret == "dev-only-change-me"
+                or len(session_secret) < 32
+            ):
+                raise ValueError(
+                    "ETIS_SESSION_SECRET must be explicitly configured "
+                    "with at least 32 characters for production"
+                )
+
+            database_url = self.etis_database_url.strip().lower()
+            if database_url.startswith("sqlite"):
+                raise ValueError(
+                    "ETIS_DATABASE_URL must use PostgreSQL in production"
+                )
+
+            entra_tenant = self.entra_tenant.strip()
+            try:
+                UUID(entra_tenant)
+            except (ValueError, AttributeError):
+                raise ValueError(
+                    "ENTRA_TENANT must be an explicit tenant UUID in production"
+                )
+
+            if not self.entra_client_id.strip():
+                raise ValueError(
+                    "ENTRA_CLIENT_ID must be configured in production"
+                )
+
+            if not self.entra_client_secret.strip():
+                raise ValueError(
+                    "ENTRA_CLIENT_SECRET must be configured in production"
+                )
+
+            if not self.github_app_id.strip():
+                raise ValueError(
+                    "GITHUB_APP_ID must be configured in production"
+                )
+
+            if not self.github_app_private_key.strip():
+                raise ValueError(
+                    "GITHUB_APP_PRIVATE_KEY must be configured in production"
+                )
+
+            if not self.github_oauth_client_id.strip():
+                raise ValueError(
+                    "GITHUB_OAUTH_CLIENT_ID must be configured in production"
+                )
+
+            if not self.github_oauth_client_secret.strip():
+                raise ValueError(
+                    "GITHUB_OAUTH_CLIENT_SECRET must be configured in production"
+                )
+
+            if self.etis_ai_enabled and not self.openai_api_key.strip():
+                raise ValueError(
+                    "OPENAI_API_KEY must be configured when ETIS_AI_ENABLED=true in production"
+                )
+
+            if self.etis_dev_login:
+                raise ValueError(
+                    "ETIS_DEV_LOGIN must be disabled in production"
+                )
+
+            web_origin = self.etis_web_origin.strip().lower()
+            if not web_origin.startswith("https://"):
+                raise ValueError(
+                    "ETIS_WEB_ORIGIN must use HTTPS in production"
+                )
+
+        return self
 
     @property
     def repo_root(self) -> Path:

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from .db import init_db
+from .db import database_readiness, init_db
 from .routers import course, reviews, repositories, instructor, dev, auth, admin, onboarding
 from .config import get_settings
 from .services.challenge_engine import SemanticCoachingUnavailable
@@ -107,6 +107,23 @@ app.include_router(dev.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(onboarding.router)
+
+
+@app.get("/ready")
+def ready():
+    readiness = database_readiness()
+    is_ready = bool(
+        readiness.get("database_connected")
+        and readiness.get("migration_current")
+    )
+
+    return JSONResponse(
+        status_code=200 if is_ready else 503,
+        content={
+            "status": "ready" if is_ready else "not_ready",
+            **readiness,
+        },
+    )
 
 
 @app.get("/health")

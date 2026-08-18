@@ -3752,6 +3752,45 @@ def test_application_responses_include_browser_security_headers():
     assert "form-action 'self'" in csp
 
 
+def _set_valid_production_environment(monkeypatch):
+    """Configure the minimum valid synthetic production environment for tests."""
+    monkeypatch.setenv("ETIS_ENV", "production")
+    monkeypatch.setenv(
+        "ETIS_DATABASE_URL",
+        "postgresql://etis:test-password@db.example.edu/etis",
+    )
+    monkeypatch.setenv(
+        "ETIS_WEB_ORIGIN",
+        "https://studio.example.edu",
+    )
+    monkeypatch.setenv(
+        "ETIS_SESSION_SECRET",
+        "test-production-session-secret-at-least-32-characters",
+    )
+    monkeypatch.setenv("ETIS_DEV_LOGIN", "false")
+    monkeypatch.setenv("ETIS_AI_ENABLED", "false")
+
+    monkeypatch.setenv("GITHUB_OAUTH_CLIENT_ID", "test-github-client")
+    monkeypatch.setenv("GITHUB_OAUTH_CLIENT_SECRET", "test-github-secret")
+    monkeypatch.setenv(
+        "GITHUB_OAUTH_REDIRECT_URI",
+        "https://studio.example.edu/auth/github/callback",
+    )
+    monkeypatch.setenv("GITHUB_APP_ID", "12345")
+    monkeypatch.setenv("GITHUB_APP_PRIVATE_KEY", "test-private-key")
+
+    monkeypatch.setenv("ENTRA_CLIENT_ID", "test-entra-client")
+    monkeypatch.setenv("ENTRA_CLIENT_SECRET", "test-entra-secret")
+    monkeypatch.setenv(
+        "ENTRA_REDIRECT_URI",
+        "https://studio.example.edu/auth/entra/callback",
+    )
+    monkeypatch.setenv(
+        "ENTRA_TENANT",
+        "11111111-2222-3333-4444-555555555555",
+    )
+
+
 def test_hsts_is_enabled_in_production_but_not_development(monkeypatch):
     """
     Production responses must require HTTPS on future browser requests.
@@ -3761,7 +3800,7 @@ def test_hsts_is_enabled_in_production_but_not_development(monkeypatch):
     """
     from apps.api.app.config import get_settings
 
-    monkeypatch.setenv("ETIS_ENV", "production")
+    _set_valid_production_environment(monkeypatch)
     get_settings.cache_clear()
 
     try:
@@ -3884,7 +3923,7 @@ def test_session_cookie_is_hardened_in_production_and_local_http_compatible_in_d
     )
 
     try:
-        monkeypatch.setenv("ETIS_ENV", "production")
+        _set_valid_production_environment(monkeypatch)
         get_settings.cache_clear()
 
         production = RedirectResponse("/")
