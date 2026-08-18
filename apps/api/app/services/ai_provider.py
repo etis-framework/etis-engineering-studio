@@ -206,17 +206,85 @@ class OpenAIResponsesProvider(AIProvider):
             for attempt in range(2):
                 try:
                     response = client.post(f"{self.s.openai_base_url.rstrip('/')}/responses", headers=headers, json=payload)
-                    if response.status_code in {429, 500, 502, 503, 504} and attempt == 0:
-                        time.sleep(0.7)
+                    retryable_status = response.status_code in {408, 409, 500, 502, 503, 504}
+
+                    if response.status_code == 429:
+                        retryable_status = True
+                        try:
+                            error = response.json().get("error") or {}
+                            error_type = str(error.get("type") or "").lower()
+                            error_code = str(error.get("code") or "").lower()
+
+                            if (
+                                error_type == "insufficient_quota"
+                                or error_code in {
+                                    "insufficient_quota",
+                                    "credit_balance_exhausted",
+                                }
+                            ):
+                                retryable_status = False
+                        except (ValueError, TypeError, AttributeError):
+                            pass
+
+                    if retryable_status and attempt == 0:
+                        retry_delay = 0.7
+
+                        if response.status_code == 429:
+                            retry_after = response.headers.get("Retry-After")
+                            if retry_after:
+                                try:
+                                    parsed_delay = float(retry_after)
+                                    if parsed_delay > 0:
+                                        retry_delay = parsed_delay
+                                except ValueError:
+                                    pass
+
+                        time.sleep(retry_delay)
                         continue
                     response.raise_for_status()
                     data = response.json()
+
+                    response_status = str(data.get("status") or "").lower()
+                    if response_status == "incomplete":
+                        details = data.get("incomplete_details") or {}
+                        reason = str(details.get("reason") or "unknown")
+                        raise RuntimeError(
+                            f"OpenAI structured response incomplete: {reason}"
+                        )
+
+                    if response_status == "failed":
+                        error = data.get("error") or {}
+                        code = str(error.get("code") or "unknown")
+                        raise RuntimeError(
+                            f"OpenAI structured response failed: {code}"
+                        )
+
+                    if response_status and response_status != "completed":
+                        raise RuntimeError(
+                            f"OpenAI structured response not completed: {response_status}"
+                        )
+
+                    refused = any(
+                        isinstance(content, dict)
+                        and content.get("type") == "refusal"
+                        for output in (data.get("output") or [])
+                        if isinstance(output, dict)
+                        for content in (output.get("content") or [])
+                    )
+                    if refused:
+                        raise RuntimeError(
+                            "OpenAI structured response was refused"
+                        )
+
                     break
-                except (httpx.RequestError, httpx.HTTPStatusError) as exc:
+                except httpx.RequestError as exc:
                     last_error = exc
                     if attempt == 0:
                         time.sleep(0.7)
                         continue
+                    raise
+                except httpx.HTTPStatusError as exc:
+                    last_error = exc
                     raise
             else:
                 raise RuntimeError("Semantic provider request failed") from last_error
