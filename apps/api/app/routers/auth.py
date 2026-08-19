@@ -39,11 +39,41 @@ def entra_callback(code:str,state:str,db:Session=Depends(get_db)):
         if production_test_student and s.etis_production_test_student_id.strip()
         else email.split("@",1)[0]
     )
-    ident=db.query(InstitutionalIdentity).filter(
-        (InstitutionalIdentity.provider_subject==oid)
-        | (InstitutionalIdentity.institutional_email==email)
-        | (InstitutionalIdentity.student_id==sid)
-    ).first()
+    oid_matches = db.query(InstitutionalIdentity).filter(
+        InstitutionalIdentity.provider_subject == oid
+    ).all()
+    if len(oid_matches) > 1:
+        raise HTTPException(
+            409,
+            "Microsoft Entra identity is bound to more than one Studio identity",
+        )
+
+    ident = oid_matches[0] if oid_matches else None
+
+    if not ident:
+        roster_matches = db.query(InstitutionalIdentity).filter(
+            (InstitutionalIdentity.institutional_email == email)
+            | (InstitutionalIdentity.student_id == sid)
+        ).all()
+
+        if len(roster_matches) > 1:
+            raise HTTPException(
+                409,
+                "Institutional roster identity is ambiguous",
+            )
+
+        ident = roster_matches[0] if roster_matches else None
+
+        if (
+            ident
+            and ident.provider_subject
+            and ident.provider_subject.casefold() != oid.casefold()
+        ):
+            raise HTTPException(
+                409,
+                "This institutional identity is already bound to a different "
+                "Microsoft Entra account",
+            )
     if not ident and s.etis_bootstrap_owner_email and email==s.etis_bootstrap_owner_email.lower():
         user=User(github_login=f"staff:{email}",display_name=claims.get("name") or email.split("@")[0],role="instructor")
         db.add(user); db.flush(); ident=InstitutionalIdentity(user_id=user.id,student_id=f"staff:{sid}",institutional_email=email,provider_subject=oid); db.add(ident); db.flush()

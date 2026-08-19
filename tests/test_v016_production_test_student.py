@@ -221,3 +221,106 @@ def test_production_test_student_is_documented_as_operator_configuration():
     assert "designated production-test section" in combined
     assert "designated production-test team" in combined
     assert "does not allow gmail.com generally" in combined
+
+
+def test_entra_callback_rejects_silent_rebind_of_existing_oid(monkeypatch):
+    """
+    Once an institutional identity is bound to a verified Entra Object ID,
+    a different OID must not take ownership merely by presenting the same
+    roster email or student ID.
+    """
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        CourseSection,
+        CourseTerm,
+        InstitutionalIdentity,
+        SectionEnrollment,
+        User,
+    )
+    from apps.api.app.routers import auth as auth_router
+
+    old_oid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    new_oid = "11111111-2222-3333-4444-555555555555"
+
+    db = SessionLocal()
+    try:
+        user = User(
+            github_login="luc:student1",
+            display_name="Student One",
+            role="student",
+        )
+        db.add(user)
+        db.flush()
+
+        term = CourseTerm(
+            namespace="COMP330-IDENTITY-BINDING-TEST",
+            term_label="Identity Binding Test",
+            status="active",
+        )
+        db.add(term)
+        db.flush()
+
+        section = CourseSection(
+            term_id=term.id,
+            section_key="001",
+            display_name="Section 001",
+            is_active=True,
+        )
+        db.add(section)
+        db.flush()
+
+        ident = InstitutionalIdentity(
+            user_id=user.id,
+            student_id="student1",
+            institutional_email="student1@luc.edu",
+            provider_subject=old_oid,
+        )
+        db.add(ident)
+
+        db.add(
+            SectionEnrollment(
+                section_id=section.id,
+                user_id=user.id,
+                status="active",
+            )
+        )
+        db.commit()
+
+        monkeypatch.setattr(
+            auth_router,
+            "parse_flow_state",
+            lambda state, expected_kind: {"nonce": "expected-nonce"},
+        )
+        monkeypatch.setattr(
+            auth_router,
+            "entra_exchange",
+            lambda code, expected_nonce: {
+                "oid": new_oid,
+                "preferred_username": "student1@luc.edu",
+                "name": "Student One",
+            },
+        )
+        monkeypatch.setattr(
+            auth_router,
+            "get_settings",
+            lambda: SimpleNamespace(
+                etis_production_test_student_id="",
+                etis_bootstrap_owner_email="",
+                etis_env="development",
+            ),
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            auth_router.entra_callback(
+                code="authorization-code",
+                state="signed-state",
+                db=db,
+            )
+
+        assert exc.value.status_code == 409
+
+        db.refresh(ident)
+        assert ident.provider_subject == old_oid
+
+    finally:
+        db.close()
