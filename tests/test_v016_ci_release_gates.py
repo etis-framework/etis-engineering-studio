@@ -169,3 +169,32 @@ def test_azure_login_occurs_only_in_deploy_job_after_release_gate():
     assert "azure/login@" in deploy, (
         "Azure OIDC login belongs only in the gated deployment job"
     )
+
+
+
+def test_manual_deploy_requires_bootstrap_owner_email_and_passes_it_to_bicep():
+    workflow = _text(DEPLOY)
+
+    assert (
+        "ETIS_BOOTSTRAP_OWNER_EMAIL: ${{ vars.ETIS_BOOTSTRAP_OWNER_EMAIL }}"
+        in workflow
+    ), (
+        "production deployment must source the initial Course Owner identity "
+        "from the protected production environment"
+    )
+
+    assert re.search(
+        r"(?m)^\s+ETIS_BOOTSTRAP_OWNER_EMAIL\s*$",
+        workflow,
+    ), (
+        "production deployment validation must fail closed when the bootstrap "
+        "owner identity is missing"
+    )
+
+    assert (
+        'bootstrapOwnerEmail="${ETIS_BOOTSTRAP_OWNER_EMAIL}"'
+        in workflow
+    ), (
+        "production deployment must explicitly pass the protected bootstrap "
+        "owner identity to app.bicep"
+    )
