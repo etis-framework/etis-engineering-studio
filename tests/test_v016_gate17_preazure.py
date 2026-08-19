@@ -190,3 +190,23 @@ def test_gate17_evidence_rules_forbid_secret_material():
             "session cookie",
         ):
             assert phrase in text
+
+
+def test_gate17_defers_azure_resource_and_rbac_bootstrap_until_after_go():
+    text = " ".join(read_lower(PRE_AZURE).split())
+
+    required = (
+        "no production azure resource group is created before gate 17 go",
+        "zero azure resource authority before gate 17 go",
+        "after gate 17 go",
+        "create the empty production resource group",
+        "contributor",
+        "role based access control administrator",
+        "acrpush",
+        "resource-group scope",
+        "no subscription-wide deployment role",
+        "then run the production deployment workflow",
+    )
+
+    for phrase in required:
+        assert phrase in text

@@ -254,6 +254,46 @@ Before Gate 17 GO, verify:
 - the target subscription is the intended ETIS production subscription;
 - the target resource group and Azure location are approved.
 
+### Azure bootstrap boundary
+
+Gate 17 deliberately separates creation of the deployment trust from creation
+of production Azure resources.
+
+Before Gate 17 GO:
+
+- the dedicated Microsoft Entra deployment application exists;
+- the GitHub Actions federated credential is bound to the intended repository
+  and `production` environment;
+- the protected GitHub production environment contains the required Azure OIDC
+  identifiers;
+- **no production Azure resource group is created before Gate 17 GO**;
+- the GitHub deployment principal has **zero Azure resource authority before
+  Gate 17 GO**.
+
+This allows the identity and trust relationship to be reviewed without
+prematurely provisioning production infrastructure or granting deployment
+authority.
+
+**After Gate 17 GO**, the controlled Azure bootstrap sequence is:
+
+1. **Create the empty production resource group** using the approved
+   `AZURE_RESOURCE_GROUP` and `AZURE_LOCATION`.
+2. Assign the dedicated GitHub deployment principal, at **resource-group
+   scope**, the minimum roles required by the validated deployment:
+   - **Contributor** for resource creation and management;
+   - **Role Based Access Control Administrator** because the foundation Bicep
+     creates bounded runtime role assignments;
+   - **AcrPush** so the validated immutable container image can be pushed to
+     the production Azure Container Registry.
+3. Confirm there is **no subscription-wide deployment role** for the GitHub
+   deployment principal.
+4. **Then run the production deployment workflow** from the protected GitHub
+   `production` environment.
+
+These post-GO bootstrap actions authorize deployment only. They do not
+constitute Post-Provisioning Production Acceptance and do not authorize student
+access.
+
 Classification: **Operator-configured / Blocking until verified**.
 
 ---
