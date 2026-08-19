@@ -72,10 +72,10 @@ function renderStudentReadiness(){
   const readiness=studentReviewReadiness();
   if(appRole!=='student'||readiness.ready){box.classList.add('hidden');box.innerHTML='';return}
   const primary=readiness.code==='github'
-    ? '<a href="/auth/github/link" class="secondary link-button">Connect GitHub identity →</a>'
+    ? '<a href="/auth/github/link" class="secondary link-button setup-required-action">Connect GitHub identity →</a>'
     : readiness.code==='phase'
       ? ''
-      : '<button type="button" id="openReadinessMyTeam" class="secondary">Open My Team →</button>';
+      : '<button type="button" id="openReadinessMyTeam" class="secondary setup-required-action">Open My Team →</button>';
   const secondary=readiness.code==='github'
     ? '<button type="button" id="openReadinessMyTeam" class="text-button">Open My Team</button>'
     : '';
