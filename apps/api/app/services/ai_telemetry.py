@@ -33,7 +33,7 @@ class UsageSummary:
 
 
 def estimate_cost(model: str, input_tokens: int, cached_tokens: int, output_tokens: int, cache_write_tokens: int = 0) -> float:
-    rates = RATE_CARD.get(model) or RATE_CARD.get("gpt-5.6")
+    rates = RATE_CARD.get(model) or RATE_CARD.get("gpt-5.6-sol")
     normal_input = max(0, input_tokens - cached_tokens - cache_write_tokens)
     # OpenAI prompt-cache writes are currently billed at 1.25x ordinary input.
     dollars = (

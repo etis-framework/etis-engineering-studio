@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from apps.api.app.config import Settings
@@ -356,3 +358,30 @@ def test_readiness_succeeds_when_database_is_connected_and_migration_current(mon
     assert payload["migration_current"] is True
     assert payload["current_revision"] == "a02a1e010b45"
     assert payload["head_revision"] == "a02a1e010b45"
+
+
+def test_openai_production_model_defaults_match_available_project_models():
+    root = Path(__file__).resolve().parents[1]
+
+    config_text = (root / "apps" / "api" / "app" / "config.py").read_text(
+        encoding="utf-8"
+    )
+    bicep_text = (root / "infra" / "azure" / "app.bicep").read_text(
+        encoding="utf-8"
+    )
+    env_text = (root / ".env.example").read_text(encoding="utf-8")
+    economics_text = (
+        root / "docs" / "architecture" / "EVIDENCE_PACKAGES_AND_AI_ECONOMICS.md"
+    ).read_text(encoding="utf-8")
+
+    # Student-facing conversation uses the production-available Sol model.
+    assert 'openai_model: str = "gpt-5.6-sol"' in config_text
+    assert "param openAiModel string = 'gpt-5.6-sol'" in bicep_text
+    assert "OPENAI_MODEL=gpt-5.6-sol" in env_text
+    assert "default `gpt-5.6-sol`" in economics_text
+
+    # Repository interpretation and selective criticism remain on Luna.
+    assert 'openai_repository_model: str = "gpt-5.6-luna"' in config_text
+    assert 'openai_critic_model: str = "gpt-5.6-luna"' in config_text
+    assert "param openAiRepositoryModel string = 'gpt-5.6-luna'" in bicep_text
+    assert "param openAiCriticModel string = 'gpt-5.6-luna'" in bicep_text

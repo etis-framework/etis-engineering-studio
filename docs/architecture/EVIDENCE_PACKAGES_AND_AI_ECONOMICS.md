@@ -21,7 +21,7 @@ The compact package includes the chosen challenge, relevant FACT observations, a
 
 ## Model routing
 
-- Student-facing conversation: `OPENAI_MODEL` (default `gpt-5.6`).
+- Student-facing conversation: `OPENAI_MODEL` (default `gpt-5.6-sol`).
 - Repository semantic interpretation: `OPENAI_REPOSITORY_MODEL` (default `gpt-5.6-luna`).
 - Selective conversation-quality critic: `OPENAI_CRITIC_MODEL` (default `gpt-5.6-luna`).
 - Deterministic extraction, provenance, phase rules, and authorization never require an LLM.

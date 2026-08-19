@@ -61,7 +61,7 @@ param githubOauthClientId string
 param githubOauthRedirectUri string
 
 @description('OpenAI model for student-facing review conversation.')
-param openAiModel string = 'gpt-5.6'
+param openAiModel string = 'gpt-5.6-sol'
 
 @description('OpenAI model for semantic repository interpretation.')
 param openAiRepositoryModel string = 'gpt-5.6-luna'

@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     entra_allowed_domain: str = "luc.edu"
 
     openai_api_key: str = ""
-    openai_model: str = "gpt-5.6"
+    openai_model: str = "gpt-5.6-sol"
     openai_repository_model: str = "gpt-5.6-luna"
     openai_critic_model: str = "gpt-5.6-luna"
     openai_base_url: str = "https://api.openai.com/v1"
