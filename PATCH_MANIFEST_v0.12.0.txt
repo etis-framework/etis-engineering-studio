@@ -1,0 +1,27 @@
+ETIS Engineering Studio v0.12.0 Overlay
+========================================
+
+Apply at the repository root. Every file in this archive is a complete replacement/new file.
+
+No hidden-directory files are included in this overlay.
+No dot-prefixed files are included in this overlay.
+
+Files:
+CHANGELOG.md
+PATCH_NOTES_v0.12.0.md
+PATCH_MANIFEST_v0.12.0.txt
+evals/student_behavior_cases.json
+tests/test_api.py
+tests/test_review_modes_and_findings.py
+apps/api/app/main.py
+apps/api/app/models.py
+apps/api/app/schemas.py
+apps/api/app/routers/reviews.py
+apps/api/app/services/challenge_engine.py
+apps/api/app/services/evidence.py
+apps/api/app/services/repository_intelligence.py
+apps/api/app/services/review_orchestrator.py
+apps/api/app/static/index.html
+apps/api/app/static/studio.css
+apps/api/app/static/studio.js
+docs/architecture/REVIEW_MODES_FINDING_LIFECYCLE_AND_EVIDENCE_SCOPE.md

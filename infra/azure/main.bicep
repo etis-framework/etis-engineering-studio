@@ -1,38 +1,202 @@
 targetScope = 'resourceGroup'
 
-@description('Deployment region')
+@description('Azure region for the ETIS Engineering Studio production foundation.')
 param location string = resourceGroup().location
+
+@description('Resource-name prefix.')
 param prefix string = 'etis-studio'
+
+@description('Deployment environment name.')
 param environment string = 'prod'
-param containerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
-@secure()
-param postgresAdminPassword string
+
+@description('PostgreSQL administrator login.')
 param postgresAdminUser string = 'etisadmin'
+
+@secure()
+@description('PostgreSQL administrator password. Never store this value in source control.')
+param postgresAdminPassword string
+
+@description('Application PostgreSQL database name.')
 param postgresDbName string = 'etis_studio'
 
-var suffix = uniqueString(resourceGroup().id)
-var acrName = replace('${prefix}${environment}${suffix}', '-', '')
+@description('PostgreSQL compute SKU.')
+param postgresSkuName string = 'Standard_B1ms'
+
+@description('PostgreSQL compute tier.')
+param postgresSkuTier string = 'Burstable'
+
+@minValue(32)
+@description('PostgreSQL storage size in GiB.')
+param postgresStorageGb int = 32
+
+@minValue(7)
+@maxValue(35)
+@description('PostgreSQL automatic backup retention in days.')
+param postgresBackupRetentionDays int = 7
+
+@description('Log Analytics retention in days.')
+param logRetentionDays int = 30
+
+var suffix = uniqueString(subscription().id, resourceGroup().id)
+var compactPrefix = toLower(replace(prefix, '-', ''))
+
+var vnetName = '${prefix}-${environment}-vnet'
+var containerAppsSubnetName = 'container-apps'
+var postgresSubnetName = 'postgres'
+
 var lawName = '${prefix}-${environment}-law'
-var caeName = '${prefix}-${environment}-cae'
-var appName = '${prefix}-${environment}'
-var pgName = '${prefix}-${environment}-pg-${suffix}'
-var kvName = take(replace('${prefix}-${environment}-kv-${suffix}', '_','-'),24)
+var appInsightsName = '${prefix}-${environment}-appi'
+var acrName = take('${compactPrefix}${environment}${suffix}', 50)
+var identityName = '${prefix}-${environment}-runtime'
+var keyVaultName = take('${prefix}-${environment}-kv-${suffix}', 24)
+var containerAppsEnvironmentName = '${prefix}-${environment}-cae'
+var postgresServerName = take('${prefix}-${environment}-pg-${suffix}', 63)
+
+var postgresPrivateDnsZoneName = 'private.postgres.database.azure.com'
+
+var acrPullRoleDefinitionId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+) // AcrPull
+
+var keyVaultSecretsUserRoleDefinitionId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  '4633458b-17de-408a-b874-0445c86b69e6'
+) // Key Vault Secrets User
+
+resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
+  name: vnetName
+  location: location
+  properties: {
+    addressSpace: {
+      addressPrefixes: [
+        '10.40.0.0/20'
+      ]
+    }
+  }
+}
+
+resource containerAppsSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' = {
+  parent: vnet
+  name: containerAppsSubnetName
+  properties: {
+    addressPrefix: '10.40.0.0/23'
+    delegations: [
+      {
+        name: 'container-apps-environment'
+        properties: {
+          serviceName: 'Microsoft.App/environments'
+        }
+      }
+    ]
+  }
+}
+
+resource postgresSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' = {
+  parent: vnet
+  name: postgresSubnetName
+  properties: {
+    addressPrefix: '10.40.2.0/24'
+    delegations: [
+      {
+        name: 'postgres-flexible-server'
+        properties: {
+          serviceName: 'Microsoft.DBforPostgreSQL/flexibleServers'
+        }
+      }
+    ]
+  }
+}
+
+resource postgresPrivateDns 'Microsoft.Network/privateDnsZones@2024-06-01' = {
+  name: postgresPrivateDnsZoneName
+  location: 'global'
+}
+
+resource postgresPrivateDnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+  parent: postgresPrivateDns
+  name: '${prefix}-${environment}-pg-vnet-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: {
+      id: vnet.id
+    }
+  }
+}
 
 resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: lawName
   location: location
-  properties: { retentionInDays: 30 }
+  properties: {
+    retentionInDays: logRetentionDays
+  }
+}
+
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: appInsightsName
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: law.id
+  }
 }
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: acrName
   location: location
-  sku: { name: 'Basic' }
-  properties: { adminUserEnabled: false }
+  sku: {
+    name: 'Basic'
+  }
+  properties: {
+    adminUserEnabled: false
+  }
 }
 
-resource env 'Microsoft.App/managedEnvironments@2024-03-01' = {
-  name: caeName
+resource runtimeIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: identityName
+  location: location
+}
+
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  name: keyVaultName
+  location: location
+  properties: {
+    tenantId: tenant().tenantId
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+    enableRbacAuthorization: true
+    enablePurgeProtection: true
+    softDeleteRetentionInDays: 30
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+resource runtimeAcrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(acr.id, runtimeIdentity.id, acrPullRoleDefinitionId)
+  scope: acr
+  properties: {
+    roleDefinitionId: acrPullRoleDefinitionId
+    principalId: runtimeIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource runtimeKeyVaultSecretsUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVault.id, runtimeIdentity.id, keyVaultSecretsUserRoleDefinitionId)
+  scope: keyVault
+  properties: {
+    roleDefinitionId: keyVaultSecretsUserRoleDefinitionId
+    principalId: runtimeIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2025-01-01' = {
+  name: containerAppsEnvironmentName
   location: location
   properties: {
     appLogsConfiguration: {
@@ -42,71 +206,71 @@ resource env 'Microsoft.App/managedEnvironments@2024-03-01' = {
         sharedKey: listKeys(law.id, law.apiVersion).primarySharedKey
       }
     }
+    vnetConfiguration: {
+      infrastructureSubnetId: containerAppsSubnet.id
+      internal: false
+    }
   }
 }
 
-resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
-  name: kvName
+// PostgreSQL is VNet-integrated through the delegated subnet and private DNS.
+// No PostgreSQL firewall rule or public application database endpoint is created.
+resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
+  name: postgresServerName
   location: location
-  properties: {
-    tenantId: tenant().tenantId
-    sku: { family: 'A' name: 'standard' }
-    enableRbacAuthorization: true
-    enablePurgeProtection: true
-    softDeleteRetentionInDays: 30
-    publicNetworkAccess: 'Enabled'
+  sku: {
+    name: postgresSkuName
+    tier: postgresSkuTier
   }
-}
-
-resource pg 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
-  name: pgName
-  location: location
-  sku: { name: 'Standard_B1ms' tier: 'Burstable' }
   properties: {
     administratorLogin: postgresAdminUser
     administratorLoginPassword: postgresAdminPassword
     version: '16'
-    storage: { storageSizeGB: 32 }
-    backup: { backupRetentionDays: 7 geoRedundantBackup: 'Disabled' }
+    backup: {
+      backupRetentionDays: postgresBackupRetentionDays
+      geoRedundantBackup: 'Disabled'
+    }
+    highAvailability: {
+      mode: 'Disabled'
+    }
+    network: {
+      delegatedSubnetResourceId: postgresSubnet.id
+      privateDnsZoneArmResourceId: postgresPrivateDns.id
+    }
+    storage: {
+      storageSizeGB: postgresStorageGb
+      autoGrow: 'Enabled'
+    }
   }
+  dependsOn: [
+    postgresPrivateDnsLink
+  ]
 }
 
-resource db 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2024-08-01' = {
-  parent: pg
+resource database 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2024-08-01' = {
+  parent: postgres
   name: postgresDbName
   properties: {}
 }
 
-resource app 'Microsoft.App/containerApps@2024-03-01' = {
-  name: appName
-  location: location
-  identity: { type: 'SystemAssigned' }
-  properties: {
-    managedEnvironmentId: env.id
-    configuration: {
-      ingress: { external: true targetPort: 8000 transport: 'auto' allowInsecure: false }
-      registries: []
-    }
-    template: {
-      containers: [
-        {
-          name: 'studio'
-          image: containerImage
-          env: [
-            { name: 'ETIS_ENV' value: environment }
-            { name: 'ETIS_DEV_LOGIN' value: 'false' }
-            { name: 'ETIS_COURSE_NAMESPACE' value: 'COMP330-F26' }
-          ]
-          resources: { cpu: json('0.5') memory: '1Gi' }
-        }
-      ]
-      scale: { minReplicas: 0 maxReplicas: 5 rules: [{ name: 'http' http: { metadata: { concurrentRequests: '25' } } }] }
-    }
-  }
-}
+output containerRegistryName string = acr.name
+output containerRegistryLoginServer string = acr.properties.loginServer
 
-output containerRegistry string = acr.properties.loginServer
-output containerAppName string = app.name
-output containerAppFqdn string = app.properties.configuration.ingress.fqdn
-output postgresHost string = pg.properties.fullyQualifiedDomainName
-output keyVaultName string = kv.name
+output containerAppsEnvironmentName string = containerAppsEnvironment.name
+output containerAppsEnvironmentId string = containerAppsEnvironment.id
+
+output runtimeIdentityName string = runtimeIdentity.name
+output runtimeIdentityId string = runtimeIdentity.id
+output runtimeIdentityClientId string = runtimeIdentity.properties.clientId
+
+output keyVaultName string = keyVault.name
+output keyVaultId string = keyVault.id
+output keyVaultUri string = keyVault.properties.vaultUri
+
+output postgresServerName string = postgres.name
+output postgresHost string = postgres.properties.fullyQualifiedDomainName
+output postgresDatabaseName string = database.name
+output postgresAdminUser string = postgresAdminUser
+
+output logAnalyticsWorkspaceName string = law.name
+output applicationInsightsName string = appInsights.name

@@ -1,0 +1,22 @@
+ETIS Engineering Studio v0.13.0 overlay
+
+Apply at repository root. Every path below is a complete replacement/new file.
+No hidden directories or dot-prefixed files are included in this overlay.
+
+BUILD_REPORT.md
+CHANGELOG.md
+PATCH_MANIFEST_v0.13.0.txt
+PATCH_NOTES_v0.13.0.md
+README.md
+apps/api/app/main.py
+apps/api/app/services/ai_provider.py
+apps/api/app/services/challenge_engine.py
+apps/api/app/static/index.html
+apps/api/app/static/studio.css
+apps/api/app/static/studio.js
+docs/architecture/REVIEW_ROOM_RELEASE_CANDIDATE.md
+evals/student_behavior_cases.json
+evals/teaching_staff_cases.json
+tests/test_api.py
+tests/test_staff_ui_contract.py
+tests/test_v013_release_candidate.py

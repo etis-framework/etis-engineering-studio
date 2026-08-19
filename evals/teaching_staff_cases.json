@@ -1,0 +1,248 @@
+[
+  {
+    "id": "ta-readonly-roster",
+    "actor": "ta",
+    "scenario": "TA tries to deactivate a student",
+    "expected": "UI is read-only for roster mutation and explains that Instructor/Course Owner manages enrollment."
+  },
+  {
+    "id": "ta-language-confusion",
+    "actor": "ta",
+    "scenario": "TA says 'I not understand what needs attention means'",
+    "expected": "Help explains attention signals in plain language without treating language ability as a permission issue."
+  },
+  {
+    "id": "ta-evidence-review",
+    "actor": "ta",
+    "scenario": "TA wants to inspect why a team finding exists",
+    "expected": "TA can inspect shared team evidence/findings and review provenance within assigned section."
+  },
+  {
+    "id": "ta-private-conversation",
+    "actor": "ta",
+    "scenario": "TA attempts to expose one student's private review to teammates",
+    "expected": "Private coaching remains staff-visible only where authorized and is never surfaced to teammates."
+  },
+  {
+    "id": "instructor-two-sections",
+    "actor": "instructor",
+    "scenario": "Section 001 and Section 002 have different A3 due/release dates",
+    "expected": "Section-scoped schedule overrides remain independent while phase contracts are shared."
+  },
+  {
+    "id": "instructor-add-student",
+    "actor": "instructor",
+    "scenario": "Student adds after semester start",
+    "expected": "Instructor adds/reactivates by Student ID and assigns team without deleting history."
+  },
+  {
+    "id": "instructor-drop-student",
+    "actor": "instructor",
+    "scenario": "Student drops after completing A1",
+    "expected": "Access deactivates while A1 review/evidence history is preserved."
+  },
+  {
+    "id": "instructor-move-team",
+    "actor": "instructor",
+    "scenario": "Student moves Team 03 to Team 05 at A3",
+    "expected": "Membership is effective-dated; A1/A2 history stays associated with Team 03 context."
+  },
+  {
+    "id": "instructor-wrong-section",
+    "actor": "instructor",
+    "scenario": "Instructor assigned only Section 001 tries Section 002 admin",
+    "expected": "Authorization denies mutation outside assigned sections."
+  },
+  {
+    "id": "reviewer-role-admin",
+    "actor": "reviewer",
+    "scenario": "Reviewer tries Semester Setup",
+    "expected": "Administrative surfaces are hidden/denied."
+  },
+  {
+    "id": "course-owner-archive",
+    "actor": "course_owner",
+    "scenario": "Course Owner archives term",
+    "expected": "Term becomes archived; historical reviews/evidence remain retained."
+  },
+  {
+    "id": "instructor-finding-correction",
+    "actor": "instructor",
+    "scenario": "Student proves a REVIEW finding wrong",
+    "expected": "Instructor can see original finding, corrected interpretation, provenance, and downstream suppression of the false finding."
+  },
+  {
+    "id": "instructor-cost-spike",
+    "actor": "instructor",
+    "scenario": "One team has unusually high AI cost and latency",
+    "expected": "AI Usage shows team/purpose metrics without penalizing grade; instructor can investigate usage pattern."
+  },
+  {
+    "id": "instructor-repo-not-connected",
+    "actor": "instructor",
+    "scenario": "Team repository is not connected",
+    "expected": "Command Center flags setup need and Teams view explains required action."
+  },
+  {
+    "id": "instructor-active-review-snapshot",
+    "actor": "instructor",
+    "scenario": "Team refreshes repository while student has active review",
+    "expected": "Active conversation remains pinned to old snapshot; newer evidence is visible as a separate available snapshot."
+  },
+  {
+    "id": "ta-combative-student",
+    "actor": "ta",
+    "scenario": "Student complains reviewer is useless and asks TA to override finding",
+    "expected": "TA can inspect evidence and coach/escalate but cannot silently rewrite evidence facts or disclose peers' private responses."
+  },
+  {
+    "id": "instructor-roster-reimport",
+    "actor": "instructor",
+    "scenario": "New gradebook CSV changes roster",
+    "expected": "UI previews added/reactivated/deactivated counts and preserves history."
+  },
+  {
+    "id": "instructor-phase-release",
+    "actor": "instructor",
+    "scenario": "A2 should release automatically tonight but instructor delays it",
+    "expected": "Instructor section override locks A2 without affecting other sections."
+  },
+  {
+    "id": "instructor-help",
+    "actor": "instructor",
+    "scenario": "Instructor asks what a dashboard signal means",
+    "expected": "Role-aware Help explains the operational meaning and source rather than student coaching instructions."
+  },
+  {
+    "id": "ta-help",
+    "actor": "ta",
+    "scenario": "TA is new to Studio",
+    "expected": "Quick guide explains read/review responsibilities, section scope, and escalation path in plain language."
+  },
+  {
+    "id": "ta-esl-confused-ui",
+    "actor": "ta",
+    "situation": "TA says: I not understand which team evidence page show current snapshot",
+    "expected_behavior": "Help explains section/team/snapshot context in plain language; no administrative mutation required."
+  },
+  {
+    "id": "ta-direct-language",
+    "actor": "ta",
+    "situation": "TA writes blunt note: team evidence bad, need fix",
+    "expected_behavior": "System should not police English style; encourage evidence-specific professional annotation when saving notes."
+  },
+  {
+    "id": "instructor-two-sections-drift",
+    "actor": "instructor",
+    "situation": "Section 001 A3 releases Tuesday; Section 002 must release Thursday",
+    "expected_behavior": "Section-specific release override changes only the selected section."
+  },
+  {
+    "id": "instructor-team-move-midphase",
+    "actor": "instructor",
+    "situation": "Student moves from Team 02 to Team 05 after completing earlier reviews",
+    "expected_behavior": "Historical sessions remain tied to old team; future authorization and team state use Team 05."
+  },
+  {
+    "id": "ta-private-student-answer",
+    "actor": "ta",
+    "situation": "TA asks system to show one student review while advising another student",
+    "expected_behavior": "Authorized staff may inspect reviews for educational support, but system never exposes the first student conversation to teammates."
+  },
+  {
+    "id": "reviewer-evidence-correction",
+    "actor": "reviewer",
+    "situation": "Reviewer validates that a finding used the wrong interpretation",
+    "expected_behavior": "Mark REVIEW interpretation corrected while preserving immutable FACT snapshot and audit history."
+  },
+  {
+    "id": "instructor-no-snapshot",
+    "actor": "instructor",
+    "situation": "Team connected repo but never started a review",
+    "expected_behavior": "Instructor evidence view clearly distinguishes repository connected from no frozen evidence snapshot."
+  },
+  {
+    "id": "ta-finding-question",
+    "actor": "ta",
+    "situation": "TA wants to understand why a finding exists before meeting team",
+    "expected_behavior": "Instructor evidence view exposes finding provenance, evidence references, lifecycle, and related review history."
+  },
+  {
+    "id": "instructor-student-esl-not-penalized",
+    "actor": "instructor",
+    "situation": "Student used poor English but demonstrated correct engineering concept",
+    "expected_behavior": "Learning summary reflects concept demonstrated and assistance, not language quality as a weakness."
+  },
+  {
+    "id": "instructor-click-every-nav",
+    "actor": "instructor",
+    "scenario": "Instructor opens every navigation view in sequence",
+    "expected": "Every authorized view renders a meaningful state or a clear retry/error panel; no dead page."
+  },
+  {
+    "id": "ta-click-every-nav",
+    "actor": "ta",
+    "scenario": "TA opens every visible navigation view",
+    "expected": "Only authorized read/review views are visible; admin views are absent and no forbidden action is presented as clickable."
+  },
+  {
+    "id": "instructor-section-switch-failure",
+    "actor": "instructor",
+    "scenario": "Section overview request fails during section switch",
+    "expected": "Current page stays usable, shows an explicit retry message, and does not silently clear data."
+  },
+  {
+    "id": "instructor-team-detail-failure",
+    "actor": "instructor",
+    "scenario": "Team detail API returns 404 after team card was stale",
+    "expected": "Team detail area explains item is unavailable and offers retry/refresh; command center remains intact."
+  },
+  {
+    "id": "ta-non-native-direct",
+    "actor": "ta",
+    "scenario": "TA says 'why this team red I not understand'",
+    "expected": "Help/labels explain attention signals in plain English; no language-based permission assumption."
+  },
+  {
+    "id": "instructor-roster-double-click",
+    "actor": "instructor",
+    "scenario": "Instructor double-clicks Add/reactivate during slow network",
+    "expected": "Operation is idempotent or visually busy; duplicate roster mutation is not created."
+  },
+  {
+    "id": "instructor-team-move-stale",
+    "actor": "instructor",
+    "scenario": "Student team assignment changes in another tab before save",
+    "expected": "Server remains authority; stale update is rejected or refreshed without rewriting history."
+  },
+  {
+    "id": "course-owner-archive-cancel",
+    "actor": "course_owner",
+    "scenario": "Course owner clicks Archive and cancels confirmation",
+    "expected": "Nothing changes and the term remains active."
+  },
+  {
+    "id": "course-owner-archive-network-fail",
+    "actor": "course_owner",
+    "scenario": "Archive request fails after confirmation",
+    "expected": "Term remains active; UI reports failure and offers retry, never claims archive succeeded."
+  },
+  {
+    "id": "instructor-ai-telemetry-unavailable",
+    "actor": "instructor",
+    "scenario": "AI usage endpoint/overview unavailable",
+    "expected": "Usage view degrades to an explicit unavailable/retry state; reviews and evidence remain usable."
+  },
+  {
+    "id": "reviewer-student-private-access",
+    "actor": "reviewer",
+    "scenario": "Reviewer opens a student review in assigned section",
+    "expected": "Authorized instructional access works and is clearly read-oriented; teammate privacy remains enforced."
+  },
+  {
+    "id": "reviewer-unassigned-section-url",
+    "actor": "reviewer",
+    "scenario": "Reviewer manually navigates to an unassigned section URL",
+    "expected": "Backend returns 403 and UI presents permission message rather than leaking data."
+  }
+]

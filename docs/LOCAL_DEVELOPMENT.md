@@ -22,7 +22,14 @@ docker compose up --build
 
 ## Real GitHub evidence
 
-Set `GITHUB_TOKEN` only for developer testing. Production should use the GitHub App flow described in the architecture. The current provider reads repository metadata/tree, issues, and pull requests; deeper workflow/test/review ingestion is intentionally staged for the next implementation increment.
+Repository access uses the GitHub App flow described in the architecture. Personal access tokens are not supported. Public repositories may be read without repository credentials; private team repositories require an authorized GitHub App installation.
+
+Configure:
+
+    GITHUB_APP_ID=...
+    GITHUB_APP_PRIVATE_KEY=...
+
+The current provider reads repository metadata/tree, issues, and pull requests; deeper workflow/test/review ingestion is intentionally staged for a later implementation increment.
 
 ## AI review follow-ups
 

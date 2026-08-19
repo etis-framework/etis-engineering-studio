@@ -1,0 +1,34 @@
+ETIS Engineering Studio v0.15.0 Overlay
+Interaction Integrity & Pre-Azure Product Hardening
+
+Complete replacement/new files in this overlay:
+
+BUILD_REPORT.md
+CHANGELOG.md
+README.md
+PATCH_NOTES_v0.15.0.md
+PATCH_MANIFEST_v0.15.0.txt
+
+apps/api/app/main.py
+apps/api/app/schemas.py
+apps/api/app/routers/reviews.py
+apps/api/app/services/challenge_engine.py
+apps/api/app/services/review_orchestrator.py
+apps/api/app/static/index.html
+apps/api/app/static/studio.css
+apps/api/app/static/studio.js
+
+docs/architecture/INTERACTION_INTEGRITY_AND_PRODUCT_HARDENING.md
+
+evals/student_behavior_cases.json
+evals/teaching_staff_cases.json
+evals/ui_interaction_cases.json
+
+scripts/run_ui_wargames.py
+
+tests/test_api.py
+tests/test_v015_interaction_integrity.py
+
+Hidden directories / dot-prefixed files: NONE.
+
+Apply from the repository root so these paths overlay the existing v0.14 tree.
