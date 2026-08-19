@@ -3978,3 +3978,26 @@ def test_session_cookie_policy_is_centralized_in_auth_router():
     ).read_text(encoding="utf-8")
 
     assert auth_router.count("response.set_cookie(") == 1
+
+
+
+def test_github_identity_link_forces_explicit_account_selection(monkeypatch):
+    from urllib.parse import parse_qs, urlparse
+
+    monkeypatch.setattr(
+        auth_service,
+        "get_settings",
+        lambda: SimpleNamespace(
+            github_oauth_client_id="test-github-client",
+            github_oauth_redirect_uri=(
+                "https://studio.example.edu/auth/github/callback"
+            ),
+        ),
+    )
+
+    url = auth_service.github_authorize_url("signed-test-state")
+    query = parse_qs(urlparse(url).query)
+
+    assert query["client_id"] == ["test-github-client"]
+    assert query["state"] == ["signed-test-state"]
+    assert query["prompt"] == ["select_account"]
