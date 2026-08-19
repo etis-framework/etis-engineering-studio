@@ -34,19 +34,20 @@
   <main>
     <header class="topbar">
       <div><span class="eyebrow">ENGINEERING APPRENTICESHIP ENVIRONMENT</span><h1 id="viewTitle">Engineering Review Room</h1></div>
-      <div class="top-actions"><select id="devPersona" class="dev-persona hidden" aria-label="Development persona"><option value="student">Dev · Student</option><option value="instructor">Dev · Instructor</option></select><div id="conversationMode" class="conversation-mode checking">Checking coaching mode…</div><button id="quickHelp" class="ghost">Need help?</button><div id="userIdentity" class="user"><div class="avatar">AR</div><div><b>Alex Rivera</b><small>Architecture & Integration Owner</small></div></div></div>
+      <div class="top-actions"><select id="devPersona" class="dev-persona hidden" aria-label="Development persona"><option value="student">Dev · Student</option><option value="instructor">Dev · Instructor</option></select><div id="conversationMode" class="conversation-mode checking">Checking coaching mode…</div><button id="quickHelp" class="ghost">Need help?</button><div id="userIdentity" class="user"><div class="avatar">AR</div><div><b>Alex Rivera</b><small>Architecture & Integration Owner</small></div></div><button id="logoutButton" class="ghost hidden" type="button">Log out</button></div>
     </header>
 
     <section id="studio" class="view active-view">
       <div id="uiRuntimeWarning" class="semantic-warning danger hidden"><div><b>Review Room needs attention.</b><span id="uiRuntimeWarningText">The browser encountered an unexpected UI error.</span></div><button class="secondary" onclick="location.reload()">Refresh</button></div>
       <div id="semanticSetupWarning" class="semantic-warning hidden"><div><b>Natural reviewer coaching is not configured.</b><span>This build intentionally will not simulate a senior-engineer conversation with canned fallback responses.</span></div><button class="secondary" data-help-topic="semantic-required">Show setup</button></div>
+      <div id="studentReadiness" class="semantic-warning student-readiness hidden" aria-live="polite"></div>
 
       <div class="contextbar professional-context">
         <div><small>TEAM</small><b id="contextTeam">Team Vector</b></div>
         <div><small>PROJECT</small><b id="contextProject">CampusConnect</b></div>
         <div><small>CURRENT PHASE</small><select id="phase"><option>A1 · Project Launch</option><option>A2 · Planning & Estimation</option><option>A3 · Architecture & Review</option><option>A4 · Construction & Integration</option><option>A5 · Cycle 1 Release</option><option>A6 · Final Release & Maturity</option></select><span id="phaseLockHint" class="context-hint"></span></div>
         <div class="repo-context"><small>EVIDENCE SNAPSHOT</small><input id="repoFullName" value="etis-framework/comp330-f26-starter-kit" aria-label="GitHub owner/repository" readonly><span id="repoMode"><span class="status green"></span> Repository connected</span></div>
-        <div class="context-actions"><button id="reviewHomeButton" class="secondary compact hidden">New Review Home</button><button id="newReview" class="primary">Start Review →</button></div>
+        <div class="context-actions"><button id="reviewHomeButton" class="secondary compact hidden">New Review Home</button><button id="newReview" class="primary" disabled>Start Review →</button></div>
       </div>
       <div id="reviewSessionPurpose" class="session-purpose hidden"></div>
       <div id="reviewLauncher" class="review-launcher-wrap">
