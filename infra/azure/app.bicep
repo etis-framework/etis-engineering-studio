@@ -15,6 +15,12 @@ param containerImage string
 @description('Canonical HTTPS origin for the Engineering Studio.')
 param webOrigin string
 
+@description('Canonical custom hostname bound to the production Container App.')
+param customDomainName string
+
+@description('Existing managed certificate name for the canonical custom hostname.')
+param managedCertificateName string
+
 @description('Course namespace exposed by this production deployment.')
 param courseNamespace string = 'COMP330-F26'
 
@@ -125,6 +131,11 @@ resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2025-01-01'
   name: containerAppsEnvironmentName
 }
 
+resource managedCertificate 'Microsoft.App/managedEnvironments/managedCertificates@2025-01-01' existing = {
+  parent: containerAppsEnvironment
+  name: managedCertificateName
+}
+
 resource app 'Microsoft.App/containerApps@2025-01-01' = {
   name: appName
   location: location
@@ -147,6 +158,14 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = {
         targetPort: 8000
         transport: 'auto'
         allowInsecure: false
+
+        customDomains: [
+          {
+            name: customDomainName
+            bindingType: 'SniEnabled'
+            certificateId: managedCertificate.id
+          }
+        ]
       }
 
       registries: [
