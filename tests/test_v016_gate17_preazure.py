@@ -210,3 +210,46 @@ def test_gate17_defers_azure_resource_and_rbac_bootstrap_until_after_go():
 
     for phrase in required:
         assert phrase in text
+
+
+def test_gate17_has_formal_production_security_review_record():
+    review = ROOT / "docs" / "operations" / "GATE17_PRODUCTION_SECURITY_REVIEW.md"
+    assert review.exists(), "formal Gate 17 production security review is missing"
+
+    text = " ".join(review.read_text(encoding="utf-8").lower().split())
+
+    required = (
+        "gate 17 production security review",
+        "pre-azure",
+        "reviewer",
+        "review date",
+        "production sessions fail closed",
+        "current authorization is database-derived",
+        "csrf",
+        "secure-cookie",
+        "permitted origins",
+        "https",
+        "github app",
+        "personal access token",
+        "least-privilege",
+        "read-only",
+        "secrets",
+        "browser-delivered configuration",
+        "key vault",
+        "fabricated evidence",
+        "fabricated reviewer conversation",
+        "rate",
+        "cost",
+        "logging remains sensitive-data-safe",
+        "backup",
+        "recovery",
+        "production authentication and authorization boundaries remain fail closed",
+        "verified in ci",
+        "operator-configured",
+        "requires post-provisioning validation",
+        "no live azure",
+        "reviewer sign-off",
+    )
+
+    for phrase in required:
+        assert phrase in text
