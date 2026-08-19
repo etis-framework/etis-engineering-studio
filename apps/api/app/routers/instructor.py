@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..db import get_db
 from ..services.auth import require_staff, accessible_section_ids, require_section_role
-from ..models import Team, User, TeamMembership, ReviewSession, ReviewTurn, EvidenceSnapshot, TeamSection, CourseSection, SectionEnrollment
+from ..models import Team, User, GitHubIdentity, TeamMembership, ReviewSession, ReviewTurn, EvidenceSnapshot, TeamSection, CourseSection, SectionEnrollment
 from ..services.usage_store import usage_summary
 from ..config import get_settings
 from ..services.seed import ensure_demo
@@ -66,10 +66,11 @@ def team_detail(team_id:int,db:Session=Depends(get_db),ctx:dict=Depends(require_
     require_section_role(db,ctx,link.section_id,READ_ROLES)
     memberships=db.query(TeamMembership).filter_by(team_id=team.id).all(); members=[]
     for m in memberships:
-        u=db.get(User,m.user_id); members.append({"id":u.id,"name":u.display_name,"github_login":u.github_login,"role":m.responsibility_role,"primary":m.is_primary})
+        u=db.get(User,m.user_id); gh=db.query(GitHubIdentity).filter_by(user_id=u.id).first()
+        members.append({"id":u.id,"name":u.display_name,"github_login":gh.github_login if gh else None,"role":m.responsibility_role,"primary":m.is_primary})
     sessions=db.query(ReviewSession).filter_by(team_id=team.id).order_by(ReviewSession.started_at.desc()).limit(10).all(); session_rows=[]
     for s in sessions:
-        state=_safe_json(s.challenge_state_json,{}); ev=state.get("evaluation") or {}; turn_count=db.query(ReviewTurn).filter_by(session_id=s.id).count()
-        session_rows.append({"id":s.id,"phase":s.phase_id,"status":s.status,"mode":s.mode,"started_at":s.started_at.isoformat(),"turns":turn_count,"disposition":ev.get("disposition"),"learning_score":ev.get("learning_score"),"learning_score_max":ev.get("learning_score_max"),"missing_moves":ev.get("missing_moves",[])})
+        state=_safe_json(s.challenge_state_json,{}); ev=state.get("evaluation") or {}; turn_count=db.query(ReviewTurn).filter_by(session_id=s.id).count(); student=db.get(User,s.user_id)
+        session_rows.append({"id":s.id,"phase":s.phase_id,"status":s.status,"mode":s.mode,"started_at":s.started_at.isoformat(),"turns":turn_count,"student":{"id":student.id,"name":student.display_name} if student else None,"disposition":ev.get("disposition"),"learning_score":ev.get("learning_score"),"learning_score_max":ev.get("learning_score_max"),"missing_moves":ev.get("missing_moves",[])})
     snap=db.query(EvidenceSnapshot).filter_by(team_id=team.id).order_by(EvidenceSnapshot.created_at.desc()).first(); evidence=_safe_json(snap.summary_json,{}) if snap else None
     return {"team":_team_summary(db,team),"members":members,"sessions":session_rows,"evidence":evidence}

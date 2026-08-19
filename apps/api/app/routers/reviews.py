@@ -947,15 +947,20 @@ def get_review(session_id: int, request:Request, db: Session = Depends(get_db)):
     if snapshot and evidence:
         evidence=_decorate_finding_states(evidence,_finding_states(db,snapshot.id))
     user = _student_for_session(db, session)
+    team = db.get(Team, session.team_id)
     return {
         "session": {
             "id": session.id,
+            "team_id": session.team_id,
             "phase_id": session.phase_id,
             "status": session.status,
             "mode": session.mode,
             "started_at": session.started_at.isoformat(),
+            "completed_at": session.completed_at.isoformat() if session.completed_at else None,
             "student": {"id": user.id, "name": user.display_name, "role": user.role} if user else None,
         },
+        "team": {"id": team.id, "name": team.name, "project_name": team.project_name, "repo_full_name": team.repo_full_name} if team else None,
+        "snapshot": {"id": snapshot.id, "commit_sha": snapshot.commit_sha, "source": snapshot.source, "created_at": snapshot.created_at.isoformat()} if snapshot else None,
         "state": state,
         "evidence": evidence,
         "turns": [
@@ -966,6 +971,7 @@ def get_review(session_id: int, request:Request, db: Session = Depends(get_db)):
                 "content": turn.content,
                 "evidence_refs": _safe_json(turn.evidence_refs_json, []),
                 "signals": _safe_json(turn.signals_json, {}),
+                "created_at": turn.created_at.isoformat(),
             }
             for turn in turns
         ],
