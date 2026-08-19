@@ -294,3 +294,94 @@ def test_gate17_records_approved_production_cost_control_plan():
 
     for phrase in required:
         assert phrase in text
+
+
+def test_gate17_records_approved_retention_decision():
+    decision = ROOT / "docs" / "operations" / "GATE17_RETENTION_DECISION.md"
+    assert decision.exists(), "approved Gate 17 retention decision is missing"
+
+    text = " ".join(decision.read_text(encoding="utf-8").lower().split())
+
+    required = (
+        "gate 17 retention decision",
+        "deferred with explicit acceptance",
+        "engineering records",
+        "preserve",
+        "identity and attribution",
+        "archived course administration",
+        "read-only",
+        "authentication/session",
+        "operational telemetry",
+        "30 days",
+        "postgresql",
+        "7 days",
+        "recovery window",
+        "ephemeral browser state",
+        "session-only",
+        "openai",
+        "store: false",
+        "no destructive purge",
+        "no automatic anonymization",
+        "research export",
+        "institutional retention",
+        "before the first production semester is archived",
+        "before any destructive purge",
+        "whichever occurs first",
+        "course/institutional owner",
+        "post-provisioning production acceptance",
+    )
+
+    for phrase in required:
+        assert phrase in text
+
+
+def test_gate17_production_security_review_is_formally_signed_off():
+    review = ROOT / "docs" / "operations" / "GATE17_PRODUCTION_SECURITY_REVIEW.md"
+    text = " ".join(review.read_text(encoding="utf-8").lower().split())
+
+    required = (
+        "review date: **2026-08-19**",
+        "reviewer: **william o'connell",
+        "review status: **approved**",
+        "reviewer sign-off: **approved**",
+        "no unresolved blocking production-security findings remain",
+        "post-provisioning production acceptance",
+        "reviewer approval does not itself constitute gate 17 go",
+    )
+
+    for phrase in required:
+        assert phrase in text
+
+
+def test_gate17_records_final_go_decision_and_azure_boundary():
+    record = ROOT / "docs" / "GATE17_PRE_AZURE_GO_NO_GO.md"
+    text = " ".join(record.read_text(encoding="utf-8").lower().split())
+
+    required = (
+        "current gate 17 decision: **go**",
+        "gate 17 approved",
+        "2026-08-19",
+        "controlled azure provisioning",
+        "prior gates / ci",
+        "production security review",
+        "approved",
+        "github production environment",
+        "azure oidc / federated identity",
+        "deployment variables/secrets",
+        "microsoft entra",
+        "github app",
+        "github oauth",
+        "openai",
+        "hostname/callback plan",
+        "budget/cost notification",
+        "retention decisions",
+        "deferred with explicit acceptance",
+        "live azure controls",
+        "requires post-provisioning validation",
+        "no production azure resource group exists before gate 17 go",
+        "student access remains prohibited",
+        "post-provisioning production acceptance",
+    )
+
+    for phrase in required:
+        assert phrase in text

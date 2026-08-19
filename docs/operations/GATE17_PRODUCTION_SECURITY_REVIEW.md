@@ -21,7 +21,7 @@ Review date: **2026-08-19**
 
 Reviewer: **William O'Connell — production/course owner and authorized Gate 17 reviewer**
 
-Review status: **TECHNICAL REVIEW COMPLETE — REVIEWER SIGN-OFF PENDING**
+Review status: **APPROVED**
 
 ---
 
@@ -366,13 +366,56 @@ remain **Requires post-provisioning validation**.
 
 ## 4. Review findings
 
+### Resolved findings
+
+The Gate 17 security review identified two source-controlled issues before
+reviewer sign-off.
+
+#### Entra identity rebinding
+
+The Microsoft Entra callback previously permitted an existing institutional
+identity located through roster email or student ID to have its
+`provider_subject` replaced by a newly presented Entra Object ID.
+
+This could have weakened the intended rule that the verified tenant-scoped
+Entra Object ID becomes the authoritative external identity binding.
+
+The callback now:
+
+- prefers an exact existing Entra Object ID binding;
+- rejects duplicate Object ID bindings;
+- rejects ambiguous roster matches;
+- rejects an attempted roster match when the identity is already bound to a
+  different Entra Object ID.
+
+Regression coverage verifies that silent Entra Object ID rebinding fails closed.
+
+**Finding result: RESOLVED — Verified in CI**
+
+#### OpenAI Responses application-state storage
+
+The OpenAI Responses request did not previously state the Studio's intended
+provider-side application-state retention posture explicitly.
+
+Production Responses API requests now set:
+
+`store: false`
+
+Regression coverage verifies that the production request payload disables
+provider-side Responses application-state storage.
+
+This change does not claim that all external provider security, abuse-monitoring,
+or legally required retention is under Studio control.
+
+**Finding result: RESOLVED — Verified in CI**
+
 ### Blocking findings
 
-**None identified in the source-controlled production security architecture.**
+**No unresolved blocking production-security findings remain.**
 
 This statement does not itself authorize Azure deployment. Gate 17 remains
 subject to completion of all other blocking and operator-configured decision
-rows.
+rows and explicit reviewer sign-off.
 
 ### Post-provisioning security validations
 
@@ -414,9 +457,8 @@ The review does not weaken any requirement that is classified
 
 **Technical review result: PASS**
 
-**Reviewer sign-off: PENDING**
+Reviewer sign-off: **APPROVED**
 
-Reviewer sign-off means the authorized reviewer confirms that this record
-accurately reflects the reviewed production security posture and accepts the
-listed post-provisioning validation obligations. Reviewer sign-off does not
-itself constitute Gate 17 GO.
+Reviewer approval confirms that this record accurately reflects the reviewed
+production security posture and accepts the listed post-provisioning validation
+obligations. Reviewer approval does not itself constitute Gate 17 GO.

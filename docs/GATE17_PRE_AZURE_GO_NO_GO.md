@@ -554,37 +554,72 @@ They do block student access until Post-Provisioning Production Acceptance.
 
 ## 17. Gate 17 decision record
 
-Use the following structure for the actual Gate 17 review.
+Gate 17 approved: **2026-08-19**
+
+The authorized production/course owner approved Gate 17 GO and authorized
+**controlled Azure provisioning** after review of the source-controlled,
+CI-validated, operator-configured, security, cost, and retention evidence.
 
 | Control | Classification | Owner | Evidence | Result | Rationale / Follow-up |
 |---|---|---|---|---|---|
-| Prior gates / CI | Verified in CI | Engineering | CI run | Pending review | |
-| Production security review | Blocking | Security reviewer | Review record | Pending | |
-| GitHub production environment | Operator-configured | Deployment owner | GitHub settings | Pending | |
-| Azure OIDC / federated identity | Operator-configured | Deployment owner | Azure/GitHub settings | Pending | |
-| Deployment variables/secrets | Operator-configured | Deployment owner | Presence/scope only | Pending | |
-| Microsoft Entra | Operator-configured | Identity owner | Configuration record | Pending | |
-| GitHub App | Operator-configured | Integration owner | Configuration record | Pending | |
-| GitHub OAuth | Operator-configured | Integration owner | Configuration record | Pending | |
-| OpenAI | Operator-configured | AI/service owner | Configuration record | Pending | |
-| Hostname/callback plan | Operator-configured | Deployment owner | Configuration plan | Pending | |
-| Budget/cost notification | Operator-configured | Service owner | Cost-control plan | Pending | |
-| Retention decisions | Blocking or deferred with explicit acceptance | Course/institutional owner | Policy record | Pending | |
-| Live Azure controls | Requires post-provisioning validation | Operations | Production Acceptance | Not yet testable | |
+| Prior gates / CI | Verified in CI | Engineering | CI runs and gate contracts | PASS | Prior gates are closed and the full regression suite is green. |
+| Production security review | Blocking | Security reviewer | `docs/operations/GATE17_PRODUCTION_SECURITY_REVIEW.md` | APPROVED | Formal reviewer approval is recorded and no unresolved blocking production-security findings remain. |
+| GitHub production environment | Operator-configured | Deployment owner | GitHub production environment | PASS | Environment exists, production configuration is environment-scoped, deployment is restricted to `main`, and release validation remains mandatory. |
+| Azure OIDC / federated identity | Operator-configured | Deployment owner | Azure/GitHub configuration | PASS | Dedicated deployment application and production-environment federated trust are configured. The deployment principal had zero Azure resource authority before Gate 17 GO. |
+| Deployment variables/secrets | Operator-configured | Deployment owner | Presence/scope inspection | PASS | Required production variables and protected secrets are present at production-environment scope. Secret values are not recorded here. |
+| Production-test student configuration | Operator-configured | Identity owner | Presence/scope inspection | PASS | Exact bounded production-test identity configuration is present without creating a general external-domain authorization path. |
+| Microsoft Entra | Operator-configured | Identity owner | Configuration record | PASS | Single-tenant human-authentication application, production callback plan, client configuration, and bounded identity policy are established. |
+| GitHub App | Operator-configured | Integration owner | Configuration record and security review | PASS | Organization-owned, account-bounded, least-privilege read-only repository access is configured. |
+| GitHub OAuth | Operator-configured | Integration owner | Configuration record | PASS | Production OAuth identity-linking application, callback plan, client ID, and protected secret are configured. |
+| OpenAI | Operator-configured | AI/service owner | Production project, configuration, and regression evidence | PASS | Dedicated production project/key, source-controlled models, $40 hard limit, fail-closed behavior, and `store: false` are established. |
+| Hostname/callback plan | Operator-configured | Deployment owner | Configuration plan | PASS | `https://simulator.etisframework.org` is the canonical HTTPS origin and Entra/GitHub OAuth callback plans are aligned. |
+| Budget/cost notification | Operator-configured | Service owner | `docs/operations/GATE17_COST_CONTROL_PLAN.md` | PASS | $75 monthly Azure budget posture and notification thresholds are approved. Live Azure budget behavior remains post-provisioning. |
+| Retention decisions | Deferred with explicit acceptance | Course/institutional owner | `docs/operations/GATE17_RETENTION_DECISION.md` | PASS | Preservation-first posture is approved; unresolved institutional calendar periods have an explicit owner and completion point. |
+| Live Azure controls | Requires post-provisioning validation | Operations | Post-Provisioning Production Acceptance | NOT YET TESTABLE | Azure production resources do not yet exist. These controls remain mandatory before student access. |
+
+### Gate 17 Azure boundary
+
+No production Azure resource group exists before Gate 17 GO.
+
+Gate 17 GO authorizes the controlled Azure bootstrap sequence:
+
+1. create the approved empty production resource group;
+2. assign the dedicated GitHub deployment principal only the approved
+   resource-group-scoped deployment roles;
+3. confirm the deployment principal has no subscription-wide deployment role;
+4. run the validated production deployment workflow through the protected
+   GitHub production environment.
+
+This authorization permits deployment only. It does not constitute production
+acceptance.
 
 ---
 
 ## 18. Current decision
 
-**Current Gate 17 decision: NO-GO.**
+Current Gate 17 decision: **GO**
 
-This NO-GO does not indicate a source-code defect.
+Gate 17 GO was approved on **2026-08-19**.
 
-It reflects that Gate 17 requires operator-side production configuration and a
-formal production security review that cannot be inferred from repository
-source alone.
+The decision authorizes **controlled Azure provisioning** under the approved
+bootstrap boundary.
 
-Azure provisioning must not begin until the blocking items in this document
-are inspected, recorded, and resolved.
+Gate 17 GO is supported by:
 
-Once those items are complete, Gate 17 may be reconsidered for explicit GO.
+- successful prior gates and current CI evidence;
+- an approved Production Security Review;
+- verified operator configuration for production deployment and integrations;
+- an approved cost-control posture;
+- retention decisions classified **Deferred with explicit acceptance**;
+- explicit preservation of all live controls for later validation.
+
+Live Azure controls remain **Requires post-provisioning validation**.
+
+Gate 17 GO does not authorize student production use.
+
+**Student access remains prohibited** until
+**Post-Provisioning Production Acceptance** is explicitly GO.
+
+The next lifecycle stage is controlled Azure bootstrap and deployment followed
+by production acceptance testing.
+
