@@ -126,3 +126,19 @@
 .instructor-review-turn header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:7px}.instructor-review-turn header span{font-size:9px;color:var(--muted)}
 .instructor-review-turn p{margin:0;color:#dce7eb;white-space:pre-wrap;line-height:1.5}.instructor-review-turn>small{display:block;margin-top:7px;color:#86a5b2}
 @media(max-width:900px){.review-ops-row,.instructor-review-detail-head{align-items:flex-start;flex-direction:column}.instructor-review-meta{grid-template-columns:1fr 1fr}}
+
+
+/* Production acceptance: review action visual hierarchy */
+.context-actions #newReview{
+  min-width:200px;
+  min-height:46px;
+  padding:0 18px;
+  font-size:.92rem;
+  font-weight:800;
+  white-space:nowrap;
+}
+@media(max-width:900px){
+  .context-actions #newReview{
+    min-width:170px;
+  }
+}
