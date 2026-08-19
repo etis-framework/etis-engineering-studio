@@ -125,6 +125,8 @@ jobs:
       AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
       ETIS_WEB_ORIGIN: ${{ vars.ETIS_WEB_ORIGIN }}
       ETIS_BOOTSTRAP_OWNER_EMAIL: ${{ vars.ETIS_BOOTSTRAP_OWNER_EMAIL }}
+      ETIS_CUSTOM_DOMAIN_NAME: ${{ vars.ETIS_CUSTOM_DOMAIN_NAME }}
+      ETIS_MANAGED_CERTIFICATE_NAME: ${{ vars.ETIS_MANAGED_CERTIFICATE_NAME }}
 
       POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
       ETIS_SESSION_SECRET: ${{ secrets.ETIS_SESSION_SECRET }}
@@ -170,6 +172,8 @@ jobs:
             AZURE_LOCATION
             ETIS_WEB_ORIGIN
             ETIS_BOOTSTRAP_OWNER_EMAIL
+            ETIS_CUSTOM_DOMAIN_NAME
+            ETIS_MANAGED_CERTIFICATE_NAME
             POSTGRES_ADMIN_PASSWORD
             ETIS_SESSION_SECRET
             ENTRA_CLIENT_ID
@@ -370,6 +374,8 @@ jobs:
               containerImage="${{ steps.image.outputs.image }}" \
               webOrigin="${ETIS_WEB_ORIGIN}" \
               bootstrapOwnerEmail="${ETIS_BOOTSTRAP_OWNER_EMAIL}" \
+              customDomainName="${ETIS_CUSTOM_DOMAIN_NAME}" \
+              managedCertificateName="${ETIS_MANAGED_CERTIFICATE_NAME}" \
               entraClientId="${ENTRA_CLIENT_ID}" \
               entraTenant="${ENTRA_TENANT}" \
               entraRedirectUri="${ENTRA_REDIRECT_URI}" \

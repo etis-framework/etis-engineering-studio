@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -251,3 +252,47 @@ def test_production_workflow_avoids_reserved_github_prefix_for_operator_settings
     assert 'githubAppId="${ETIS_GITHUB_APP_ID}"' in text
     assert 'githubAppSlug="${ETIS_GITHUB_APP_SLUG}"' in text
     assert 'githubOauthClientId="${ETIS_GITHUB_OAUTH_CLIENT_ID}"' in text
+
+
+
+def test_application_preserves_production_custom_domain_binding():
+    text = read_required(APPLICATION)
+
+    require_all(
+        text,
+        [
+            "param customDomainName string",
+            "param managedCertificateName string",
+            "Microsoft.App/managedEnvironments/managedCertificates@2025-01-01",
+            "parent: containerAppsEnvironment",
+            "customDomains:",
+            "name: customDomainName",
+            "bindingType: 'SniEnabled'",
+            "certificateId: managedCertificate.id",
+        ],
+    )
+
+
+
+def test_production_workflow_preserves_custom_domain_binding_configuration():
+    text = read_required(WORKFLOW)
+
+    require_all(
+        text,
+        [
+            "ETIS_CUSTOM_DOMAIN_NAME: ${{ vars.ETIS_CUSTOM_DOMAIN_NAME }}",
+            "ETIS_MANAGED_CERTIFICATE_NAME: ${{ vars.ETIS_MANAGED_CERTIFICATE_NAME }}",
+            'customDomainName="${ETIS_CUSTOM_DOMAIN_NAME}"',
+            'managedCertificateName="${ETIS_MANAGED_CERTIFICATE_NAME}"',
+        ],
+    )
+
+    assert re.search(
+        r"(?m)^\s+ETIS_CUSTOM_DOMAIN_NAME\s*$",
+        text,
+    ), "production deployment must fail closed when custom domain is missing"
+
+    assert re.search(
+        r"(?m)^\s+ETIS_MANAGED_CERTIFICATE_NAME\s*$",
+        text,
+    ), "production deployment must fail closed when managed certificate is missing"
