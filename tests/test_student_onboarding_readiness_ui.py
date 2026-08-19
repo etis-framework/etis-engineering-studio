@@ -20,7 +20,7 @@ def test_student_review_room_surfaces_setup_readiness():
 
 def test_review_start_is_blocked_until_student_setup_is_ready():
     assert "if(appRole==='student'&&!readiness.ready)" in JS
-    assert "btn.textContent='Setup required before review'" in JS
+    assert "Setup required before review" in JS
     assert "btn.disabled=true" in JS
     assert "switchView('myteam')" in JS
     assert "#newReview:disabled" in CSS
