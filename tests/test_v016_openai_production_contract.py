@@ -566,3 +566,67 @@ def test_openai_provider_rejects_nonterminal_structured_response(monkeypatch):
             },
             "gate8_test",
         )
+
+
+def test_openai_responses_disable_provider_application_state(monkeypatch):
+    calls = []
+
+    class FakeClient:
+        def __init__(self, *, timeout):
+            self.timeout = timeout
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def post(self, url, *, headers, json):
+            calls.append(
+                {
+                    "url": url,
+                    "headers": dict(headers),
+                    "json": json,
+                }
+            )
+            return httpx.Response(
+                200,
+                request=httpx.Request("POST", url),
+                json={
+                    "id": "resp_gate17_retention",
+                    "status": "completed",
+                    "output_text": "{}",
+                    "usage": {
+                        "input_tokens": 1,
+                        "output_tokens": 1,
+                        "total_tokens": 2,
+                    },
+                },
+            )
+
+    monkeypatch.setattr(ai_provider_module.httpx, "Client", FakeClient)
+
+    provider = OpenAIResponsesProvider.__new__(OpenAIResponsesProvider)
+    provider.s = SimpleNamespace(
+        etis_ai_enabled=True,
+        openai_api_key="sk-proj-GATE17RETENTION",
+        openai_model="gpt-5.6-sol",
+        etis_ai_reasoning_effort="low",
+        etis_prompt_cache_enabled=False,
+        etis_ai_timeout_seconds=60.0,
+        openai_base_url="https://api.openai.com/v1",
+    )
+
+    provider._post_structured(
+        "system prompt",
+        "user prompt",
+        {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+        "gate17_retention",
+    )
+
+    assert len(calls) == 1
+    assert calls[0]["json"].get("store") is False

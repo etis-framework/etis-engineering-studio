@@ -182,6 +182,7 @@ class OpenAIResponsesProvider(AIProvider):
         effort = reasoning_effort or self.s.etis_ai_reasoning_effort
         payload = {
             "model": selected_model,
+            "store": False,
             "reasoning": {"effort": effort},
             "input": [
                 {"role": "system", "content": [{"type": "input_text", "text": system_prompt}]},

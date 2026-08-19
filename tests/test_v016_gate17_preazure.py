@@ -253,3 +253,44 @@ def test_gate17_has_formal_production_security_review_record():
 
     for phrase in required:
         assert phrase in text
+
+
+def test_gate17_records_approved_production_cost_control_plan():
+    plan = ROOT / "docs" / "operations" / "GATE17_COST_CONTROL_PLAN.md"
+    assert plan.exists(), "approved Gate 17 production cost-control plan is missing"
+
+    text = " ".join(plan.read_text(encoding="utf-8").lower().split())
+
+    required = (
+        "gate 17 production cost-control plan",
+        "$75",
+        "50%",
+        "75%",
+        "90%",
+        "100%",
+        "forecast",
+        "no automatic shutdown",
+        "standard_b1ms",
+        "32 gib",
+        "7-day",
+        "minreplicas",
+        "0",
+        "maxreplicas",
+        "5",
+        "0.5 vcpu",
+        "1 gib",
+        "30-day",
+        "openai",
+        "$40",
+        "hard limit",
+        "separate",
+        "operations_alert_email",
+        "post-provisioning production acceptance",
+        "may be reduced",
+        "may be modified",
+        "may be eliminated",
+        "retention obligations",
+    )
+
+    for phrase in required:
+        assert phrase in text
