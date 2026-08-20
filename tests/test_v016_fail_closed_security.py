@@ -3258,7 +3258,7 @@ def test_logout_revokes_presented_session_against_replay():
         follow_redirects=False,
     )
 
-    assert 300 <= logout.status_code < 400
+    assert logout.status_code == 204
 
     # Simulate replay of a credential copied before logout.
     replay = client.get(
@@ -3426,7 +3426,7 @@ def test_revoked_session_cannot_fall_back_to_developer_identity():
         follow_redirects=False,
     )
 
-    assert 300 <= logout.status_code < 400
+    assert logout.status_code == 204
 
     # This is a protected route. The revoked credential must produce an
     # authentication failure rather than being treated as "no identity" and
@@ -3668,7 +3668,7 @@ def test_cookie_authenticated_browser_can_obtain_and_use_csrf_token():
             follow_redirects=False,
         )
 
-        assert 300 <= logout.status_code < 400
+        assert logout.status_code == 204
 
         replay = client.get(
             "/auth/me",
