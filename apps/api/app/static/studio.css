@@ -142,3 +142,61 @@
     min-width:170px;
   }
 }
+
+
+/* Production acceptance: review/instructor UX polish */
+.session-purpose>div{display:grid;gap:4px;min-width:0}
+.session-purpose b,.session-purpose span{display:block}
+
+.repo-context input[readonly]{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  cursor:help;
+}
+
+.button-spinner{
+  display:inline-block;
+  width:13px;
+  height:13px;
+  margin-right:7px;
+  vertical-align:-2px;
+  border:2px solid rgba(5,32,29,.28);
+  border-top-color:#05201d;
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+
+.review-status-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.review-status.review-status-error{
+  background:#2a1118;
+  border-bottom-color:#7f2d35;
+}
+
+.review-status.review-status-error .status{
+  background:var(--red);
+  box-shadow:0 0 8px rgba(255,125,117,.35);
+}
+
+.review-status.review-status-error #reviewStatusLabel{
+  color:#fecaca;
+}
+
+.review-status.review-status-error #reviewStatusText{
+  color:#e4a9ad;
+}
+
+.team-detail:focus{
+  outline:2px solid rgba(114,213,200,.28);
+  outline-offset:4px;
+}
+
+.instructor-review-meta{
+  grid-template-columns:
+    repeat(auto-fit,minmax(140px,1fr));
+}

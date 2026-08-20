@@ -96,8 +96,9 @@ def test_student_ui_has_one_primary_start_action_and_explicit_new_review_home():
 
 def test_ui_context_is_propagated_instead_of_generic_review_start():
     js = (ROOT / 'apps/api/app/static/studio.js').read_text()
-    assert 'entry_intent:opts.entry_intent' in js
-    assert 'source_view:opts.source_view' in js
+    compact = ''.join(js.split())
+    assert 'entry_intent:opts.entry_intent' in compact
+    assert 'source_view:opts.source_view' in compact
     assert 'finding_id:findingId' in js
     assert 'evidence_refs:contextRefs()' in js
     assert "currentFindingById" in js

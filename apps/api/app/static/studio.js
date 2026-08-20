@@ -225,7 +225,65 @@ function resetReview(message){document.body.classList.remove('review-session-act
 function showActiveReviewer(reviewer){if(!reviewer){hideActiveReviewer();return}currentReviewer=reviewer;const box=$('#activeReviewer');$('#activeReviewerPortrait').src=reviewer.portrait;$('#activeReviewerPortrait').alt=`Portrait of ${reviewer.name}, ${reviewer.role}`;$('#activeReviewerName').textContent=`${reviewer.name} · ${reviewer.role}`;$('#activeReviewerFocus').textContent=reviewer.focus;box.classList.remove('hidden');const askLabel=$('#askMode b');if(askLabel)askLabel.textContent=`Talk with ${reviewer.name.split(' ')[0]}`}
 function hideActiveReviewer(){$('#activeReviewer').classList.add('hidden');currentReviewer=null}
 let thinkingTimer=null,pendingStartedAt=0,pendingElapsedTimer=null;
-function setPending(on,status='Reviewing your answer and the frozen evidence…'){pending=on;const box=$('#reviewerThinking');const controls=[els.send,$('#coachButton'),$('#askMode'),$('#decisionMode'),$('#commitPosition'),els.newReview];controls.filter(Boolean).forEach(x=>x.disabled=on);els.response.disabled=on;els.decision.disabled=on;if(on){pendingStartedAt=Date.now();const r=currentReviewer||{name:'Senior reviewer',portrait:'/assets/reviewers/maya-chen.svg'};$('#thinkingPortrait').src=r.portrait;$('#thinkingName').textContent=`${r.name} is thinking…`;$('#thinkingStatus').textContent=status;box.classList.remove('hidden');clearTimeout(thinkingTimer);clearInterval(pendingElapsedTimer);thinkingTimer=setTimeout(()=>{$('#thinkingStatus').textContent='Still working — connecting your answer to the conversation and the frozen evidence…'},3200);pendingElapsedTimer=setInterval(()=>{const sec=Math.floor((Date.now()-pendingStartedAt)/1000);if(sec>=7)$('#thinkingStatus').textContent=`Still working (${sec}s) — you do not need to send the message again.`},1000)}else{clearTimeout(thinkingTimer);clearInterval(pendingElapsedTimer);box.classList.add('hidden');els.decision.disabled=false;els.response.disabled=false;els.send.disabled=!sessionId}}
+function setPending(on,status='Reviewing your answer and the frozen evidence…',kind='reviewer'){
+  pending=on;
+  const box=$('#reviewerThinking');
+  const controls=[els.send,$('#coachButton'),$('#askMode'),$('#decisionMode'),$('#commitPosition'),els.newReview];
+  controls.filter(Boolean).forEach(x=>x.disabled=on);
+  els.response.disabled=on;
+  els.decision.disabled=on;
+  clearTimeout(thinkingTimer);
+  clearInterval(pendingElapsedTimer);
+
+  if(on){
+    pendingStartedAt=Date.now();
+    const preparing=kind==='review_start';
+    const r=currentReviewer||{name:'Senior reviewer',portrait:'/assets/reviewers/maya-chen.svg'};
+
+    $('#thinkingPortrait').src=r.portrait;
+    $('#thinkingPortrait').alt=preparing
+      ?'ETIS review preparation'
+      :`Portrait of ${r.name}`;
+
+    $('#thinkingName').textContent=preparing
+      ?`Preparing ${reviewModeLabel(reviewMode)}…`
+      :`${r.name} is thinking…`;
+
+    $('#thinkingStatus').textContent=status;
+    box.classList.remove('hidden');
+
+    if(preparing){
+      thinkingTimer=setTimeout(()=>{
+        $('#thinkingStatus').textContent=`Analyzing ${currentPhase} evidence…`;
+      },6000);
+
+      pendingElapsedTimer=setInterval(()=>{
+        const sec=Math.floor((Date.now()-pendingStartedAt)/1000);
+        if(sec>=15){
+          $('#thinkingStatus').textContent=`Preparing reviewer… (${sec}s elapsed)`;
+        }
+      },1000);
+    }else{
+      thinkingTimer=setTimeout(()=>{
+        $('#thinkingStatus').textContent=
+          'Still working — connecting your answer to the conversation and the frozen evidence…';
+      },3200);
+
+      pendingElapsedTimer=setInterval(()=>{
+        const sec=Math.floor((Date.now()-pendingStartedAt)/1000);
+        if(sec>=7){
+          $('#thinkingStatus').textContent=
+            `Still working (${sec}s) — you do not need to send the message again.`;
+        }
+      },1000);
+    }
+  }else{
+    box.classList.add('hidden');
+    els.decision.disabled=false;
+    els.response.disabled=false;
+    els.send.disabled=!sessionId;
+  }
+}
 function addGuidance(refs=[]){if(!refs.length)return;const box=$('#relatedGuidance');if(box.querySelector('.quiet'))box.innerHTML='';refs.forEach(r=>{if(box.querySelector(`[data-guidance="${CSS.escape(r.id||r.title)}"]`))return;const a=document.createElement('a');a.className='guidance-link';a.dataset.guidance=r.id||r.title;a.href=r.website_url||'#';a.target='_blank';a.rel='noopener noreferrer';a.innerHTML=`<span>${escapeHtml(r.stage||'ETIS guidance')}</span><b>${escapeHtml(r.title)}</b><p>${escapeHtml(r.student_hint||r.why||'Open the related Engineering Platform guidance.')}</p>`;box.appendChild(a)})}
 function reviewerCard(lens,text,meta={}){const d=document.createElement('div');d.className='reviewer-card coaching-message';const reviewer=meta.reviewer||{name:lensLabels[lens]||'Reviewer',role:lensLabels[lens]||'Reviewer'};const mode=meta.provider==='openai'?'<span class="semantic-badge">semantic coaching</span>':'';d.innerHTML=`<div class="reviewer-meta"><span class="lens-badge">${escapeHtml(reviewer.name)} · ${escapeHtml(reviewer.role)}</span>${meta.kind?`<span>${escapeHtml(String(meta.kind).replaceAll('_',' '))}</span>`:''}${mode}</div><div class="reviewer-copy"></div>`;d.querySelector('.reviewer-copy').textContent=text;addGuidance(meta.guidance_refs||[]);return d}
 function addTurn(actor,lens,text,meta={}){if(actor==='student'){const d=document.createElement('div');d.className='turn student';d.innerHTML='<div class="who">You</div><div class="bubble"></div>';d.querySelector('.bubble').textContent=text;els.transcript.appendChild(d)}else{els.transcript.appendChild(reviewerCard(lens,text,meta));if(meta.reviewer)showActiveReviewer(meta.reviewer)}els.transcript.scrollTop=els.transcript.scrollHeight}
@@ -246,10 +304,190 @@ function configurePhaseSelector(access){if(!access)return;const names={A1:'Proje
 function renderMyTeam(){if(!studentContext)return;const u=studentContext.user,sc=studentContext.sections?.[0],team=sc?.team,ob=studentContext.onboarding||{};$('#myTeamHeading').textContent=team?`${team.name} · ${team.project_name}`:'Team assignment pending';$('#onboardingChecklist').innerHTML=[['Loyola identity verified',ob.institutional_identity],['COMP 330 team assigned',ob.team_assigned],['GitHub identity linked',ob.github_identity],['Team repository connected',ob.repository_connected]].map(([t,ok])=>`<div class="check-step ${ok?'done':''}"><span>${ok?'✓':'○'}</span><b>${t}</b></div>`).join('');if(!team){$('#myTeamContent').innerHTML='<p class="quiet">Your instructor has not assigned you to a team yet.</p>';return}const repoBlock=ob.repository_connected?`<div class="team-context-card"><small>REPOSITORY</small><b>${escapeHtml(team.repo_full_name||'Connected')}</b><span>${escapeHtml(sc.repository?.status||'connected')} · shared by the whole team</span></div>`:(sc.repository?`<div class="team-context-card connect-card setup-required-card"><small class="setup-required-label">SETUP REQUIRED · TEAM REPOSITORY</small><b>${escapeHtml(team.repo_full_name||sc.repository.clone_url||'Repository identified')}</b><span>Repository identified, but Studio access still needs to be verified.</span>${sc.repository.install_url?`<a class="secondary link-button setup-required-action" target="_blank" rel="noopener noreferrer" href="${escapeHtml(sc.repository.install_url)}">Install / authorize GitHub App ↗</a>`:''}<button id="verifyTeamRepo" class="secondary setup-required-action" ${u.github_login?'':'disabled'}>Verify repository access</button>${u.github_login?'':'<small>Connect your GitHub identity first so Studio can bind the setup action to you.</small>'}</div>`:(u.github_login?`<div class="team-context-card connect-card setup-required-card"><small class="setup-required-label">SETUP REQUIRED · TEAM REPOSITORY</small><b>Connect once for the whole team</b><span>Only the first teammate needs to do this. Everyone else will inherit the verified team connection.</span><input id="teamRepoCloneUrl" placeholder="https://github.com/owner/comp330-f26-team-03.git"><button id="connectTeamRepo" class="secondary setup-required-action">Connect team repository →</button></div>`:`<div class="team-context-card connect-card setup-required-card"><small class="setup-required-label">SETUP REQUIRED · GITHUB IDENTITY</small><b>GitHub identity comes first</b><span>Link your GitHub identity once. Then, if your team repository is still unconnected, you can connect it for the entire team.</span><a href="/auth/github/link" class="secondary link-button setup-required-action">Connect GitHub identity →</a></div>`));$('#myTeamContent').innerHTML=`<div class="team-context-card"><small>SECTION</small><b>${escapeHtml(sc.section.display_name)}</b></div><div class="team-context-card"><small>TEAM</small><b>${escapeHtml(team.name)}</b><span>${escapeHtml(team.team_key)}</span></div><div class="team-context-card"><small>PROJECT</small><b>${escapeHtml(team.project_name)}</b><button id="editProjectName" class="text-button">Confirm / change</button></div>${repoBlock}<div class="team-context-card ${u.github_login?'':'setup-required-card'}"><small class="${u.github_login?'':'setup-required-label'}">${u.github_login?'GITHUB IDENTITY':'SETUP REQUIRED · GITHUB IDENTITY'}</small><b>${u.github_login?'@'+escapeHtml(u.github_login):'Not linked yet'}</b>${u.github_login?'':'<a href="/auth/github/link" class="secondary link-button setup-required-action">Connect GitHub identity</a>'}</div><div class="team-context-card team-members-card"><small>TEAM MEMBERS</small>${(team.members||[]).map(m=>`<span><b>${escapeHtml(m.name)}</b> · ${escapeHtml(m.responsibility_role||'Engineering Contributor')}${m.github_login?` · @${escapeHtml(m.github_login)}`:''}</span>`).join('')||'<span>Team membership has not been populated yet.</span>'}</div>`;const connect=$('#connectTeamRepo');if(connect)connect.onclick=async()=>{const clone_url=$('#teamRepoCloneUrl').value.trim();if(!clone_url){toast('Paste the HTTPS Git clone URL first.');return}connect.disabled=true;connect.textContent='Checking repository…';const r=await fetch(`/api/v1/onboarding/teams/${team.id}/repository`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clone_url,user_id:u.id})}),d=await r.json();if(!r.ok){toast(d.detail||'Repository connection failed');connect.disabled=false;connect.textContent='Connect team repository →';return}toast(d.verified?'Team repository connected.':'Repository identified; GitHub App authorization is still needed.');await loadStudentContext(u.id)};const verify=$('#verifyTeamRepo');if(verify)verify.onclick=async()=>{verify.disabled=true;verify.textContent='Verifying…';const r=await fetch(`/api/v1/onboarding/teams/${team.id}/repository/verify`,{method:'POST'}),d=await r.json();if(!r.ok){toast(d.detail||'Repository access is not ready yet.');verify.disabled=false;verify.textContent='Verify repository access';return}toast('Repository access verified for the whole team.');await loadStudentContext(u.id)};const edit=$('#editProjectName');if(edit)edit.onclick=async()=>{const value=prompt('Confirm the project name used by Engineering Studio:',team.project_name);if(!value||value.trim()===team.project_name)return;const r=await fetch(`/api/v1/onboarding/teams/${team.id}/project`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({project_name:value.trim()})});if(r.ok){toast('Project name updated for the team.');await loadStudentContext(u.id)}}}
 async function loadHistoryPage(){await loadHistory();$('#reviewHistoryPage').innerHTML=$('#reviewHistory').innerHTML;$$('#reviewHistoryPage .history-item').forEach(b=>b.onclick=()=>resumeSession(Number(b.dataset.session)))}
 
-function updateRepoMode(){const b=$('#repoMode');if(appRole==='student'&&studentContext){const sc=studentContext.sections?.[0],ob=studentContext.onboarding||{};if(ob.repository_connected){b.innerHTML='<span class="status green"></span> Repository connected';return}if(sc?.repository){b.innerHTML='<span class="status amber"></span> Repository identified · verification required';return}b.innerHTML='<span class="status amber"></span> Repository not connected';return}const repo=els.repo.value.trim();b.innerHTML=repo==='etis-framework/comp330-f26-starter-kit'?'<span class="status green"></span> Public starter-kit acceptance test':'<span class="status amber"></span> Repository selected'}
+function updateRepoMode(){const b=$('#repoMode'),repo=els.repo.value.trim();els.repo.title=repo||'Repository not connected';if(appRole==='student'&&studentContext){const sc=studentContext.sections?.[0],ob=studentContext.onboarding||{};if(ob.repository_connected){b.innerHTML='<span class="status green"></span> Repository connected';return}if(sc?.repository){b.innerHTML='<span class="status amber"></span> Repository identified · verification required';return}b.innerHTML='<span class="status amber"></span> Repository not connected';return}b.innerHTML=repo==='etis-framework/comp330-f26-starter-kit'?'<span class="status green"></span> Public starter-kit acceptance test':'<span class="status amber"></span> Repository selected'}
 els.repo.addEventListener('input',updateRepoMode);
-async function beginReview(mode='board',opts={}){if(!semanticReady){openHelp('semantic-required');return}if(pending)return;if(sessionId){toast('Complete or pause the current review before starting another.');return}reviewMode=mode;requestedFindingId=opts.finding_id||null;els.newReview.disabled=true;els.newReview.textContent='Preparing review…';$('#reviewStatusLabel').textContent='Preparing review';$('#reviewStatus').classList.remove('hidden');$('#reviewStatusText').textContent='Freezing repository evidence and selecting a small number of high-value review themes.';setPending(true,'Freezing the repository snapshot and evaluating only the evidence relevant to this phase…');try{const seed=await ensureDemo();const sc=studentContext?.sections?.[0],teamId=sc?.team?.id||seed.team_id,userId=studentContext?.user?.id||seed.user_id,repo=sc?.team?.repo_full_name||els.repo.value.trim();const body={team_id:teamId,phase_id:currentPhase,user_id:userId,repo_full_name:repo||null,mode:mode==='board'?'board_review':mode==='focused'?'focused_review':'finding_review',focus:opts.focus||null,finding_id:opts.finding_id||null,finding_ids:opts.finding_ids||[],entry_intent:opts.entry_intent||pendingEntryContext?.entry_intent||'review',source_view:opts.source_view||pendingEntryContext?.source_view||'studio'};body.client_request_id=reviewStartRequestId(body);const r=await fetch('/api/v1/reviews/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const payload=await r.json();if(!r.ok)throw new Error(payload.detail||r.statusText);const d=payload;sessionId=d.session_id;clearReviewStartRequest();committed=false;document.body.classList.add('review-session-active');renderSessionPurpose(mode,{...opts,entry_intent:body.entry_intent,source_view:body.source_view},d);clearEntryContext();renderChallengeBrief(d.challenge);renderEvidence(d.evidence);els.transcript.innerHTML='';renderStrengths(d.evidence);$('#challengeTitle').textContent=d.challenge.title;addTurn('reviewer',d.challenge.lens,d.challenge.opening_text||d.challenge.prompt,{level:d.challenge.level,reviewer:d.challenge.reviewer,kind:'opening challenge'});$('#defense').textContent='In discussion';$('#depth').textContent='1 move at a time';$('#reviewStatusLabel').textContent=mode==='focused'?'Focused review in progress':mode==='finding'?'Finding review in progress':'Board review in progress';$('#completeReview').classList.remove('hidden');$('#conversationControls').classList.remove('hidden');$('#conversationReadyNote')?.classList.remove('hidden');const reused=d.evidence_cache_reused?' · evidence analysis reused':'';$('#reviewStatusText').textContent=`Session #${sessionId} · ${currentPhase} · ${d.evidence.repo_full_name}@${String(d.evidence.commit_sha).slice(0,8)}${reused}`;$('#coachPanel').classList.add('hidden');$('#commitBar').classList.add('hidden');setMode('decision');restoreDraft();await loadHistory()}catch(e){$('#reviewStatus').classList.add('hidden');toast('Could not start review: '+e.message);document.body.classList.remove('review-session-active');sessionId=null;$('#conversationControls').classList.add('hidden');$('#conversationReadyNote')?.classList.add('hidden')}finally{setPending(false);updateStartReviewButton();els.response.focus()}}
+async function beginReview(mode='board',opts={}){
+  if(!semanticReady){openHelp('semantic-required');return}
+  if(pending)return;
+  if(sessionId){
+    toast('Complete or pause the current review before starting another.');
+    return;
+  }
 
+  reviewMode=mode;
+  requestedFindingId=opts.finding_id||null;
+
+  const reviewLabel=reviewModeLabel(mode);
+  const retry=$('#retryStartReview');
+
+  els.newReview.disabled=true;
+  els.newReview.setAttribute('aria-busy','true');
+  els.newReview.innerHTML=
+    `<span class="button-spinner" aria-hidden="true"></span> Preparing ${reviewLabel}…`;
+
+  $('#reviewStatus').classList.remove('review-status-error');
+  $('#reviewStatusLabel').textContent=`Preparing ${reviewLabel}`;
+  $('#reviewStatus').classList.remove('hidden');
+  $('#reviewStatusText').textContent=
+    'Freezing repository evidence and preparing the phase review.';
+
+  $('#completeReview').classList.add('hidden');
+  retry?.classList.add('hidden');
+
+  setPending(
+    true,
+    'Freezing repository evidence…',
+    'review_start'
+  );
+
+  try{
+    const seed=await ensureDemo();
+
+    const sc=studentContext?.sections?.[0],
+      teamId=sc?.team?.id||seed.team_id,
+      userId=studentContext?.user?.id||seed.user_id,
+      repo=sc?.team?.repo_full_name||els.repo.value.trim();
+
+    const body={
+      team_id:teamId,
+      phase_id:currentPhase,
+      user_id:userId,
+      repo_full_name:repo||null,
+      mode:mode==='board'
+        ?'board_review'
+        :mode==='focused'
+          ?'focused_review'
+          :'finding_review',
+      focus:opts.focus||null,
+      finding_id:opts.finding_id||null,
+      finding_ids:opts.finding_ids||[],
+      entry_intent:
+        opts.entry_intent
+        ||pendingEntryContext?.entry_intent
+        ||'review',
+      source_view:
+        opts.source_view
+        ||pendingEntryContext?.source_view
+        ||'studio'
+    };
+
+    body.client_request_id=reviewStartRequestId(body);
+
+    const r=await fetch(
+      '/api/v1/reviews/start',
+      {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)
+      }
+    );
+
+    const payload=await r.json();
+
+    if(!r.ok){
+      throw new Error(payload.detail||r.statusText);
+    }
+
+    const d=payload;
+
+    sessionId=d.session_id;
+    clearReviewStartRequest();
+    committed=false;
+
+    document.body.classList.add('review-session-active');
+
+    renderSessionPurpose(
+      mode,
+      {
+        ...opts,
+        entry_intent:body.entry_intent,
+        source_view:body.source_view
+      },
+      d
+    );
+
+    clearEntryContext();
+    renderChallengeBrief(d.challenge);
+    renderEvidence(d.evidence);
+
+    els.transcript.innerHTML='';
+    renderStrengths(d.evidence);
+
+    $('#challengeTitle').textContent=d.challenge.title;
+
+    addTurn(
+      'reviewer',
+      d.challenge.lens,
+      d.challenge.opening_text||d.challenge.prompt,
+      {
+        level:d.challenge.level,
+        reviewer:d.challenge.reviewer,
+        kind:'opening challenge'
+      }
+    );
+
+    $('#defense').textContent='In discussion';
+    $('#depth').textContent='1 move at a time';
+
+    $('#reviewStatus').classList.remove('review-status-error');
+
+    $('#reviewStatusLabel').textContent=
+      mode==='focused'
+        ?'Focused review in progress'
+        :mode==='finding'
+          ?'Finding review in progress'
+          :'Board review in progress';
+
+    $('#completeReview').classList.remove('hidden');
+    retry?.classList.add('hidden');
+
+    $('#conversationControls').classList.remove('hidden');
+    $('#conversationReadyNote')?.classList.remove('hidden');
+
+    const reused=d.evidence_cache_reused
+      ?' · evidence analysis reused'
+      :'';
+
+    $('#reviewStatusText').textContent=
+      `Session #${sessionId} · ${currentPhase} · ${d.evidence.repo_full_name}@${String(d.evidence.commit_sha).slice(0,8)}${reused}`;
+
+    $('#coachPanel').classList.add('hidden');
+    $('#commitBar').classList.add('hidden');
+
+    setMode('decision');
+    restoreDraft();
+
+    await loadHistory();
+
+  }catch(e){
+    console.error('Review preparation failed',e);
+
+    document.body.classList.remove('review-session-active');
+    sessionId=null;
+
+    $('#conversationControls').classList.add('hidden');
+    $('#conversationReadyNote')?.classList.add('hidden');
+    $('#completeReview').classList.add('hidden');
+
+    $('#reviewStatus').classList.add('review-status-error');
+    $('#reviewStatus').classList.remove('hidden');
+    $('#reviewStatusLabel').textContent='Review could not be prepared';
+
+    $('#reviewStatusText').textContent=
+      `${safeErrorMessage(e,'Review preparation failed.')} No review was started.`;
+
+    if(retry){
+      retry.classList.remove('hidden');
+      retry.onclick=()=>beginReview(mode,{...opts});
+    }
+
+  }finally{
+    els.newReview.removeAttribute('aria-busy');
+    setPending(false);
+    updateStartReviewButton();
+    els.response.focus();
+  }
+}
 function insertText(text){
   if(!els.response)return;
   const start=els.response.selectionStart??els.response.value.length;
@@ -527,6 +765,38 @@ async function send(){
   }
 }
 
+function reviewModeLabel(mode){
+  return mode==='focused'
+    ?'Focused Review'
+    :mode==='finding'
+      ?'Finding Review'
+      :'Board Review';
+}
+
+function formatEstimatedCost(value){
+  const amount=Number(value||0);
+  if(!Number.isFinite(amount)||amount<=0)return '$0.00';
+  if(amount<0.0001)return '<$0.0001';
+  if(amount<0.01)return `$${amount.toFixed(4)}`;
+  return `$${amount.toFixed(2)}`;
+}
+
+function pluralizeCount(value,singular,plural=`${singular}s`){
+  const count=Number(value||0);
+  return `${count} ${count===1?singular:plural}`;
+}
+
+function reviewerTurnLabel(turn){
+  const reviewer=turn?.signals?.reviewer;
+  if(reviewer?.name){
+    return reviewer.role
+      ?`${reviewer.name} · ${reviewer.role}`
+      :reviewer.name;
+  }
+  return lensLabels[turn?.lens]
+    ||String(turn?.lens||'Senior reviewer').replaceAll('_',' ');
+}
+
 function updateStartReviewButton(){
   const btn=els.newReview;
   if(!btn)return;
@@ -548,7 +818,42 @@ function updateStartReviewButton(){
 function updateReviewModeSummary(){const box=$('#reviewModeSummary');if(reviewMode==='board')box.textContent='Board Review · the board chooses the agenda.';else if(reviewMode==='focused')box.textContent='Focused Review · you choose the engineering subject.';else box.textContent=selectedFindingIds.size?`Review Findings · ${selectedFindingIds.size} selected.`:'Review Findings · choose one to three findings.';updateStartReviewButton()}
 async function prepareLauncherEvidence(){if(currentEvidence?.phase_id===currentPhase)return currentEvidence;const seed=await ensureDemo();const sc=studentContext?.sections?.[0],teamId=sc?.team?.id||seed.team_id,repo=sc?.team?.repo_full_name||els.repo.value.trim();$('#findingPicker').innerHTML='<p class="quiet">Preparing current phase findings…</p>';const r=await fetch('/api/v1/repositories/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({team_id:teamId,phase_id:currentPhase,repo_full_name:repo||null})}),d=await r.json();if(!r.ok)throw new Error(d.detail||r.statusText);currentEvidence=d;renderFindings(d);return d}
 async function selectReviewMode(mode){if(sessionId){toast('This review keeps its purpose. Finish or pause it before starting a different review type.');return}reviewMode=mode;$$('.review-choice').forEach(b=>{const selected=b.dataset.reviewMode===mode;b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected))});$('#focusedReviewPanel').classList.toggle('hidden',mode!=='focused');$('#findingReviewPanel').classList.toggle('hidden',mode!=='finding');updateReviewModeSummary();if(mode==='finding'){const picker=$('#findingPicker'),readiness=studentReviewReadiness();if(appRole==='student'&&!readiness.ready){picker.innerHTML=`<p class="quiet">${escapeHtml(readiness.detail)} Finish setup in My Team before Studio prepares repository findings.</p>`;return}picker.innerHTML='<div class="picker-loading"><span class="mini-spinner"></span><span>Preparing current-phase findings from the repository snapshot…</span></div>';try{const ev=await prepareLauncherEvidence();renderFindingPicker(ev.findings||[])}catch(e){picker.innerHTML='<p class="quiet">Findings could not be prepared. You can still start a Board or Focused Review.</p>';toast('Could not prepare findings: '+e.message)}finally{updateReviewModeSummary()}}}
-function renderSessionPurpose(mode,opts,d){const label=mode==='focused'?'Focused Review':mode==='finding'?'Finding Review':'Board Review';let detail='The senior board selected the agenda from current phase evidence.';if(mode==='focused')detail=`You asked the board to challenge: ${opts.focus||'a specific engineering concern'}.`;if(mode==='finding'){const f=(d.evidence?.findings||[]).find(x=>(opts.finding_ids||[]).includes(x.id));const action=opts.entry_intent==='resolve'?'Help resolve':opts.entry_intent==='challenge'?'Challenge':opts.entry_intent==='understand'?'Understand':'Discuss';detail=`${action}: ${f?.title||`${(opts.finding_ids||[]).length} selected finding(s)`}.`;}const box=$('#reviewSessionPurpose');box.innerHTML=`<div><b>${label} · ${currentPhase}</b><span>${escapeHtml(detail)} Snapshot ${escapeHtml(String(d.evidence?.commit_sha||'').slice(0,8))}.</span></div>`;box.classList.remove('hidden');$('#reviewHomeButton').classList.add('hidden')}
+function renderSessionPurpose(mode,opts,d){
+  const label=reviewModeLabel(mode);
+
+  let detail=
+    'The senior board selected the agenda from current phase evidence.';
+
+  if(mode==='focused'){
+    detail=
+      `You asked the board to challenge: ${opts.focus||'a specific engineering concern'}.`;
+  }
+
+  if(mode==='finding'){
+    const f=(d.evidence?.findings||[])
+      .find(x=>(opts.finding_ids||[]).includes(x.id));
+
+    const action=
+      opts.entry_intent==='resolve'
+        ?'Help resolve'
+        :opts.entry_intent==='challenge'
+          ?'Challenge'
+          :opts.entry_intent==='understand'
+            ?'Understand'
+            :'Discuss';
+
+    detail=
+      `${action}: ${f?.title||`${(opts.finding_ids||[]).length} selected finding(s)`}.`;
+  }
+
+  const box=$('#reviewSessionPurpose');
+
+  box.innerHTML=
+    `<div><b>${label} · ${currentPhase}</b><span>${escapeHtml(detail)} Snapshot ${escapeHtml(String(d.evidence?.commit_sha||'').slice(0,8))}.</span></div>`;
+
+  box.classList.remove('hidden');
+  $('#reviewHomeButton').classList.add('hidden');
+}
 $$('.review-choice').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.reviewMode===reviewMode));b.onclick=()=>selectReviewMode(b.dataset.reviewMode)});
 $('#reviewFocus').addEventListener('input',updateStartReviewButton);
 function startReviewAction(){if(pending)return;const readiness=studentReviewReadiness();if(appRole==='student'&&!readiness.ready){renderStudentReadiness();toast(readiness.detail);if(readiness.code!=='phase')switchView('myteam');return}if(sessionId&&!document.body.classList.contains('review-session-active')){newReviewHome();return}if(sessionId)return;if(reviewMode==='focused'){const focus=$('#reviewFocus').value.trim();if(!focus){toast('Tell the board what engineering concern you want challenged.');return}beginReview('focused',{focus,source_view:pendingEntryContext?.source_view||'studio'});return}if(reviewMode==='finding'){if(!selectedFindingIds.size){toast('Choose one to three findings first.');return}beginReview('finding',{finding_ids:[...selectedFindingIds],entry_intent:pendingEntryContext?.entry_intent||'review',source_view:pendingEntryContext?.source_view||'studio'});return}beginReview('board',{source_view:pendingEntryContext?.source_view||'studio'})}
@@ -685,7 +990,41 @@ async function disputeEvidence(path,explanation,findingId=null){
   }
 }
 
-async function loadHistory(){try{const seed=await ensureDemo(),sc=studentContext?.sections?.[0],teamId=sc?.team?.id||seed.team_id,userId=studentContext?.user?.id||seed.user_id,d=await fetch(`/api/v1/reviews?team_id=${teamId}&user_id=${userId}&limit=6`).then(r=>r.json()),box=$('#reviewHistory');if(!d.sessions.length){box.innerHTML='<span class="quiet">No review sessions yet.</span>';return}box.innerHTML=d.sessions.map(s=>`<button class="history-item" data-session="${s.id}"><span><b>${s.phase_id} · Session #${s.id}</b><small>${new Date(s.started_at).toLocaleString()}</small></span><span class="history-state ${s.status}">${s.status}</span><span>${s.committed?'Recommendation stated':s.evaluation?.disposition?humanizeDisposition(s.evaluation.disposition):'Discussion not started'}</span></button>`).join('');$$('.history-item').forEach(b=>b.onclick=()=>resumeSession(Number(b.dataset.session)))}catch(e){}}
+async function loadHistory(){
+  try{
+    const seed=await ensureDemo(),
+      sc=studentContext?.sections?.[0],
+      teamId=sc?.team?.id||seed.team_id,
+      userId=studentContext?.user?.id||seed.user_id,
+      d=await fetch(`/api/v1/reviews?team_id=${teamId}&user_id=${userId}&limit=6`).then(r=>r.json()),
+      box=$('#reviewHistory');
+
+    if(!d.sessions.length){
+      box.innerHTML='<span class="quiet">No review sessions yet.</span>';
+      return;
+    }
+
+    box.innerHTML=d.sessions.map(s=>{
+      const progress=
+        s.committed
+          ?'Recommendation stated'
+          :s.evaluation?.disposition
+            ?humanizeDisposition(s.evaluation.disposition)
+            :s.status==='active'
+              ?'Awaiting your first response'
+              :'Opening challenge presented';
+
+      return `<button class="history-item" data-session="${s.id}"><span><b>${s.phase_id} · Session #${s.id}</b><small>${new Date(s.started_at).toLocaleString()}</small></span><span class="history-state ${s.status}">${s.status}</span><span>${progress}</span></button>`;
+    }).join('');
+
+    $$('.history-item').forEach(
+      b=>b.onclick=()=>resumeSession(Number(b.dataset.session))
+    );
+
+  }catch(e){
+    console.error('Review history could not be refreshed',e);
+  }
+}
 function reviewHistoricalPresentation(status,id){
  if(status==='archived_incomplete')return {purpose:'Archived semester · incomplete review · read-only',label:'Archived semester · incomplete review · read-only',detail:`Session #${id} · archive ended the active review; frozen evidence and conversation preserved`,toast:'Archived incomplete review opened read-only. The semester ended this session before normal completion; its original frozen evidence and conversation are preserved.'};
  if(status==='completed')return {purpose:'Completed session · read-only',label:'Completed review · read-only',detail:`Session #${id} · preserved history`,toast:'Completed review opened read-only. Use Start New Review when you are ready for another session.'};
@@ -725,34 +1064,191 @@ async function loadEngineeringEvidence(){const status=$('#evidenceWorkspaceStatu
 
 $('#startBoardFromEvidence').onclick=()=>{switchView('studio');selectReviewMode('board');toast('Board Review selected. Start when you are ready.')} ;
 $('#backToStudio').onclick=()=>switchView('studio');
-async function loadInstructor(){try{const selector=$('#instructorSectionSelector');let sectionId=selector?.value||'';let d=await fetch(`/api/v1/instructor/overview${sectionId?'?section_id='+sectionId:''}`).then(r=>r.json());if(selector&&!selector.dataset.loaded){selector.innerHTML='<option value="">All sections</option>'+d.sections.map(x=>`<option value="${x.id}">${escapeHtml(x.display_name)} · ${x.students} students</option>`).join('');selector.dataset.loaded='1';selector.onchange=loadInstructor;if(sectionId)selector.value=sectionId}const sig=d.class_signals||{},u=d.ai_usage||{};$('#classSignals').innerHTML=`<div><b>${sig.students??0}</b><span>Students</span></div><div><b>${sig.teams??0}</b><span>Teams</span></div><div><b>${sig.repositories_connected??0}</b><span>Repositories</span></div><div><b>${sig.teams_needing_attention??0}</b><span>Need attention</span></div><div><b>${sig.active_reviews??0}</b><span>Active reviews</span></div><div><b>${sig.review_sessions??0}</b><span>Review sessions</span></div>`;$('#aiUsageMetrics').innerHTML=`<div><b>$${Number(u.estimated_cost_usd||0).toFixed(2)}</b><span>Estimated cost</span></div><div><b>${Number(u.input_tokens||0).toLocaleString()}</b><span>Input tokens</span></div><div><b>${Number(u.cached_input_tokens||0).toLocaleString()}</b><span>Cached input</span></div><div><b>${Number(u.output_tokens||0).toLocaleString()}</b><span>Output tokens</span></div><div><b>${Math.round(Number(u.cache_hit_ratio||0)*100)}%</b><span>Cache hit</span></div><div><b>${u.calls?`${(Number(u.avg_latency_ms||0)/1000).toFixed(1)}s`:'—'}</b><span>Avg response</span></div><div><b>${Number(u.calls||0).toLocaleString()}</b><span>Model calls</span></div>`;const box=$('#teamCards');box.innerHTML='';d.teams.forEach(t=>{const c=document.createElement('button');c.className=`teamcard ${t.attention}`;c.dataset.team=t.id;c.innerHTML=`<div class="team-name"><span class="attention-dot"></span><div><b>${escapeHtml(t.name)}</b><small>${escapeHtml(t.project)}</small></div></div><div><small>Phase</small><b>${t.phase}</b></div><div><small>Evidence</small><b>${t.evidence_coverage==null?'Not scanned':t.evidence_coverage+'%'}</b></div><div><small>AI cost</small><b>$${Number(t.ai_usage?.estimated_cost_usd||0).toFixed(2)}</b></div><span class="inspect">Inspect →</span>`;c.onclick=()=>loadTeamDetail(t.id);box.appendChild(c)});if(d.teams.length)loadTeamDetail(d.teams[0].id);else $('#teamDetail').classList.add('hidden')}catch(e){console.error(e);$('#teamCards').innerHTML='<div class="error-card">Could not load instructor overview.</div>'}}
+async function loadInstructor(){try{const selector=$('#instructorSectionSelector');let sectionId=selector?.value||'';let d=await fetch(`/api/v1/instructor/overview${sectionId?'?section_id='+sectionId:''}`).then(r=>r.json());if(selector&&!selector.dataset.loaded){selector.innerHTML='<option value="">All sections</option>'+d.sections.map(x=>`<option value="${x.id}">${escapeHtml(x.display_name)} · ${x.students} students</option>`).join('');selector.dataset.loaded='1';selector.onchange=loadInstructor;if(sectionId)selector.value=sectionId}const sig=d.class_signals||{},u=d.ai_usage||{};$('#classSignals').innerHTML=`<div><b>${sig.students??0}</b><span>Students</span></div><div><b>${sig.teams??0}</b><span>Teams</span></div><div><b>${sig.repositories_connected??0}</b><span>Repositories</span></div><div><b>${sig.teams_needing_attention??0}</b><span>Need attention</span></div><div><b>${sig.active_reviews??0}</b><span>Active reviews</span></div><div><b>${sig.review_sessions??0}</b><span>Review sessions</span></div>`;$('#aiUsageMetrics').innerHTML=`<div><b>${formatEstimatedCost(u.estimated_cost_usd)}</b><span>Estimated cost</span></div><div><b>${Number(u.input_tokens||0).toLocaleString()}</b><span>Input tokens</span></div><div><b>${Number(u.cached_input_tokens||0).toLocaleString()}</b><span>Cached input</span></div><div><b>${Number(u.output_tokens||0).toLocaleString()}</b><span>Output tokens</span></div><div><b>${Math.round(Number(u.cache_hit_ratio||0)*100)}%</b><span>Cache hit</span></div><div><b>${u.calls?`${(Number(u.avg_latency_ms||0)/1000).toFixed(1)}s`:'—'}</b><span>Avg response</span></div><div><b>${Number(u.calls||0).toLocaleString()}</b><span>Model calls</span></div>`;const box=$('#teamCards');box.innerHTML='';d.teams.forEach(t=>{const c=document.createElement('button');c.className=`teamcard ${t.attention}`;c.dataset.team=t.id;c.innerHTML=`<div class="team-name"><span class="attention-dot"></span><div><b>${escapeHtml(t.name)}</b><small>${escapeHtml(t.project)}</small></div></div><div><small>Phase</small><b>${t.phase}</b></div><div><small>Evidence</small><b>${t.evidence_coverage==null?'Not scanned':t.evidence_coverage+'%'}</b></div><div><small>AI cost</small><b>${formatEstimatedCost(t.ai_usage?.estimated_cost_usd)}</b></div><span class="inspect">Inspect →</span>`;c.onclick=()=>loadTeamDetail(t.id,{focus:true});box.appendChild(c)});if(d.teams.length)loadTeamDetail(d.teams[0].id);else $('#teamDetail').classList.add('hidden')}catch(e){console.error(e);$('#teamCards').innerHTML='<div class="error-card">Could not load instructor overview.</div>'}}
 $('#refreshInstructor').onclick=loadInstructor;
-async function loadTeamDetail(teamId){const box=$('#teamDetail');try{$$('.teamcard').forEach(c=>c.classList.toggle('selected',Number(c.dataset.team)===teamId));const d=await jsonRequest(`/api/v1/instructor/teams/${teamId}`,{},'Team detail could not be loaded.');box.classList.remove('hidden');const ev=d.evidence,gaps=ev?.items?.filter(x=>x.status!=='present')||[];box.innerHTML=`<div class="detail-head"><div><span class="eyebrow">TEAM DETAIL</span><h2>${escapeHtml(d.team.name)} · ${escapeHtml(d.team.project)}</h2><p>${escapeHtml(d.team.repo||'Repository not connected')}</p></div></div><div class="detail-grid"><div class="detail-section"><h3>People & accountability</h3><div class="member-list">${d.members.map(m=>`<div><span class="avatar small-avatar">${initials(m.name)}</span><span><b>${escapeHtml(m.name)}</b><small>${escapeHtml(m.role)} · ${m.github_login?'@'+escapeHtml(m.github_login):'GitHub not linked'}</small></span></div>`).join('')||'<p class="quiet">No roster mapping yet.</p>'}</div></div><div class="detail-section"><h3>Current evidence</h3>${ev?`<div class="coverage-big"><b>${ev.coverage}%</b><span>team evidence against ${ev.phase_id}</span></div><p>${gaps.length} evidence area(s) need review, including scaffold/weak/missing states.</p><p><b>AI usage:</b> $${Number(d.team.ai_usage?.estimated_cost_usd||0).toFixed(2)} · ${Number(d.team.ai_usage?.input_tokens||0).toLocaleString()} input · ${Number(d.team.ai_usage?.cached_input_tokens||0).toLocaleString()} cached · ${d.team.ai_usage?.calls?`${(Number(d.team.ai_usage.avg_latency_ms||0)/1000).toFixed(1)}s avg response`:'no model calls yet'}.</p>`:'<p class="quiet">No evidence snapshot yet.</p>'}</div></div>`}catch(e){box.classList.remove('hidden');opsError('#teamDetail',safeErrorMessage(e),()=>loadTeamDetail(teamId))}}
+async function loadTeamDetail(teamId,opts={}){
+  const box=$('#teamDetail');
+
+  try{
+    $$('.teamcard').forEach(
+      c=>c.classList.toggle(
+        'selected',
+        Number(c.dataset.team)===teamId
+      )
+    );
+
+    const d=await jsonRequest(
+      `/api/v1/instructor/teams/${teamId}`,
+      {},
+      'Team detail could not be loaded.'
+    );
+
+    box.classList.remove('hidden');
+
+    const ev=d.evidence,
+      gaps=ev?.items?.filter(x=>x.status!=='present')||[],
+      activeReview=(d.sessions||[]).find(x=>x.status==='active');
+
+    box.innerHTML=
+      `<div class="detail-head"><div><span class="eyebrow">TEAM DETAIL</span><h2>${escapeHtml(d.team.name)} · ${escapeHtml(d.team.project)}</h2><p>${escapeHtml(d.team.repo||'Repository not connected')}</p></div>${activeReview?'<button id="teamActiveReview" class="secondary compact">View active review →</button>':''}</div><div class="detail-grid"><div class="detail-section"><h3>People & accountability</h3><div class="member-list">${d.members.map(m=>`<div><span class="avatar small-avatar">${initials(m.name)}</span><span><b>${escapeHtml(m.name)}</b><small>${escapeHtml(m.role)} · ${m.github_login?'@'+escapeHtml(m.github_login):'GitHub not linked'}</small></span></div>`).join('')||'<p class="quiet">No roster mapping yet.</p>'}</div></div><div class="detail-section"><h3>Current evidence</h3>${ev?`<div class="coverage-big"><b>${ev.coverage}%</b><span>team evidence against ${ev.phase_id}</span></div><p>${gaps.length} evidence area(s) need review, including scaffold/weak/missing states.</p><p><b>AI usage:</b> ${formatEstimatedCost(d.team.ai_usage?.estimated_cost_usd)} · ${Number(d.team.ai_usage?.input_tokens||0).toLocaleString()} input · ${Number(d.team.ai_usage?.cached_input_tokens||0).toLocaleString()} cached · ${d.team.ai_usage?.calls?`${(Number(d.team.ai_usage.avg_latency_ms||0)/1000).toFixed(1)}s avg response`:'no model calls yet'}.</p>`:'<p class="quiet">No evidence snapshot yet.</p>'}</div></div>`;
+
+    const activeButton=$('#teamActiveReview');
+
+    if(activeButton){
+      activeButton.onclick=()=>{
+        switchView('instructorReviews');
+        loadInstructorReviewDetail(activeReview.id);
+      };
+    }
+
+    if(opts.focus){
+      box.setAttribute('tabindex','-1');
+      box.scrollIntoView({
+        behavior:'smooth',
+        block:'start'
+      });
+      box.focus({preventScroll:true});
+    }
+
+  }catch(e){
+    box.classList.remove('hidden');
+    opsError(
+      '#teamDetail',
+      safeErrorMessage(e),
+      ()=>loadTeamDetail(teamId,opts)
+    );
+  }
+}
 async function adminSetupData(){return jsonRequest('/api/v1/admin/setup',{},'Course setup could not be loaded.')}
 function fillSectionSelectors(data){const sections=(data.terms||[]).flatMap(t=>(t.sections||[]).map(s=>({...s,term:t})));['#teamsSectionSelector','#studentsSectionSelector','#setupSectionSelector'].forEach(sel=>{const box=$(sel);if(!box)return;const prev=box.value;box.innerHTML=sections.map(s=>`<option value="${s.id}">${escapeHtml(s.display_name)}${s.term.status==='archived'?' · Archived':''}</option>`).join('');if(prev&&[...box.options].some(o=>o.value===prev))box.value=prev});const termSel=$('#newSectionTerm');if(termSel){const prev=termSel.value;termSel.innerHTML=(data.terms||[]).map(t=>`<option value="${t.id}" ${t.status==='archived'?'disabled':''}>${escapeHtml(t.course_code)} · ${escapeHtml(t.term_label)} (${escapeHtml(t.namespace)})${t.status==='archived'?' · Archived':''}</option>`).join('');if(prev&&[...termSel.options].some(o=>o.value===prev&&!o.disabled))termSel.value=prev;else if(termSel.selectedOptions[0]?.disabled){const first=[...termSel.options].find(o=>!o.disabled);if(first)termSel.value=first.value}}return sections}
-async function loadInstructorTeams(){const box=$('#instructorTeamGrid');try{const setup=await adminSetupData(),sections=fillSectionSelectors(setup),sel=$('#teamsSectionSelector');selectedSectionId=Number(sel.value||sections[0]?.id||0);sel.onchange=loadInstructorTeams;const d=await jsonRequest(`/api/v1/instructor/overview${selectedSectionId?'?section_id='+selectedSectionId:''}`,{},'Team operations could not be loaded.');box.innerHTML=d.teams.map(t=>`<button class="teamcard ${t.attention}" data-team-open="${t.id}"><div class="team-name"><span class="attention-dot"></span><div><b>${escapeHtml(t.name)}</b><small>${escapeHtml(t.project)}</small></div></div><div><small>Repository</small><b>${t.repo?'Connected':'Not connected'}</b></div><div><small>Reviews</small><b>${t.review_sessions}</b></div><div><small>AI cost</small><b>$${Number(t.ai_usage?.estimated_cost_usd||0).toFixed(2)}</b></div><span class="inspect">Inspect →</span></button>`).join('')||'<div class="empty-card">No teams in this section yet.</div>';$$('[data-team-open]').forEach(b=>b.onclick=()=>{switchView('instructor');loadTeamDetail(Number(b.dataset.teamOpen))})}catch(e){opsError('#instructorTeamGrid',safeErrorMessage(e),loadInstructorTeams)}}
+async function loadInstructorTeams(){const box=$('#instructorTeamGrid');try{const setup=await adminSetupData(),sections=fillSectionSelectors(setup),sel=$('#teamsSectionSelector');selectedSectionId=Number(sel.value||sections[0]?.id||0);sel.onchange=loadInstructorTeams;const d=await jsonRequest(`/api/v1/instructor/overview${selectedSectionId?'?section_id='+selectedSectionId:''}`,{},'Team operations could not be loaded.');box.innerHTML=d.teams.map(t=>`<button class="teamcard ${t.attention}" data-team-open="${t.id}"><div class="team-name"><span class="attention-dot"></span><div><b>${escapeHtml(t.name)}</b><small>${escapeHtml(t.project)}</small></div></div><div><small>Repository</small><b>${t.repo?'Connected':'Not connected'}</b></div><div><small>Reviews</small><b>${t.review_sessions}</b></div><div><small>AI cost</small><b>${formatEstimatedCost(t.ai_usage?.estimated_cost_usd)}</b></div><span class="inspect">Inspect →</span></button>`).join('')||'<div class="empty-card">No teams in this section yet.</div>';$$('[data-team-open]').forEach(b=>b.onclick=()=>{switchView('instructor');loadTeamDetail(Number(b.dataset.teamOpen),{focus:true})})}catch(e){opsError('#instructorTeamGrid',safeErrorMessage(e),loadInstructorTeams)}}
 async function loadInstructorStudents(){try{const setup=await adminSetupData();const sections=fillSectionSelectors(setup),sel=$('#studentsSectionSelector');selectedSectionId=Number(sel.value||sections[0]?.id||0);sel.onchange=loadInstructorStudents;if(!selectedSectionId)return;const [students,teams]=await Promise.all([fetch(`/api/v1/admin/sections/${selectedSectionId}/students`).then(r=>r.json()),fetch(`/api/v1/admin/sections/${selectedSectionId}/teams`).then(r=>r.json())]);const opts=['<option value="">Unassigned</option>',...teams.teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`)].join(''),manage=canManageSectionUi();const toolbar=manage?`<div class="student-admin-toolbar"><div><b>Add student</b><span>Use the Loyola Student ID. Their login is ${'<studentid>@luc.edu'}.</span></div><input id="manualStudentId" placeholder="Student ID"><input id="manualStudentName" placeholder="Last, First or display name"><select id="manualStudentTeam">${opts}</select><button id="manualAddStudent" class="secondary">Add / reactivate</button></div>`:`<div class="read-only-notice"><b>Read-only roster view</b><span>Your teaching-staff role can inspect the roster and team context. Course Owners and Instructors manage enrollment and team changes.</span></div>`;$('#studentRosterTable').innerHTML=`${toolbar}<div class="roster-table"><div class="roster-row header"><span>Student</span><span>Loyola ID</span><span>GitHub</span><span>Status</span><span>Team${manage?' / action':''}</span></div>${students.students.map(st=>`<div class="roster-row"><span><b>${escapeHtml(st.name)}</b><small>${escapeHtml(st.email)}</small></span><span>${escapeHtml(st.student_id)}</span><span>${st.github_login?'@'+escapeHtml(st.github_login):'<em>not linked</em>'}</span><span class="status-text ${st.status}">${st.status}</span><span class="row-actions">${manage?`<select class="student-team-select" data-user="${st.user_id}" ${st.status!=='active'?'disabled':''}>${opts}</select><button class="student-status-button text-button" data-user="${st.user_id}" data-status="${st.status}">${st.status==='active'?'Deactivate':'Reactivate'}</button>`:escapeHtml(st.team_name||'Unassigned')}</span></div>`).join('')}</div>`;if(!manage)return;$$('.student-team-select').forEach(x=>{const st=students.students.find(s=>s.user_id===Number(x.dataset.user));x.value=st?.team_id||'';x.onchange=async()=>{const r=await fetch(`/api/v1/admin/sections/${selectedSectionId}/students/${x.dataset.user}/team`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({team_id:x.value?Number(x.value):null})});if(!r.ok){const d=await r.json();toast(d.detail||'Could not update team assignment');return}toast('Team assignment updated; history preserved.')}});$$('.student-status-button').forEach(b=>b.onclick=async()=>{const next=b.dataset.status==='active'?'dropped':'active';const r=await fetch(`/api/v1/admin/sections/${selectedSectionId}/students/${b.dataset.user}/status?status=${next}`,{method:'PUT'});if(!r.ok){const d=await r.json();toast(d.detail||'Could not update student status');return}toast(next==='active'?'Student reactivated.':'Student deactivated; history preserved.');loadInstructorStudents()});$('#manualAddStudent').onclick=async()=>{const student_id=$('#manualStudentId').value.trim(),name=$('#manualStudentName').value.trim(),team_id=$('#manualStudentTeam').value;if(!student_id||!name){toast('Student ID and name are required.');return}const r=await fetch(`/api/v1/admin/sections/${selectedSectionId}/students`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({student_id,name,team_id:team_id?Number(team_id):null})}),d=await r.json();if(!r.ok){toast(d.detail||'Could not add student');return}toast('Student added or reactivated.');loadInstructorStudents()}}catch(e){opsError('#studentRosterTable',safeErrorMessage(e),loadInstructorStudents)}}
 async function loadInstructorReviewDetail(sessionId){
   const box=$('#reviewOpsDetail');
+
   box.classList.remove('hidden');
-  box.innerHTML='<div class="loading-card">Loading persisted review conversation…</div>';
+  box.innerHTML=
+    '<div class="loading-card">Loading persisted review conversation…</div>';
+
   try{
-    const d=await jsonRequest(`/api/v1/reviews/${sessionId}`,{},'Review conversation could not be loaded.');
-    const s=d.session||{},team=d.team||{},snapshot=d.snapshot||{},turns=d.turns||[];
+    const d=await jsonRequest(
+      `/api/v1/reviews/${sessionId}`,
+      {},
+      'Review conversation could not be loaded.'
+    );
+
+    const s=d.session||{},
+      team=d.team||{},
+      snapshot=d.snapshot||{},
+      turns=d.turns||[];
+
     const mode=String(s.mode||'review').replaceAll('_',' ');
-    const repo=team.repo_full_name||d.evidence?.repo_full_name||'Repository not recorded';
-    const frozen=snapshot.commit_sha?`${repo} @ ${String(snapshot.commit_sha).slice(0,8)}`:repo;
-    box.innerHTML=`<div class="instructor-review-detail-head"><div><span class="eyebrow">READ-ONLY REVIEW CONVERSATION</span><h3>${escapeHtml(s.student?.name||'Student')} · ${escapeHtml(s.phase_id||'')} ${escapeHtml(mode)}</h3><p>${escapeHtml(team.name||'Team')} · ${escapeHtml(team.project_name||'Project not confirmed')}</p></div><div class="instructor-review-detail-actions"><button id="refreshInstructorReview" class="secondary compact">Refresh conversation</button><button id="closeInstructorReview" class="text-button">Close</button></div></div><div class="review-readonly-note"><b>Teaching-staff view only.</b><span>Only persisted review turns are shown. Drafts and unsent text are not visible here.</span></div><div class="instructor-review-meta"><div><small>STATUS</small><b>${escapeHtml(s.status||'unknown')}</b></div><div><small>STARTED</small><b>${s.started_at?escapeHtml(new Date(s.started_at).toLocaleString()):'—'}</b></div><div><small>FROZEN EVIDENCE</small><b>${escapeHtml(frozen)}</b></div><div><small>SNAPSHOT</small><b>${snapshot.id?`#${snapshot.id}`:'—'}</b></div></div><div class="instructor-review-transcript">${turns.map(t=>`<article class="instructor-review-turn ${t.actor==='student'?'student':'reviewer'}"><header><b>${t.actor==='student'?escapeHtml(s.student?.name||'Student'):escapeHtml(t.lens||'Senior reviewer')}</b><span>${t.created_at?escapeHtml(new Date(t.created_at).toLocaleString()):`Turn ${t.sequence}`}</span></header><p>${escapeHtml(t.content)}</p>${(t.evidence_refs||[]).length?`<small>Evidence: ${(t.evidence_refs||[]).map(escapeHtml).join(', ')}</small>`:''}</article>`).join('')||'<p class="quiet">No persisted conversation turns yet.</p>'}</div>`;
-    $('#refreshInstructorReview').onclick=()=>loadInstructorReviewDetail(sessionId);
-    $('#closeInstructorReview').onclick=()=>{box.classList.add('hidden');box.innerHTML=''};
-    box.scrollIntoView({behavior:'smooth',block:'start'});
-  }catch(e){opsError('#reviewOpsDetail',safeErrorMessage(e),()=>loadInstructorReviewDetail(sessionId))}
+
+    const repo=
+      team.repo_full_name
+      ||d.evidence?.repo_full_name
+      ||'Repository not recorded';
+
+    const frozen=snapshot.commit_sha
+      ?`${repo} @ ${String(snapshot.commit_sha).slice(0,8)}`
+      :repo;
+
+    const lastUpdated=
+      turns.length
+        ?turns[turns.length-1].created_at
+        :s.started_at;
+
+    box.innerHTML=
+      `<div class="instructor-review-detail-head"><div><span class="eyebrow">READ-ONLY REVIEW CONVERSATION</span><h3>${escapeHtml(s.student?.name||'Student')} · ${escapeHtml(s.phase_id||'')} ${escapeHtml(mode)}</h3><p>${escapeHtml(team.name||'Team')} · ${escapeHtml(team.project_name||'Project not confirmed')}</p></div><div class="instructor-review-detail-actions"><button id="refreshInstructorReview" class="secondary compact">Refresh conversation</button><button id="closeInstructorReview" class="text-button">Close</button></div></div><div class="review-readonly-note"><b>Teaching-staff view only.</b><span>Only persisted review turns are shown. Drafts and unsent text are not visible here.</span></div><div class="instructor-review-meta"><div><small>STATUS</small><b>${escapeHtml(s.status||'unknown')}</b></div><div><small>STARTED</small><b>${s.started_at?escapeHtml(new Date(s.started_at).toLocaleString()):'—'}</b></div><div><small>TURN COUNT</small><b>${pluralizeCount(turns.length,'turn')}</b></div><div><small>LAST UPDATED</small><b>${lastUpdated?escapeHtml(new Date(lastUpdated).toLocaleString()):'—'}</b></div><div><small>FROZEN EVIDENCE</small><b>${escapeHtml(frozen)}</b></div><div><small>SNAPSHOT</small><b>${snapshot.id?`#${snapshot.id}`:'—'}</b></div></div><div class="instructor-review-transcript">${turns.map(t=>`<article class="instructor-review-turn ${t.actor==='student'?'student':'reviewer'}"><header><b>${t.actor==='student'?escapeHtml(s.student?.name||'Student'):escapeHtml(reviewerTurnLabel(t))}</b><span>${t.created_at?escapeHtml(new Date(t.created_at).toLocaleString()):`Turn ${t.sequence}`}</span></header><p>${escapeHtml(t.content)}</p>${(t.evidence_refs||[]).length?`<small>Evidence: ${(t.evidence_refs||[]).map(escapeHtml).join(', ')}</small>`:''}</article>`).join('')||'<p class="quiet">No persisted conversation turns yet.</p>'}</div>`;
+
+    $('#refreshInstructorReview').onclick=
+      ()=>loadInstructorReviewDetail(sessionId);
+
+    $('#closeInstructorReview').onclick=()=>{
+      box.classList.add('hidden');
+      box.innerHTML='';
+    };
+
+    box.scrollIntoView({
+      behavior:'smooth',
+      block:'start'
+    });
+
+  }catch(e){
+    opsError(
+      '#reviewOpsDetail',
+      safeErrorMessage(e),
+      ()=>loadInstructorReviewDetail(sessionId)
+    );
+  }
 }
-async function loadInstructorReviews(){try{const d=await jsonRequest('/api/v1/instructor/overview',{},'Review operations could not be loaded.'),details=await Promise.all((d.teams||[]).map(t=>jsonRequest(`/api/v1/instructor/teams/${t.id}`,{},`Could not load ${t.name}.`)));$('#reviewOps').innerHTML=details.map(x=>`<article class="ops-card"><div><span class="eyebrow">${escapeHtml(x.team.name)}</span><h3>${escapeHtml(x.team.project)}</h3><p>${x.sessions.length} recent session(s) · ${x.team.active_sessions} active</p></div><div class="ops-list">${x.sessions.slice(0,6).map(s=>`<div class="review-ops-row"><span><b>${escapeHtml(s.phase)} · ${escapeHtml(String(s.mode||'review').replaceAll('_',' '))}</b><small>${escapeHtml(s.student?.name||'Student')} · ${escapeHtml(s.status)} · ${s.turns} turns · ${s.started_at?new Date(s.started_at).toLocaleString():''}</small></span><button type="button" class="secondary compact" data-review-session="${s.id}">View review →</button></div>`).join('')||'<span class="quiet">No reviews yet.</span>'}</div></article>`).join('')||'<p class="quiet">No review activity is available for your assigned sections yet.</p>';$$('[data-review-session]').forEach(b=>b.onclick=()=>loadInstructorReviewDetail(Number(b.dataset.reviewSession)))}catch(e){opsError('#reviewOps',safeErrorMessage(e),loadInstructorReviews)}}
+async function loadInstructorReviews(){
+  try{
+    const d=await jsonRequest(
+      '/api/v1/instructor/overview',
+      {},
+      'Review operations could not be loaded.'
+    );
+
+    const details=await Promise.all(
+      (d.teams||[]).map(
+        t=>jsonRequest(
+          `/api/v1/instructor/teams/${t.id}`,
+          {},
+          `Could not load ${t.name}.`
+        )
+      )
+    );
+
+    $('#reviewOps').innerHTML=details.map(x=>{
+      const recent=pluralizeCount(
+        x.sessions.length,
+        'recent session'
+      );
+
+      return `<article class="ops-card"><div><span class="eyebrow">${escapeHtml(x.team.name)}</span><h3>${escapeHtml(x.team.project)}</h3><p>${recent} · ${x.team.active_sessions} active</p></div><div class="ops-list">${x.sessions.slice(0,6).map(s=>`<div class="review-ops-row"><span><b>${escapeHtml(s.phase)} · ${escapeHtml(String(s.mode||'review').replaceAll('_',' '))}</b><small>${escapeHtml(s.student?.name||'Student')} · ${escapeHtml(s.status)} · ${pluralizeCount(s.turns,'turn')} · ${s.started_at?new Date(s.started_at).toLocaleString():''}</small></span><button type="button" class="secondary compact" data-review-session="${s.id}">View review →</button></div>`).join('')||'<span class="quiet">No reviews yet.</span>'}</div></article>`;
+    }).join('')
+      ||'<p class="quiet">No review activity is available for your assigned sections yet.</p>';
+
+    $$('[data-review-session]').forEach(
+      b=>b.onclick=
+        ()=>loadInstructorReviewDetail(
+          Number(b.dataset.reviewSession)
+        )
+    );
+
+  }catch(e){
+    opsError(
+      '#reviewOps',
+      safeErrorMessage(e),
+      loadInstructorReviews
+    );
+  }
+}
 async function loadInstructorEvidence(){try{const d=await jsonRequest('/api/v1/instructor/overview',{},'Engineering evidence could not be loaded.'),details=await Promise.all((d.teams||[]).map(t=>jsonRequest(`/api/v1/instructor/teams/${t.id}`,{},`Could not load ${t.name}.`)));$('#evidenceOps').innerHTML=details.map(x=>{const ev=x.evidence,findings=ev?.findings||[],strengths=ev?.strengths||[];return `<article class="ops-card"><div><span class="eyebrow">${escapeHtml(x.team.name)} · ${escapeHtml(x.team.phase||'')}</span><h3>${escapeHtml(x.team.project)}</h3><p>${ev?`${ev.coverage??'—'}% evidence coverage · snapshot ${escapeHtml(String(ev.commit_sha||'').slice(0,8)||'available')}`:'No frozen evidence snapshot yet.'}</p></div>${ev?`<div class="ops-columns"><div><b>Strengths</b>${strengths.slice(0,4).map(v=>`<span>✓ ${escapeHtml(v)}</span>`).join('')||'<span class="quiet">No manufactured praise; strengths appear only when supported.</span>'}</div><div><b>Current findings</b>${findings.slice(0,5).map(f=>`<span>${escapeHtml(f.provenance||'REVIEW')} · ${escapeHtml(f.title||f.message||f.finding_type||'Finding')}</span>`).join('')||'<span class="quiet">No current findings.</span>'}</div></div>`:''}</article>`}).join('')||'<p class="quiet">No engineering evidence is available for your assigned sections yet.</p>'}catch(e){opsError('#evidenceOps',safeErrorMessage(e),loadInstructorEvidence)}}
 function loadAccessSettings(){if(!healthState)return;$('#entraStatus').textContent=healthState.entra_sso_ready?'Configured for Microsoft Entra sign-in':'Not configured yet';const box=$('#accessSettings .settings-cards');if(box&&!box.querySelector('[data-runtime-access]')){const d=document.createElement('div');d.dataset.runtimeAccess='1';d.innerHTML=`<b>Your current privilege</b><span>${escapeHtml(roleLabel(authenticatedUser?.role||'developer'))}. Authorization is section-scoped for Instructors, TAs, and Reviewers.</span>`;box.appendChild(d)}}
 
-async function loadInstructorUsage(){try{const d=await jsonRequest('/api/v1/instructor/overview',{},'AI usage telemetry could not be loaded.'),u=d.ai_usage||{};$('#usageOps').innerHTML=`<div class="usage-summary-grid"><div><b>$${Number(u.estimated_cost_usd||0).toFixed(2)}</b><span>Estimated term cost</span></div><div><b>${Number(u.input_tokens||0).toLocaleString()}</b><span>Input tokens</span></div><div><b>${Number(u.cached_input_tokens||0).toLocaleString()}</b><span>Cached input</span></div><div><b>${Math.round(Number(u.cache_hit_ratio||0)*100)}%</b><span>Cache hit</span></div><div><b>${u.calls?`${(Number(u.avg_latency_ms||0)/1000).toFixed(1)}s`:'—'}</b><span>Average model latency</span></div></div><p class="quiet">Costs use the versioned advisory rate card. Team and purpose drill-down remains available in the Command Center.</p>`}catch(e){opsError('#usageOps',safeErrorMessage(e),loadInstructorUsage)}}
+async function loadInstructorUsage(){
+  try{
+    const d=await jsonRequest(
+      '/api/v1/instructor/overview',
+      {},
+      'AI usage telemetry could not be loaded.'
+    );
+
+    const u=d.ai_usage||{};
+
+    $('#usageOps').innerHTML=
+      `<div class="usage-summary-grid"><div><b>${formatEstimatedCost(u.estimated_cost_usd)}</b><span>Estimated term cost</span></div><div><b>${Number(u.input_tokens||0).toLocaleString()}</b><span>Input tokens</span></div><div><b>${Number(u.cached_input_tokens||0).toLocaleString()}</b><span>Cached input</span></div><div><b>${Math.round(Number(u.cache_hit_ratio||0)*100)}%</b><span>Cache hit</span></div><div><b>${u.calls?`${(Number(u.avg_latency_ms||0)/1000).toFixed(1)}s`:'—'}</b><span>Average model latency</span></div></div><p class="quiet">Costs use the versioned advisory rate card${u.rate_card_version?` (${escapeHtml(u.rate_card_version)})`:''}. Sub-cent totals are shown with additional precision. Team and purpose drill-down remains available in the Command Center.</p>`;
+
+  }catch(e){
+    opsError(
+      '#usageOps',
+      safeErrorMessage(e),
+      loadInstructorUsage
+    );
+  }
+}
 function applySemesterLifecycleUi(term){
  const status=String(term?.status||'').toLowerCase(),archived=status==='archived',notice=$('#semesterLifecycleNotice');
  if(notice){
