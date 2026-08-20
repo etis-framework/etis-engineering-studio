@@ -405,6 +405,8 @@ async function send(){
     `${currentReviewer?.name||'Your reviewer'} is considering what you meant and what the evidence supports…`
   );
 
+  let serverAccepted=false;
+
   try{
     const r=await fetch(
       `/api/v1/reviews/${sessionId}/respond`,
@@ -421,11 +423,16 @@ async function send(){
       throw new Error(responseBody.detail||r.statusText);
     }
 
+    // HTTP success is the transaction boundary. From this point forward the
+    // student's logical turn has been accepted by the server. A later browser
+    // rendering/refresh problem must never restore the draft or tell the
+    // student that the review turn itself failed.
+    serverAccepted=true;
+    clearDraft();
+    clearReviewMutation(mutation);
+
     const reply=responseBody.follow_up;
 
-    // A duplicate response after an uncertain delivery is recovery of the
-    // original logical mutation. The browser never received that reviewer
-    // response, so it must now render it.
     addTurn(
       'reviewer',
       reply.lens,
@@ -477,34 +484,42 @@ async function send(){
     }
 
     setComposerContext(null);
-    clearDraft();
-    clearReviewMutation(mutation);
-
     await loadHistory();
 
   }catch(e){
-    toast(e.message);
+    console.error('Review response handling failed',e);
 
-    if(!els.response.value){
-      els.response.value=text;
-      updateDraftHint();
-      saveDraft();
-    }
+    if(serverAccepted){
+      toast(
+        'Your response was saved, but Studio could not refresh part of the review. '
+        +'Reload this review if anything looks incomplete.'
+      );
+    }else{
+      toast(safeErrorMessage(e,'Studio could not confirm that response.'));
 
-    addTurn(
-      'reviewer',
-      'system',
-      'I could not complete that turn. Your draft is still in the response box. Wait a moment, then retry if needed.',
-      {
-        reviewer:{
-          name:'Studio',
-          role:'System',
-          focus:'Review continuity',
-          portrait:'/assets/reviewers/maya-chen.svg'
-        },
-        kind:'system'
+      if(!els.response.value){
+        els.response.value=text;
+        updateDraftHint();
+        saveDraft();
       }
-    );
+
+      addTurn(
+        'reviewer',
+        'system',
+        'Studio could not confirm that turn. Your draft is preserved. '
+        +'Wait a moment, then retry once. If the server already received it, '
+        +'Studio will recover the same logical turn rather than create a duplicate.',
+        {
+          reviewer:{
+            name:'Studio',
+            role:'System',
+            focus:'Review continuity',
+            portrait:'/assets/reviewers/maya-chen.svg'
+          },
+          kind:'system'
+        }
+      );
+    }
 
   }finally{
     setPending(false);
@@ -538,6 +553,19 @@ $$('.review-choice').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.
 $('#reviewFocus').addEventListener('input',updateStartReviewButton);
 function startReviewAction(){if(pending)return;const readiness=studentReviewReadiness();if(appRole==='student'&&!readiness.ready){renderStudentReadiness();toast(readiness.detail);if(readiness.code!=='phase')switchView('myteam');return}if(sessionId&&!document.body.classList.contains('review-session-active')){newReviewHome();return}if(sessionId)return;if(reviewMode==='focused'){const focus=$('#reviewFocus').value.trim();if(!focus){toast('Tell the board what engineering concern you want challenged.');return}beginReview('focused',{focus,source_view:pendingEntryContext?.source_view||'studio'});return}if(reviewMode==='finding'){if(!selectedFindingIds.size){toast('Choose one to three findings first.');return}beginReview('finding',{finding_ids:[...selectedFindingIds],entry_intent:pendingEntryContext?.entry_intent||'review',source_view:pendingEntryContext?.source_view||'studio'});return}beginReview('board',{source_view:pendingEntryContext?.source_view||'studio'})}
 els.newReview.onclick=startReviewAction;
+function humanizeDisposition(value){
+  const key=String(value||'').trim();
+  const labels={
+    defensible_move:'Defensible move',
+    needs_challenge:'Needs challenge',
+    insufficient_defense:'Insufficient defense',
+    developing_position:'Developing position',
+    developing:'Developing position',
+  };
+  if(labels[key])return labels[key];
+  const text=key.replaceAll('_',' ').replaceAll('-',' ').trim();
+  return text?text.charAt(0).toUpperCase()+text.slice(1):'In discussion';
+}
 function humanizeMove(m){return ({decision_explicit:'Make the actual decision explicit.',boundary_visible:'Clarify what may continue and what should pause or escalate.',tradeoff_visible:'Name the benefit you preserve and the risk or cost you accept.',evidence_boundary_visible:'Separate what the evidence supports from what it cannot support.',uncertainty_visible:'Identify the assumption or unknown that matters most.',ownership_visible:'Name who owns the action and who verifies closure.',change_trigger_visible:'Say what evidence or event changes the condition.',consequence_visible:'Explain who or what is affected if the judgment is wrong.'}[m]||String(m).replaceAll('_',' '))}
 els.send.onclick=send;els.response.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});els.response.addEventListener('input',()=>{updateDraftHint();saveDraft()});
 function updateRecommendationBar(evaluation,reasoning={}){const eligible=!!evaluation?.ready_to_commit&&!committed&&sessionId&&reviewMode!=='finding'&&(reviewMode==='board'||reasoning.decision_explicit||!!els.decision.value);$('#commitBar').classList.toggle('hidden',!eligible)}
