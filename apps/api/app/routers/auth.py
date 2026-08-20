@@ -115,13 +115,13 @@ def github_callback(code:str,state:str,db:Session=Depends(get_db)):
         db.commit(); return RedirectResponse("/?github=linked")
     raise HTTPException(400,"Unsupported GitHub authorization flow")
 
-@router.post("/logout")
+@router.post("/logout", status_code=204)
 def logout(request: Request, db: Session = Depends(get_db)):
     token = request_session_token(request)
     if token:
         revoke_session_token(token, db)
 
-    response = RedirectResponse("/")
+    response = Response(status_code=204)
     response.delete_cookie(COOKIE_NAME, path="/")
     return response
 
