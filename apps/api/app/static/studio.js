@@ -1296,7 +1296,14 @@ async function logoutStudio(){
     const r=await fetch('/auth/logout',{method:'POST'});
     if(!r.ok)throw new Error('Sign out failed');
     csrfToken=null;
-    window.location.reload();
+    authenticatedUser=null;
+    $('#appShell').classList.add('hidden');
+    $('#loginGate').classList.remove('hidden');
+    $('#logoutButton').classList.add('hidden');
+
+    const signedOutUrl=new URL('/',window.location.origin);
+    signedOutUrl.searchParams.set('signed_out',String(Date.now()));
+    window.location.replace(signedOutUrl.toString());
   }catch(e){
     btn.disabled=false;
     btn.textContent=original;
