@@ -1296,7 +1296,7 @@ async function logoutStudio(){
     const r=await fetch('/auth/logout',{method:'POST'});
     if(!r.ok)throw new Error('Sign out failed');
     csrfToken=null;
-    window.location.assign('/');
+    window.location.reload();
   }catch(e){
     btn.disabled=false;
     btn.textContent=original;
