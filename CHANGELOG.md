@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.16.0] - 2026-08-21
+
+### Production-accepted institutional release
+
+- Aligns FastAPI application and `/health` version metadata to `0.16.0`.
+- Represents the first production-accepted ETIS Engineering Studio baseline prepared for institutional adoption.
+- Includes the production-hardened identity, authorization, GitHub repository onboarding, evidence, review, semester-lifecycle, Azure operations, recovery, observability, and cost-control architecture.
+- Includes public-project licensing, governance, security, support, contribution, citation, and institutional-adoption documentation.
+- Preserves the 2026-08-21 production-acceptance record, whose deployed health metadata originally reported `0.15.0`; the version-alignment change is metadata-only and does not revise the underlying acceptance evidence.
+
 ## Unreleased - Public Institutional Adoption Readiness
 
 ### Changed

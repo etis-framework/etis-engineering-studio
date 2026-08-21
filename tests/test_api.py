@@ -83,7 +83,7 @@ def test_health():
         r = client.get('/health')
         assert r.status_code == 200
         assert r.json()['status'] == 'ok'
-        assert r.json()['version'] == '0.15.0'
+        assert r.json()['version'] == '0.16.0'
 
 
 def test_course_endpoint():

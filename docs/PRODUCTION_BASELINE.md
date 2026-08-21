@@ -12,7 +12,7 @@ This document is the concise source of truth for the production-accepted ETIS En
 
 ETIS Engineering Studio is approved for normal semester operation. The service is browser-based, hosted in Azure, and intentionally keeps students as the responsible engineers. AI reviewers are bounded advisers; they do not grade, fabricate evidence, or become the decision authority.
 
-The running FastAPI service still reports version `0.15.0`. Production-integration hardening after the original v0.15 baseline is recorded in the changelog/build report rather than represented by a new runtime version string.
+The v0.16.0 release aligns FastAPI application and `/health` version metadata to `0.16.0`. The 2026-08-21 production-acceptance snapshot originally reported `0.15.0`; that historical acceptance evidence remains valid and is preserved in the build and acceptance records.
 
 ## Identity and authorization
 
@@ -166,6 +166,5 @@ Production resource-group budget:
 
 - multi-student GitHub owner/non-owner propagation is automated/CI proven rather than live-proven with multiple production student identities;
 - a production rollback was not deliberately executed solely for acceptance;
-- the application version label remains `0.15.0`;
 - the intermittent 15–25 second load observation is currently non-reproducible and should be captured with browser Network tooling if it returns;
 - IaC/runtime `minReplicas` drift should be reconciled before the next infrastructure-changing deployment.

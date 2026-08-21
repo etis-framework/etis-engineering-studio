@@ -2,7 +2,8 @@
 
 **Acceptance date:** 2026-08-21
 **Source commit:** `db57225e98cb83499e6aa606740239a0b5bc697f`
-**Application-reported version:** `0.15.0`
+**Application-reported version at production acceptance:** `0.15.0`
+**Release-aligned version:** `0.16.0`
 **Production acceptance:** **GO**
 
 ## 1. Build objective
@@ -126,7 +127,7 @@ These are documented limitations, not current release blockers:
 
 1. The production student team used for live acceptance contains one student. Multi-student owner/non-owner repository propagation is automated-test/CI proven rather than live proven.
 2. Production rollback capability was verified through retained immutable images; production was not deliberately rolled backward solely for acceptance.
-3. The application health payload still reports version `0.15.0` even though substantial production-integration hardening followed that baseline. This is a version-labeling/documentation debt, not evidence that old code is deployed.
+3. The 2026-08-21 production-acceptance snapshot reported application version `0.15.0`. Version metadata was subsequently aligned to `0.16.0` for the production-accepted institutional release; this metadata alignment does not alter the original acceptance evidence.
 4. An intermittent 15–25 second page-load observation became non-reproducible. The production Container App was changed to keep one minimum replica warm, reducing scale-to-zero cold-start risk.
 5. **IaC/runtime drift:** `infra/azure/app.bicep` currently defaults `minReplicas` to `0`, while the accepted production runtime is `1`. Do not assume a future deployment will preserve the accepted warm-replica setting until that source-controlled default or deployment parameter is reconciled in a separate, tested infrastructure change.
 
