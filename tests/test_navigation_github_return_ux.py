@@ -55,15 +55,24 @@ def test_github_setup_completion_route_is_informational_not_verification():
     assert "script-src 'self'" in response.headers["content-security-policy"]
 
 
-def test_github_setup_completion_notifies_existing_studio_tab_and_has_fallback():
+def test_github_setup_completion_notifies_existing_studio_tab_and_has_deterministic_return():
     assert "etis:github-setup-complete" in SETUP_JS
     assert "etis-github-setup" in SETUP_JS
     assert "localStorage.setItem" in SETUP_JS
     assert "BroadcastChannel" in SETUP_JS
+    assert "github-setup-return-request" in SETUP_JS
+    assert "github-setup-return-ack" in SETUP_JS
+    assert "window.location.assign(STUDIO_URL)" in SETUP_JS
     assert "window.close()" in SETUP_JS
+    assert "window.setTimeout(closeSetupTab,1500)" not in SETUP_JS
     assert 'href="/?view=myteam"' in SETUP_HTML
+    assert "Return to ETIS Engineering Studio" in SETUP_HTML
     assert "Close this tab" in SETUP_HTML
-    assert "you may close this tab" in SETUP_HTML
+    assert "You may also close this tab" in SETUP_HTML
+    assert "github-setup-return-request" in JS
+    assert "github-setup-return-ack" in JS
+    assert "window.focus()" in JS
+    assert "document.hasFocus()" in JS
     assert "handleGitHubSetupComplete" in JS
     assert "await loadStudentContext(authenticatedUser.id)" in JS
     assert "Verify the exact repository when you are ready." in JS

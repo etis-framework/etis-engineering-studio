@@ -23,9 +23,10 @@ window.addEventListener('error',e=>{console.error('Studio UI error',e.error||e.m
 window.addEventListener('unhandledrejection',e=>{console.error('Studio promise error',e.reason);const w=$('#uiRuntimeWarning');if(w){w.classList.remove('hidden');$('#uiRuntimeWarningText').textContent='The Review Room could not complete an action. Your review evidence is preserved; refresh and resume the session if needed.'}});
 window.addEventListener('offline',()=>{const w=$('#uiRuntimeWarning');if(w){w.classList.remove('hidden');$('#uiRuntimeWarningText').textContent='You appear to be offline. Your current draft remains in the browser; reconnect before sending or changing course data.'}});window.addEventListener('online',()=>{const w=$('#uiRuntimeWarning');if(w&&$('#uiRuntimeWarningText')?.textContent.includes('offline'))w.classList.add('hidden')});
 const githubSetupStorageKey='etis:github-setup-complete';
+const githubSetupChannelName='etis-github-setup';
 async function handleGitHubSetupComplete(){if(appRole!=='student'||!authenticatedUser?.id)return;try{await loadStudentContext(authenticatedUser.id);toast('GitHub authorization complete. Verify the exact repository when you are ready.')}catch(e){console.error('Could not refresh GitHub authorization state',e)}}
 window.addEventListener('storage',event=>{if(event.key===githubSetupStorageKey&&event.newValue)handleGitHubSetupComplete()});
-if('BroadcastChannel' in window){const githubSetupChannel=new BroadcastChannel('etis-github-setup');githubSetupChannel.addEventListener('message',event=>{if(event.data?.type==='github-setup-complete')handleGitHubSetupComplete()})}
+if('BroadcastChannel' in window){const githubSetupChannel=new BroadcastChannel(githubSetupChannelName);githubSetupChannel.addEventListener('message',event=>{const message=event.data||{};if(message.type==='github-setup-complete'){handleGitHubSetupComplete();return}if(message.type==='github-setup-return-request'&&message.request_id){try{window.focus()}catch(_e){}window.setTimeout(()=>{githubSetupChannel.postMessage({type:'github-setup-return-ack',request_id:message.request_id,focused:document.hasFocus()})},75)}})}
 
 const phaseQuestions={
  A1:'Can the team operate with visible ownership, workflow discipline, AI governance, and repository structure before serious implementation begins?',
