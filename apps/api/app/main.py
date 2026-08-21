@@ -257,3 +257,11 @@ if static_dir.exists():
 @app.get("/", response_class=HTMLResponse)
 def home():
     return FileResponse(static_dir / "index.html")
+
+
+@app.get("/github/setup-complete", response_class=HTMLResponse)
+def github_setup_complete():
+    # GitHub may append installation_id/setup_action query parameters. This
+    # endpoint intentionally ignores them: GitHub redirect parameters are not
+    # authorization evidence and must never promote repository state.
+    return FileResponse(static_dir / "github-setup-complete.html")

@@ -479,3 +479,12 @@
 .section-required{display:grid;gap:5px;border:1px dashed var(--line2);border-radius:10px;padding:14px;background:#0b1720}
 .section-required span{color:var(--muted);font-size:12px;line-height:1.45}
 @media(max-width:900px){.section-context-control{min-width:0;width:100%}.section-context-control .section-selector{min-width:0;width:100%}.team-active-reviews{min-width:0;width:100%}}
+
+/* GitHub App post-install/update return surface */
+.github-setup-complete-page{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 20%,#12302d 0,#071018 46%,#050b11 100%)}
+.github-setup-complete-card{width:min(620px,94vw);border:1px solid #285047;border-radius:20px;background:linear-gradient(180deg,rgba(16,35,38,.98),rgba(9,22,30,.98));box-shadow:var(--shadow);padding:34px;text-align:center}
+.github-setup-complete-mark{width:58px;height:58px;margin:0 auto 16px;border-radius:50%;display:grid;place-items:center;background:#12392f;border:1px solid #3c7c69;color:var(--green);font-size:28px;font-weight:900}
+.github-setup-complete-card h1{font-size:28px;margin:8px 0 12px}
+.github-setup-complete-card p{color:#a9bbc4;line-height:1.6;margin:0 auto;max-width:520px}
+.github-setup-complete-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:24px 0 12px}
+.github-setup-complete-actions .link-button{margin:0}

@@ -39,7 +39,7 @@ def test_instructor_review_uses_persisted_reviewer_identity_and_human_counts():
 
 
 def test_inspect_focuses_team_detail_and_active_reviews_are_reachable():
-    assert "loadTeamDetail(t.id,{focus:true})" in JS
+    assert "loadTeamDetail(t.id,{focus:true,history:true})" in JS
     assert "box.scrollIntoView({" in JS
     assert "behavior:'smooth'" in JS
     assert "block:'start'" in JS
