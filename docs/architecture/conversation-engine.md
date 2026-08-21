@@ -1,5 +1,8 @@
 # Engineering Studio Conversation Engine
 
+> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+
+
 ## Purpose
 
 The Engineering Studio models an apprenticeship review: a junior engineer works through a real engineering judgment with senior reviewers. The deterministic control plane tracks which reasoning obligations must eventually become visible; the conversational layer decides how a senior engineer should discuss the next obligation without sounding like a rubric or state machine.

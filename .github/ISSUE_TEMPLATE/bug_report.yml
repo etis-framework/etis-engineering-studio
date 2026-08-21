@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a reproducible ETIS Engineering Studio defect
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve ETIS Engineering Studio. Do not include credentials, student data, private repository contents, or security vulnerabilities in this form. Report vulnerabilities privately under SECURITY.md.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and why it appears incorrect.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Use synthetic/redacted examples.
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit / release
+      description: Commit SHA, tag, or deployment version if known.
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Local development
+        - Institution-hosted development/test
+        - Institution-hosted production
+        - ETIS Framework reference deployment
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Relevant configuration/context
+      description: Browser, cloud, identity provider, repository ownership type, or other non-secret details needed to understand the issue.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed secrets, credentials, student data, and private repository content.
+          required: true
+        - label: This is not a vulnerability report.
+          required: true

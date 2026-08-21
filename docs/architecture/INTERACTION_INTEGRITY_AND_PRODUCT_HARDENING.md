@@ -1,5 +1,8 @@
 # Interaction Integrity and Product Hardening
 
+> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+
+
 ## Purpose
 
 v0.15 treats ETIS Engineering Studio as a product rather than a collection of features. The release criterion is not that a control renders or an API endpoint responds; the criterion is that an authorized user can take an action and the system preserves the exact intent, evidence context, permissions, and navigation state end to end.
@@ -31,7 +34,7 @@ A review handoff can include:
 - entry intent (`discuss`, `challenge`, `resolve`, `understand`, `accept_or_defer`);
 - source view.
 
-For example, selecting **Help me resolve this** on an estimates finding must create a Finding Review anchored to that exact estimates finding. The board may broaden the discussion only when the student intentionally changes subject or when another evidence item is materially relevant and the reviewer explains the connection.
+For example, selecting **Help me resolve this** on an estimates finding must create a Review Findings session anchored to that exact estimates finding. The board may broaden the discussion only when the student intentionally changes subject or when another evidence item is materially relevant and the reviewer explains the connection.
 
 ## Immutable evidence, revisable review judgment
 

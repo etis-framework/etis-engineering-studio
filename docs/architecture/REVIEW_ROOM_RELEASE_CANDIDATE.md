@@ -1,4 +1,7 @@
-# Review Room Release-Candidate Contract
+# Review Room Product Contract
+
+> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+
 
 ## Product goal
 

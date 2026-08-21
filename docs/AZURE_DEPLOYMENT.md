@@ -1,452 +1,310 @@
-# Azure Deployment Plan
+# Azure Deployment and Production Configuration
+
+> **Institutional adoption:** names, domains, tenant values, resource identifiers, budgets, and settings in this document describe the ETIS Framework reference deployment. Create institution-owned equivalents; do not reuse reference production credentials or identifiers.
+
+> **Status:** Production deployed and accepted. Gate 17 is closed; Post-Provisioning Production Acceptance reached **GO** on 2026-08-21.
 
 ## Purpose
 
-This document defines the production deployment architecture and reproducible
-Infrastructure as Code (IaC) sequence for the ETIS Engineering Studio.
+This document describes the source-controlled deployment path and the current production configuration for ETIS Engineering Studio. It replaces the earlier pre-Azure posture in which these resources were only planned.
 
-The production deployment is intentionally small for the initial COMP330-F26
-course population, but it is designed to preserve the security, durability,
-identity, migration, observability, and multi-replica guarantees established by
-the pre-Azure production-hardening gates.
-
-Azure deployment is performed through the manually triggered GitHub Actions
-workflow in `.github/workflows/deploy-azure.yml`. The workflow revalidates the
-selected Git commit before acquiring Azure authority and then deploys the exact
-validated commit.
-
-No production deployment should bypass that release gate.
+The authoritative production deployment workflow is `.github/workflows/deploy-azure.yml` and the Azure Infrastructure as Code is under `infra/azure/`.
 
 ## Production topology
 
-The initial production topology consists of:
+```text
+GitHub protected production environment
+        │
+        ▼
+GitHub Actions OIDC → Azure
+        │
+        ├─ compile/validate Bicep before deployment authority
+        ├─ build immutable image
+        ├─ push commit-SHA image to ACR
+        ├─ run Alembic migration job
+        ├─ deploy Container App
+        └─ deploy operational controls / readiness checks
 
-- **Azure Container Apps** for the FastAPI application and bundled browser UI.
-- **Azure Container Apps Job** for explicit Alembic database migration execution.
-- **Azure Database for PostgreSQL Flexible Server** for durable application state.
-- **Azure Container Registry (ACR)** for immutable application images.
-- **Azure Key Vault** for runtime secrets.
-- **User-assigned managed identity** for application and migration-job access to
-  ACR and Key Vault.
-- **Azure Virtual Network** with separate Container Apps and PostgreSQL subnets.
-- **Private DNS** for PostgreSQL Flexible Server.
-- **Log Analytics** for centralized operational logging.
-- **Application Insights** backed by the Log Analytics workspace.
+Internet
+   │
+   ▼
+https://simulator.etisframework.org
+   │
+Azure Container Apps
+   │  user-assigned managed identity
+   ├────────────► Azure Key Vault
+   ├────────────► Azure Container Registry
+   │
+   ▼
+Private VNet integration
+   │
+   ▼
+Azure Database for PostgreSQL Flexible Server
 
-The Studio application has public HTTPS ingress. PostgreSQL does not require a
-public Internet database endpoint: the database is reached from the Container
-Apps environment through the private VNet-integrated PostgreSQL network path.
-
-This topology deliberately avoids Kubernetes and unnecessary microservices. The
-initial course population does not justify that operational complexity.
+Application Insights → Log Analytics → Azure Monitor alerts/action group
+```
 
 ## Infrastructure layers
 
-Azure infrastructure is split into four declarative Bicep layers.
+### `infra/azure/main.bicep`
 
-### 1. Foundation — `infra/azure/main.bicep`
+Creates the durable foundation:
 
-The foundation creates the long-lived Azure infrastructure:
-
-- virtual network;
-- Container Apps infrastructure subnet;
-- delegated PostgreSQL subnet;
-- PostgreSQL private DNS zone and VNet link;
-- Log Analytics workspace;
-- Application Insights;
-- Azure Container Registry;
+- VNet/subnets;
+- PostgreSQL delegated subnet;
+- private PostgreSQL DNS zone/link;
+- Log Analytics;
+- workspace-based Application Insights;
+- ACR;
 - user-assigned runtime managed identity;
-- Azure Key Vault;
-- ACR `AcrPull` authorization for the runtime identity;
-- Key Vault `Key Vault Secrets User` authorization for the runtime identity;
-- Container Apps managed environment;
-- PostgreSQL Flexible Server;
-- application PostgreSQL database.
+- Key Vault and role assignments;
+- Container Apps environment;
+- PostgreSQL Flexible Server/database.
 
-The foundation does **not** deploy the ETIS application container. This allows a
-new environment to be created before the first ETIS application image exists.
+### `infra/azure/secrets.bicep`
 
-### 2. Runtime secrets — `infra/azure/secrets.bicep`
+Creates/updates Key Vault runtime secrets from protected deployment inputs:
 
-Runtime secrets are provisioned into Azure Key Vault from secure deployment
-parameters.
-
-The secret layer provisions:
-
-- PostgreSQL SQLAlchemy database URL;
-- ETIS session signing secret;
-- Microsoft Entra client secret;
+- database URL;
+- ETIS session secret;
+- Entra client secret;
 - GitHub App private key;
 - GitHub OAuth client secret;
 - OpenAI API key.
 
-The PostgreSQL URL is constructed for the private Flexible Server endpoint and
-requires TLS.
+Secrets must never be committed to source control.
 
-Secret values must never be committed to the repository, embedded in Bicep
-source, emitted in application logs, or passed as literal Container App
-environment values.
+### `infra/azure/migration.bicep`
 
-### 3. Database migration — `infra/azure/migration.bicep`
+Defines the Container Apps migration job that runs `alembic upgrade head` using the immutable production image and Key Vault-backed database URL.
 
-Database schema migration runs as a manually triggered Azure Container Apps Job.
+Production application startup does not own schema migration.
 
-The migration job:
+### `infra/azure/app.bicep`
 
-- runs the exact immutable application image selected for deployment;
-- uses the production user-assigned managed identity;
-- pulls the image from private ACR without registry username/password credentials;
-- obtains `ETIS_DATABASE_URL` through an Azure Key Vault secret reference;
-- executes `alembic upgrade head`;
-- runs inside the Container Apps environment so it can reach the private
-  PostgreSQL Flexible Server;
-- must succeed before the production application deployment proceeds.
+Defines the production Container App:
 
-GitHub-hosted runners therefore do not require direct network access to the
-production database.
+- HTTPS ingress;
+- custom domain/certificate binding;
+- managed identity;
+- ACR image pull;
+- Key Vault-backed Container App secrets;
+- production Entra/GitHub/OpenAI configuration;
+- health/readiness probes;
+- bounded horizontal scaling.
 
-### 4. Application — `infra/azure/app.bicep`
+### `infra/azure/operations.bicep`
 
-The application layer deploys the ETIS Engineering Studio Container App.
+Defines the production action group and Azure Monitor alerts for:
 
-The application:
+- Container App restarts;
+- HTTP 5xx;
+- PostgreSQL availability;
+- PostgreSQL storage percentage.
 
-- uses the same immutable image that passed the release gate and migration;
-- uses user-assigned managed identity for private ACR image pull;
-- uses Key Vault-backed Container Apps secret references;
-- runs with `ETIS_ENV=production`;
-- runs with `ETIS_DEV_LOGIN=false`;
-- receives the canonical HTTPS web origin;
-- receives explicit Microsoft Entra tenant and application configuration;
-- receives GitHub App and GitHub OAuth configuration;
-- receives OpenAI configuration;
-- exposes HTTPS ingress on the Studio application;
-- uses `/health` for liveness;
-- uses `/ready` for readiness;
-- permits bounded horizontal replica scaling.
+## Production resource names
 
-The application is not considered successfully deployed merely because a
-Container App revision starts. The deployment workflow verifies `/ready` and
-requires the service to report both application readiness and a current database
-migration state.
+Accepted live resources include:
 
-## Managed identity and authorization
+- resource group: `etis-studio-prod`;
+- Container App: `etis-studio-prod`;
+- ACR: `etisstudioprodev3bgd5nmvfg4`;
+- PostgreSQL: `etis-studio-prod-pg-ev3bgd5nmvfg4`;
+- Key Vault: `etis-studio-prod-kv-ev3b`;
+- managed identity: `etis-studio-prod-runtime`;
+- Application Insights: `etis-studio-prod-appi`;
+- Log Analytics: `etis-studio-prod-law`;
+- custom hostname: `simulator.etisframework.org`.
 
-The production application and migration job use a user-assigned managed
-identity.
+Resource suffixes are deployment-specific. Do not hard-code subscription IDs or credentials into documentation/scripts when resource discovery can be used instead.
 
-The identity is created in the foundation layer before either workload exists.
-This avoids an initial-deployment dependency on a system-assigned identity that
-would not exist until after the Container App was created.
+## Production configuration requirements
 
-The runtime identity receives only the Azure permissions required for its
-runtime responsibilities:
+Production `Settings` fail closed when required values are missing or unsafe.
 
-- **AcrPull** on the ETIS Azure Container Registry;
-- **Key Vault Secrets User** on the ETIS production Key Vault.
+Required production families include:
 
-ACR administrative credentials remain disabled.
+- `ETIS_ENV=production`;
+- PostgreSQL `ETIS_DATABASE_URL`;
+- sufficiently strong `ETIS_SESSION_SECRET`;
+- HTTPS `ETIS_WEB_ORIGIN`;
+- `ETIS_DEV_LOGIN=false`;
+- explicit `ENTRA_TENANT` UUID;
+- Entra client ID/secret/redirect URI;
+- GitHub OAuth client ID/secret/redirect URI;
+- GitHub App ID/private key/slug;
+- OpenAI key when AI is enabled.
 
-No Docker registry username or password is configured in the Container App or
-migration job.
+The protected deployment workflow must validate `ETIS_GITHUB_APP_SLUG` and pass it to Bicep/runtime configuration. CI and the manual release-gate production-container smoke also provide `GITHUB_APP_SLUG`.
 
-GitHub Actions deployment authority is separate from application runtime
-authority.
+## Microsoft Entra configuration
 
-## Private database boundary
+Production identity rules:
 
-PostgreSQL Flexible Server is deployed through its delegated VNet subnet and
-associated private DNS zone.
+- institutional users authenticate with Microsoft Entra;
+- normal allowed domain is `luc.edu`;
+- production uses an explicit tenant UUID rather than a broad organizations/common tenant selector;
+- Studio stores no user password;
+- course authorization is database-derived after authentication.
 
-The architecture intentionally does not create PostgreSQL firewall rules that
-permit general Internet connectivity.
+The controlled external production-test student is an exact configured identity exception. It must not become a general Gmail-domain allowance.
 
-Application and migration workloads reach PostgreSQL from the Container Apps
-environment across the Azure virtual network.
+### Production-test student operator configuration
 
-The public application boundary and private database boundary are therefore
-separate:
+The bounded production-test identity is configured through these operator-owned values:
 
-- the Studio is reachable by authorized users over HTTPS;
-- PostgreSQL is not intended to be directly reachable by students, browsers, or
-  GitHub-hosted CI runners.
+- `ETIS_PRODUCTION_TEST_STUDENT_OID` — exact Entra Object ID;
+- `ETIS_PRODUCTION_TEST_STUDENT_EMAIL` — exact roster/email identity;
+- `ETIS_PRODUCTION_TEST_STUDENT_ID` — exact course student identifier;
+- `ETIS_PRODUCTION_TEST_SECTION_KEY` — designated production-test section;
+- `ETIS_PRODUCTION_TEST_TEAM_KEY` — designated production-test team.
 
-## Production configuration
+The exception must match the **exact Entra Object ID**, the **designated production-test section**, and the **designated production-test team**. It **does not allow gmail.com generally** and does not create a generic external-domain student login path.
 
-The production deployment must satisfy the application's fail-closed
-configuration contract.
+Do not publish the operator-selected principal values in public deployment documentation. Institution adopters must create their own bounded test identity and values.
 
-Required production configuration includes at least:
+## GitHub OAuth configuration
 
-- `ETIS_ENV=production`
-- `ETIS_DEV_LOGIN=false`
-- `ETIS_WEB_ORIGIN`
-- `ETIS_DATABASE_URL`
-- `ETIS_SESSION_SECRET`
-- `ETIS_COURSE_NAMESPACE`
-- Microsoft Entra client ID, client secret, redirect URI, and explicit tenant UUID
-- GitHub App ID and private key
-- GitHub OAuth client ID, client secret, and redirect URI
-- OpenAI API key when AI functionality is enabled
+GitHub OAuth is used to link the individual Studio user to a GitHub identity.
 
-The production session secret must meet the application's minimum strength
-requirement.
+Security requirements:
 
-The production web origin must use HTTPS.
+- callback is bound to the initiating Studio session/user;
+- OAuth state alone is not sufficient to mutate identity;
+- no GitHub OAuth access token is retained;
+- OAuth scope remains no broader than required for public identity information.
 
-The Microsoft Entra tenant must be explicitly configured rather than using the
-development `organizations` default.
+## GitHub App configuration
 
-## GitHub Actions deployment sequence
+The ETIS Engineering Studio GitHub App is used for repository evidence access.
 
-Production deployment is manual and runs through
-`.github/workflows/deploy-azure.yml`.
+Required registration/configuration:
 
-The required sequence is:
+- App is installable beyond the owning organization because approved personal repositories are supported;
+- repository permissions remain read-only/minimal for evidence acquisition;
+- installation must be **Only select repositories**;
+- ETIS rejects `all repositories` scope;
+- owner-targeted installation navigation uses the resolved immutable repository-owner GitHub account ID;
+- personal repository authorization is performed by the actual owner;
+- organization authorization/request follows GitHub's organization owner/admin authority model.
 
-1. **Release gate**
-   - check out the selected Git commit;
-   - install locked development dependencies;
-   - audit production Python dependencies;
-   - validate PostgreSQL/Alembic migration correctness;
-   - build the production container;
-   - smoke-test that container in production mode;
-   - run the complete backend regression suite;
-   - validate the COMP 330 course model.
+Production GitHub App completion configuration:
 
-2. **Acquire Azure authority**
-   - only after the release gate succeeds;
-   - authenticate using GitHub Actions OIDC rather than a long-lived Azure
-     deployment password.
+- **Setup URL:** `https://simulator.etisframework.org/github/setup-complete`
+- **Redirect on update:** enabled
 
-3. **Reconcile foundation infrastructure**
-   - deploy `infra/azure/main.bicep`.
+The Setup URL improves return-to-Studio UX. It is **not** the repository verification boundary. The student still performs Step 2 exact-repository verification in Studio.
 
-4. **Provision Key Vault runtime secrets**
-   - deploy `infra/azure/secrets.bicep` using GitHub environment secrets as secure
-     deployment inputs.
+## Repository verification boundary
 
-5. **Build and push the immutable production image**
-   - authenticate to ACR;
-   - build from the already validated commit;
-   - tag the image with the Git commit SHA;
-   - push that immutable deployment candidate to ACR.
+The candidate repository is never promoted solely because authorization was opened or because GitHub returned from an installation page.
 
-6. **Reconcile the migration job**
-   - deploy `infra/azure/migration.bicep` using the immutable SHA image.
+Verification must:
 
-7. **Execute the production migration**
-   - start the Container Apps migration job;
-   - wait for the exact execution to finish;
-   - require successful completion;
-   - stop deployment on migration failure or timeout.
+1. re-read/lock current candidate state;
+2. confirm the candidate has not changed during external checks;
+3. confirm installation repository selection is not `all`;
+4. confirm the exact nominated repository is accessible;
+5. obtain an installation token restricted to that exact repository;
+6. promote only the current candidate to verified team state.
 
-8. **Deploy the application**
-   - deploy `infra/azure/app.bicep` using the same immutable SHA image.
+## Managed identity and Key Vault
 
-9. **Verify production readiness**
-   - request the deployed `/ready` endpoint;
-   - require `"status":"ready"`;
-   - require `"migration_current":true`;
-   - fail the deployment if production does not become ready.
+Production runtime uses user-assigned identity `etis-studio-prod-runtime`.
 
-The deployment order is intentionally:
+Accepted Key Vault authority:
 
-`release validation -> infrastructure -> secrets -> image -> migration -> application -> readiness verification`
+- role: `Key Vault Secrets User`;
+- scope: production Key Vault only.
 
-## Production-acceptance test student
+Container App secrets are Key Vault references and runtime environment variables consume them by `secretRef`.
 
-The production deployment supports one deliberately bounded nonprivileged
-student identity for live Production Acceptance testing.
+## Private PostgreSQL boundary
 
-The configuration is supplied through the protected GitHub `production`
-environment:
+PostgreSQL production access is private-only through VNet integration, delegated subnet, and private DNS. Public network access is disabled.
 
-- `ETIS_PRODUCTION_TEST_STUDENT_OID`
-- `ETIS_PRODUCTION_TEST_STUDENT_EMAIL`
-- `ETIS_PRODUCTION_TEST_STUDENT_ID`
-- `ETIS_PRODUCTION_TEST_SECTION_KEY`
-- `ETIS_PRODUCTION_TEST_TEAM_KEY`
+Accepted baseline:
 
-`ETIS_PRODUCTION_TEST_STUDENT_OID` is the **exact Entra Object ID** of the
-authorized guest principal. The email value is its canonical Studio identity;
-email or domain alone does not grant access.
+- PostgreSQL 16;
+- `Standard_B1ms` Burstable;
+- 32 GB;
+- 7-day backup retention;
+- geo-redundant backup disabled;
+- HA disabled.
 
-The account must also be explicitly enrolled in the **designated
-production-test section** and assigned to the **designated production-test
-team**. Normal enrollment and team authorization continue to apply.
+A live PITR restore drill passed during acceptance; see `operations/DATABASE_RECOVERY_RUNBOOK.md`.
 
-This exception does **not allow gmail.com generally**, does not authorize any
-other external principal, and does not grant instructor, Entra administrator,
-or Azure authority.
+## Deployment sequence
 
-The operator-selected Object ID and email must not be committed to source
-control.
+The protected manual workflow follows this control intent:
 
-## GitHub production environment configuration
+```text
+select commit
+  → release gate
+      → install pinned Bicep CLI
+      → compile IaC
+      → production-container smoke
+      → validation/tests
+  → acquire Azure deployment authority
+  → foundation/secrets as required
+  → build/push immutable commit-SHA image
+  → migration
+  → application
+  → operational controls
+  → readiness verification
+```
 
-The GitHub `production` environment is the deployment-control boundary for
-production-specific variables and secrets.
+Do not obtain/use Azure deployment authority before the selected commit passes the release gate.
 
-Expected GitHub environment configuration includes the Azure OIDC identifiers,
-resource-group/location settings, application identity/provider settings, and
-secure values consumed by the Key Vault provisioning deployment.
+## Scaling
 
-Exact production values are established during the controlled Azure deployment
-preparation process. They must not be added to source control.
+Accepted live runtime after production acceptance:
 
-GitHub reserves the `GITHUB_` prefix for Actions-provided values. Therefore the
-protected GitHub `production` environment uses these operator-facing names:
+- `minReplicas=1`;
+- `maxReplicas=5`.
 
-- `ETIS_GITHUB_APP_ID`
-- `ETIS_GITHUB_APP_SLUG`
-- `ETIS_GITHUB_APP_PRIVATE_KEY`
-- `ETIS_GITHUB_OAUTH_CLIENT_ID`
-- `ETIS_GITHUB_OAUTH_CLIENT_SECRET`
+The minimum was changed from zero to one after intermittent long reloads were observed during acceptance, preventing normal scale-to-zero cold starts.
 
-The deployment workflow maps those values into the application's existing
-`GITHUB_*` runtime configuration. Do not create custom GitHub Actions variables
-or secrets beginning with `GITHUB_`.
+**Important drift:** source `infra/azure/app.bicep` still defaults `minReplicas` to `0`. A future deployment may therefore revert production to scale-to-zero unless the source/default or deployment parameter is reconciled. This is a known follow-up item in `NEXT_BUILD.md`.
 
-The GitHub production environment should use appropriate repository/environment
-protection settings before student rollout.
+## Observability
 
-## Initial capacity posture
+Accepted live monitoring:
 
-The initial deployment is optimized for approximately 30 students and modest
-classroom concurrency.
-
-The application defaults to bounded Container Apps scaling rather than a fixed
-large fleet.
-
-PostgreSQL begins with a modest Burstable SKU and parameterized storage and
-backup retention settings.
-
-Infrastructure parameters permit these choices to be increased later without
-changing application architecture.
-
-Sizing must be reviewed against actual Azure region availability, observed
-course demand, and current Azure pricing before production rollout.
+- workspace-based Application Insights;
+- Log Analytics retention: 30 days;
+- operations action group with enabled email receiver;
+- HTTP 5xx alert;
+- container restart alert;
+- PostgreSQL not-alive alert;
+- PostgreSQL storage alert.
 
 ## Cost controls
 
-Wave 1 should avoid always-on resources that do not contribute student value.
+Accepted production resource-group budget:
 
-Before student access is enabled:
+- `$100/month`;
+- 50% actual-cost notification;
+- 80% actual-cost notification;
+- 100% actual-cost notification.
 
-- establish an Azure budget;
-- configure appropriate cost notifications;
-- verify expected Container Apps scaling;
-- verify PostgreSQL SKU and storage;
-- verify Log Analytics/Application Insights ingestion posture;
-- verify OpenAI usage controls separately at the application/provider boundary.
+Budget alerts do not automatically stop production resources.
 
-Exact pricing is intentionally not frozen in source because Azure pricing and
-regional SKU availability change.
+## Rollback
 
-## Secrets and credential handling
+Container Apps is configured in Single revision mode. Accepted rollback posture is to redeploy a prior immutable commit-SHA image from ACR.
 
-Production secrets belong in Azure Key Vault.
+Multiple prior SHA tags were verified present during production acceptance. A destructive rollback drill was not performed solely to prove a mechanism already supported by retained immutable images.
 
-They must not appear in:
+## Post-deployment verification
 
-- repository source;
-- committed parameter files;
-- application logs;
-- evidence snapshots;
-- AI prompts;
-- browser-delivered configuration;
-- Docker registry credentials.
+Every production-changing deployment should verify at minimum:
 
-GitHub Actions receives deployment-time secure values from the protected GitHub
-production environment and provisions them into Key Vault.
+- Container App latest revision becomes ready;
+- `/health` returns 200;
+- `/ready` returns 200 with database connected and migration current;
+- expected identity/repository integration affected by the release;
+- no new alert/telemetry anomaly;
+- production user journey relevant to the change.
 
-The application subsequently consumes Key Vault references using managed
-identity.
-
-## Database durability and migration policy
-
-PostgreSQL Flexible Server automatic backups provide the database durability
-foundation.
-
-Schema changes are applied explicitly through Alembic before application
-deployment.
-
-Application startup is not responsible for silently migrating the production
-database.
-
-A failed migration prevents the new application deployment from proceeding.
-
-Operational backup validation, point-in-time restore testing, disaster recovery,
-and recovery runbooks are Gate 16 responsibilities.
-
-## Observability boundary
-
-The foundation creates Log Analytics and workspace-based Application Insights.
-
-Telemetry must preserve the security and privacy requirements defined in
-`docs/SECURITY_AND_PRIVACY.md`, including sensitive-data-safe logging.
-
-Gate 15 establishes the Azure observability infrastructure.
-
-Gate 16 owns operational alert definitions, dashboards, production monitoring
-procedures, incident handling, backup/restore exercises, and recovery
-verification.
-
-## DNS and production hostname
-
-The Container App provides an Azure-managed HTTPS hostname at initial
-deployment.
-
-The intended production experience may later use the ETIS custom hostname.
-
-Custom DNS, certificate validation, OAuth callback registration, and final
-production hostname verification must be completed before student access is
-enabled.
-
-The canonical `ETIS_WEB_ORIGIN`, Microsoft Entra callback URI, and GitHub OAuth
-callback URI must agree with the hostname actually presented to users.
-
-## Controlled rollout sequence
-
-**Gate 17 — Final Pre-Azure Go/No-Go must reach an explicit GO before any
-production Azure resources are provisioned or the production deployment
-workflow is authorized.**
-
-After Gate 17 GO and after the infrastructure and application have been
-successfully deployed:
-
-1. verify production readiness;
-2. configure/verify the final HTTPS hostname;
-3. configure Microsoft Entra production callback settings;
-4. configure/install the read-only GitHub App on authorized repositories;
-5. configure GitHub OAuth;
-6. import the COMP330-F26 roster and team mappings;
-7. test instructor and student authorization;
-8. test at least one authorized private repository;
-9. perform the required Gate 16 live operational and recovery validation;
-10. complete the post-provisioning **Production Acceptance** review;
-11. enable student access only after Production Acceptance reaches an explicit
-    GO and all production controls pass.
-
-## Gate boundaries
-
-Gate 15 establishes reproducible Azure infrastructure and the controlled
-deployment path.
-
-It does **not** itself authorize student production use.
-
-The following remain later-stage responsibilities:
-
-- operational alerts and escalation;
-- backup/restore testing;
-- recovery exercises;
-- incident runbooks;
-- final production configuration verification;
-- Gate 17 pre-Azure deployment authorization;
-- final DNS/callback validation after provisioning;
-- live Gate 16 operational/recovery evidence;
-- post-provisioning Production Acceptance before student access.
-
-No production-control requirement should be weakened merely to simplify local
-development or initial Azure provisioning.
+Production acceptance evidence is recorded in `operations/POST_PROVISIONING_PRODUCTION_ACCEPTANCE.md` and `PRODUCTION_BASELINE.md`.

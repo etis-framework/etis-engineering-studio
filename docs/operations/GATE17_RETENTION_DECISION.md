@@ -1,5 +1,8 @@
 # Gate 17 Retention Decision
 
+> **Historical status:** Gate 17 retention decision record. The governing lifecycle/retention policy remains `../SECURITY_AND_PRIVACY.md`; live production acceptance is recorded separately.
+
+
 ## 1. Purpose
 
 This document records the approved production data-retention posture for ETIS

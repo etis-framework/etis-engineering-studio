@@ -1,0 +1,47 @@
+name: Institutional adoption question
+description: Ask a deployment/adoption question that may help other institutions
+title: "[Adoption]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for non-sensitive institutional adoption questions. Do not include credentials, student data, tenant secrets, private repository contents, contracts, or vulnerability details.
+  - type: textarea
+    id: goal
+    attributes:
+      label: Adoption goal
+      description: What teaching/research/engineering use are you trying to support?
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Stage
+      options:
+        - Evaluating ETIS
+        - Local proof of concept
+        - Institutional development/test
+        - Preparing production deployment
+        - Operating a deployment
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Cloud, identity provider, GitHub/repository model, and other non-secret context relevant to the question.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question / blocker
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed credentials, student data, confidential institutional information, and private repository content.
+          required: true
+        - label: This is not a vulnerability report.
+          required: true

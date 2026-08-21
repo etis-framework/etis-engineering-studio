@@ -1,5 +1,7 @@
 # ETIS Engineering Studio Production Operations Runbook
 
+> **Status:** Current production runbook. Post-Provisioning Production Acceptance is **GO** as of 2026-08-21.
+
 ## 1. Purpose
 
 This runbook defines the normal production operating procedure for the ETIS
@@ -35,8 +37,7 @@ The initial production service is intentionally small:
 - Azure Monitor alerts operators when selected runtime or database conditions
   require attention.
 
-The service may scale to zero when idle. Zero running application instances is
-therefore not, by itself, an outage signal.
+The accepted semester runtime keeps **one minimum replica** warm and allows up to five replicas. A zero-instance state is therefore not expected during normal accepted production operation. Treat unexpected loss of ready replicas together with `/ready`, restart, 5xx, and Azure resource state as an availability signal.
 
 Production operation must remain fail closed where authority, identity,
 database state, evidence integrity, or engineering records are uncertain.
@@ -146,8 +147,7 @@ Operator response:
    repeated;
 6. escalate repeated or unexplained restarts.
 
-Do not replace this with an alert based solely on active instance count because
-the service intentionally permits scale-to-zero.
+Do not treat instance count alone as the only availability signal. Correlate restart count with `/ready`, HTTP failures, revision health, and Azure resource state.
 
 ### Container App — HTTP `5xx`
 
@@ -401,30 +401,15 @@ Before student access is enabled, operations readiness must verify:
 - GitHub production deployment protection is active;
 - operational evidence is retained for Post-Provisioning Production Acceptance.
 
-## 15. Gate 16 / Gate 17 boundary
+## 15. Gate 16 / Gate 17 closeout
 
-Gate 16 establishes the operational controls and procedures required before
-production use.
+Gate 16 established the operational controls and procedures required for production use. Gate 17 authorized Azure provisioning. Post-Provisioning Production Acceptance subsequently exercised the live controls and reached **GO** on 2026-08-21.
 
-Because Azure resources have not yet been provisioned during pre-deployment
-hardening, some evidence can only be collected after provisioning.
+Current operators should use this runbook together with:
 
-**Gate 17 — Final Pre-Azure Go/No-Go occurs before production Azure
-provisioning.** It must distinguish:
+- `docs/PRODUCTION_BASELINE.md`;
+- `docs/operations/POST_PROVISIONING_PRODUCTION_ACCEPTANCE.md`;
+- `docs/operations/INCIDENT_RESPONSE_RUNBOOK.md`;
+- `docs/operations/DATABASE_RECOVERY_RUNBOOK.md`.
 
-- controls proven before deployment;
-- controls verified by CI;
-- controls that explicitly require live post-provisioning validation;
-- any blockers that prevent Azure provisioning;
-- any deferred item with explicit acceptance.
-
-A Gate 17 GO authorizes production Azure provisioning only. It does not
-authorize student access.
-
-After provisioning, the live Gate 16 validations in this runbook must be
-executed and retained as evidence for **Post-Provisioning Production
-Acceptance**. Student access must not be enabled until that acceptance review
-reaches an explicit GO.
-
-Student access must never be enabled simply because the infrastructure can be
-deployed or because `/ready` returns successfully.
+A successful deployment or `/ready` response is still not, by itself, sufficient evidence for a future production-changing release. Future changes require the normal PR/CI/protected-deployment/targeted-acceptance cycle.

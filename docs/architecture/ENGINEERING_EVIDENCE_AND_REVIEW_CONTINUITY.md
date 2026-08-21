@@ -1,5 +1,8 @@
 # Engineering Evidence and Review Continuity
 
+> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+
+
 ## Product model
 
 Engineering Studio has two complementary student surfaces:
@@ -29,12 +32,16 @@ Normal phase-gate apprenticeship. The board chooses a high-value challenge from 
 ### Focused Review
 Student-selected work-in-progress consultation. The senior reviewer gives a candid evidence-grounded opinion, identifies the highest-value improvement, and asks one useful next question. It does not require a defect or formal finding.
 
-### Finding Review
+### Review Findings
 Conversation about one or a small related set of existing REVIEW interpretations. The student can understand, challenge, resolve, accept/defer, or provide contrary evidence. No formal recommendation is required unless the conversation genuinely reaches a consequential decision.
 
 ## Recommendation semantics
 
-**State My Recommendation** records a judgment the student is prepared to defend now. It is not a Git commit, grade submission, or permanent answer. It is contextual and revisable when evidence or reasoning changes.
+**Current recommendation** is an optional, revisable decision posture: where the student is leaning now. The reviewer may use it to challenge conditions, ownership, evidence, consequences, and change triggers.
+
+**State My Recommendation** is the later explicit action indicating that the student is prepared to record and defend a more developed engineering position. It is not a Git commit, grade submission, or permanent answer. It remains contextual and may change when evidence or reasoning changes.
+
+Not every review requires a recommendation; Review Findings may be explanatory/corrective and Focused Review may remain exploratory.
 
 ## Multilingual and novice design
 

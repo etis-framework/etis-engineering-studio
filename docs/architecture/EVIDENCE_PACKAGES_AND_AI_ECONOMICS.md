@@ -1,5 +1,8 @@
 # Evidence Packages and AI Economics
 
+> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+
+
 ## Purpose
 
 The Studio must be both epistemically defensible and economically predictable. A reviewer should reason from a defined frozen evidence boundary, while the application avoids repeatedly transmitting the entire repository to an AI model.

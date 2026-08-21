@@ -1,5 +1,8 @@
 # Semantic Coaching Architecture
 
+> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+
+
 ## Purpose
 
 The Engineering Studio is an apprenticeship environment. A second- or third-year student should experience a natural, context-aware discussion with senior engineers who understand rough language, tentative answers, uncertainty, disagreement, frustration, and requests for direct help.

@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use ETIS Engineering Studio in teaching, research, or an institutional deployment, please cite the software."
+title: "ETIS Engineering Studio"
+type: software
+authors:
+  - family-names: "O'Connell"
+    given-names: "William T."
+repository-code: "https://github.com/etis-framework/etis-engineering-studio"
+url: "https://simulator.etisframework.org"
+license: "Apache-2.0"
+date-released: "2026-08-21"
+abstract: >-
+  ETIS Engineering Studio is an engineering apprenticeship environment for
+  evidence-based software engineering reviews in which students remain the
+  responsible engineers while bounded AI reviewers challenge and coach their
+  reasoning.
+keywords:
+  - software engineering education
+  - engineering judgment
+  - artificial intelligence
+  - engineering review
+  - evidence-based learning

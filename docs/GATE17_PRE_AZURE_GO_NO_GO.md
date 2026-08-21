@@ -1,5 +1,8 @@
 # Gate 17 — Final Pre-Azure Go/No-Go
 
+> **Historical status:** Gate 17 reached **GO / CLOSED** before production provisioning. This file is retained as the pre-Azure decision record. “Not yet testable” statements and the original $75 cost posture are historical; the accepted live baseline (including the $100 budget and one warm replica) is in `PRODUCTION_BASELINE.md` and `operations/POST_PROVISIONING_PRODUCTION_ACCEPTANCE.md`.
+
+
 ## 1. Purpose
 
 Gate 17 is the **Final Pre-Azure Go/No-Go** for the ETIS Engineering Studio

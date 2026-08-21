@@ -1,5 +1,8 @@
 # Gate 17 Production Security Review
 
+> **Historical status:** Pre-Azure security review completed for Gate 17. Live production security/authorization controls were subsequently accepted on 2026-08-21.
+
+
 ## 1. Review purpose
 
 This document is the formal **Gate 17 Production Security Review** for ETIS
