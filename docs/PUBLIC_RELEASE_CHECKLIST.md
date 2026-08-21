@@ -56,7 +56,7 @@ Before calling the public repository an authoritative deployable release, reconc
 
 - accepted runtime uses Container App `minReplicas=1`;
 - `infra/azure/app.bicep` still defaults `minReplicas=0`;
-- health metadata still reports application version `0.15.0` even though production-hardening commits followed that original baseline.
+- application and `/health` version metadata are aligned to `0.16.0` for the institutional release; the production-acceptance snapshot historically reported `0.15.0`.
 
 These do not prevent publication, but they should be reconciled in a normal code/IaC PR before the next release intended as a reproducible institutional deployment baseline.
 

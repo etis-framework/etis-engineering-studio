@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="ETIS Engineering Studio API",
-    version="0.15.0",
+    version="0.16.0",
     description="Evidence-centered engineering apprenticeship environment for COMP 330",
     lifespan=lifespan,
 )
@@ -218,7 +218,7 @@ def health():
     return {
         "status": "ok",
         "service": "etis-engineering-studio",
-        "version": "0.15.0",
+        "version": "0.16.0",
         "conversation_mode": "semantic" if semantic_ready else "semantic-required-not-configured",
         "semantic_coaching_ready": semantic_ready,
         "model": settings.openai_model if semantic_ready else None,

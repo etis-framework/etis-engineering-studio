@@ -249,7 +249,7 @@ Accepted residual notes:
   not deliberately rolled backward;
 - intermittent 15–25 second load behavior became non-reproducible; keep one
   warm replica and capture Network timing if it returns;
-- application version metadata remains `0.15.0`.
+- application version metadata reported `0.15.0` at the time of production acceptance; the subsequent v0.16.0 release-alignment change updates version metadata only and does not alter this acceptance decision.
 
 ## 13. Final decision
 
