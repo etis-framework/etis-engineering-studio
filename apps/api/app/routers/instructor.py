@@ -20,6 +20,8 @@ def _safe_json(value, default):
 def _team_summary(db: Session, team: Team):
     sessions=db.query(ReviewSession).filter_by(team_id=team.id).order_by(ReviewSession.started_at.desc()).all()
     members=db.query(TeamMembership).filter_by(team_id=team.id).all()
+    team_section=db.query(TeamSection).filter_by(team_id=team.id).first()
+    section=db.get(CourseSection,team_section.section_id) if team_section else None
     latest_snapshot=db.query(EvidenceSnapshot).filter_by(team_id=team.id).order_by(EvidenceSnapshot.created_at.desc()).first()
     evidence=_safe_json(latest_snapshot.summary_json,{}) if latest_snapshot else {}
     latest_session=sessions[0] if sessions else None; state=_safe_json(latest_session.challenge_state_json,{}) if latest_session else {}; evaluation=state.get("evaluation") or {}
@@ -29,7 +31,7 @@ def _team_summary(db: Session, team: Team):
     if disposition in {"insufficient_defense","needs_challenge"}: attention="attention"; reasons.append("decision defense needs follow-up")
     if latest_session and latest_session.status=="active": reasons.append("review in progress")
     usage=usage_summary(db,team_id=team.id)
-    return {"id":team.id,"team_key":team.team_key,"name":team.name,"project":team.project_name,"phase":team.current_phase,"repo":team.repo_full_name,"members":len(members),"review_sessions":len(sessions),"active_sessions":sum(s.status=="active" for s in sessions),"last_activity":latest_session.started_at.isoformat() if latest_session else None,"evidence_coverage":coverage,"evidence_gaps":len(gaps),"last_disposition":disposition,"attention":attention,"attention_reasons":reasons,"ai_usage":usage}
+    return {"id":team.id,"team_key":team.team_key,"name":team.name,"project":team.project_name,"phase":team.current_phase,"repo":team.repo_full_name,"section":{"id":section.id,"section_key":section.section_key,"display_name":section.display_name} if section else None,"members":len(members),"review_sessions":len(sessions),"active_sessions":sum(s.status=="active" for s in sessions),"last_activity":latest_session.started_at.isoformat() if latest_session else None,"evidence_coverage":coverage,"evidence_gaps":len(gaps),"last_disposition":disposition,"attention":attention,"attention_reasons":reasons,"ai_usage":usage}
 
 
 def _visible_sections(db:Session,ctx:dict):
@@ -68,9 +70,16 @@ def team_detail(team_id:int,db:Session=Depends(get_db),ctx:dict=Depends(require_
     for m in memberships:
         u=db.get(User,m.user_id); gh=db.query(GitHubIdentity).filter_by(user_id=u.id).first()
         members.append({"id":u.id,"name":u.display_name,"github_login":gh.github_login if gh else None,"role":m.responsibility_role,"primary":m.is_primary})
-    sessions=db.query(ReviewSession).filter_by(team_id=team.id).order_by(ReviewSession.started_at.desc()).limit(10).all(); session_rows=[]
-    for s in sessions:
-        state=_safe_json(s.challenge_state_json,{}); ev=state.get("evaluation") or {}; turn_count=db.query(ReviewTurn).filter_by(session_id=s.id).count(); student=db.get(User,s.user_id)
-        session_rows.append({"id":s.id,"phase":s.phase_id,"status":s.status,"mode":s.mode,"started_at":s.started_at.isoformat(),"turns":turn_count,"student":{"id":student.id,"name":student.display_name} if student else None,"disposition":ev.get("disposition"),"learning_score":ev.get("learning_score"),"learning_score_max":ev.get("learning_score_max"),"missing_moves":ev.get("missing_moves",[])})
+    def session_row(s: ReviewSession):
+        state=_safe_json(s.challenge_state_json,{})
+        ev=state.get("evaluation") or {}
+        turn_count=db.query(ReviewTurn).filter_by(session_id=s.id).count()
+        student=db.get(User,s.user_id)
+        return {"id":s.id,"phase":s.phase_id,"status":s.status,"mode":s.mode,"started_at":s.started_at.isoformat(),"turns":turn_count,"student":{"id":student.id,"name":student.display_name} if student else None,"disposition":ev.get("disposition"),"learning_score":ev.get("learning_score"),"learning_score_max":ev.get("learning_score_max"),"missing_moves":ev.get("missing_moves",[])}
+
+    sessions=db.query(ReviewSession).filter_by(team_id=team.id).order_by(ReviewSession.started_at.desc()).limit(10).all()
+    session_rows=[session_row(s) for s in sessions]
+    active_sessions=db.query(ReviewSession).filter_by(team_id=team.id,status="active").order_by(ReviewSession.started_at.desc()).all()
+    active_session_rows=[session_row(s) for s in active_sessions]
     snap=db.query(EvidenceSnapshot).filter_by(team_id=team.id).order_by(EvidenceSnapshot.created_at.desc()).first(); evidence=_safe_json(snap.summary_json,{}) if snap else None
-    return {"team":_team_summary(db,team),"members":members,"sessions":session_rows,"evidence":evidence}
+    return {"team":_team_summary(db,team),"members":members,"sessions":session_rows,"active_sessions":active_session_rows,"evidence":evidence}

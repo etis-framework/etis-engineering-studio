@@ -38,13 +38,15 @@ def test_instructor_review_uses_persisted_reviewer_identity_and_human_counts():
     assert "LAST UPDATED" in JS
 
 
-def test_inspect_focuses_team_detail_and_active_review_is_reachable():
+def test_inspect_focuses_team_detail_and_active_reviews_are_reachable():
     assert "loadTeamDetail(t.id,{focus:true})" in JS
     assert "box.scrollIntoView({" in JS
     assert "behavior:'smooth'" in JS
     assert "block:'start'" in JS
     assert "box.focus({preventScroll:true})" in JS
-    assert "View active review →" in JS
+    assert "activeReviews=d.active_sessions||[]" in JS
+    assert "data-team-active-review" in JS
+    assert "r.student?.name" in JS
 
 
 def test_subcent_ai_costs_are_not_rendered_as_zero():
