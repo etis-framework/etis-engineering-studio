@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, timezone
+from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
@@ -146,11 +147,33 @@ def _require_personal_repository_owner(
         raise HTTPException(403, f"Waiting for repository owner {owner}")
 
 
-def _github_app_authorization_url() -> str:
+def _github_app_authorization_url(conn: RepositoryConnection) -> str:
     settings = get_settings()
     if not settings.github_app_slug:
         raise HTTPException(503, "ETIS GitHub App authorization is not configured")
-    return f"https://github.com/apps/{settings.github_app_slug}/installations/new"
+
+    owner_account_id = str(conn.owner_github_account_id or "").strip()
+    if not owner_account_id:
+        raise HTTPException(
+            409,
+            "Repository owner identity is not ready for GitHub authorization",
+        )
+
+    # Route GitHub's installation/update flow to the immutable account that
+    # owns the nominated repository. This prevents a personal repository from
+    # accidentally opening an unrelated organization installation (and vice
+    # versa) when the browser can access several GitHub accounts/installations.
+    #
+    # We intentionally do not request repository_ids[] here. ETIS does not keep
+    # a broad user OAuth/PAT credential, so a first-time private candidate's
+    # numeric repository ID cannot be safely discovered before App access
+    # exists. The UI therefore requires "Only select repositories" and the
+    # server still fails closed if GitHub reports an all-repositories install.
+    query = urlencode({"suggested_target_id": owner_account_id})
+    return (
+        f"https://github.com/apps/{settings.github_app_slug}"
+        f"/installations/new/permissions?{query}"
+    )
 
 
 def _repository_authorization_context(
@@ -173,7 +196,7 @@ def _repository_authorization_context(
     if conn.owner_type == REPOSITORY_OWNER_USER:
         _require_personal_repository_owner(db, ctx, conn)
 
-    return ctx, team, conn, _github_app_authorization_url()
+    return ctx, team, conn, _github_app_authorization_url(conn)
 
 
 def _repository_context(
