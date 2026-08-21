@@ -1,10 +1,13 @@
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from apps.api.app.db import SessionLocal
 from apps.api.app.main import app
+from apps.api.app.routers.onboarding import _github_app_authorization_url
 from apps.api.app.models import (
     CourseSection,
     CourseTerm,
@@ -206,10 +209,11 @@ def test_personal_repository_authorization_is_exposed_only_to_actual_owner(
 
     assert allowed.status_code == 303
     assert allowed.headers["location"] == (
-        "https://github.com/apps/etis-engineering-studio/installations/new"
+        "https://github.com/apps/etis-engineering-studio/"
+        "installations/new/permissions?"
+        f"suggested_target_id=gh-owner-{suffix}"
     )
-    assert "target_id=" not in allowed.headers["location"]
-    assert "suggested_target_id=" not in allowed.headers["location"]
+    assert "repository_ids" not in allowed.headers["location"]
 
 
 def test_only_personal_repository_owner_can_promote_candidate_to_verified(
@@ -378,10 +382,11 @@ def test_organization_repository_uses_github_native_request_and_exact_verificati
 
     assert requested.status_code == 303
     assert requested.headers["location"] == (
-        "https://github.com/apps/etis-engineering-studio/installations/new"
+        "https://github.com/apps/etis-engineering-studio/"
+        "installations/new/permissions?"
+        f"suggested_target_id=org-{suffix}"
     )
-    assert "target_id=" not in requested.headers["location"]
-    assert "suggested_target_id=" not in requested.headers["location"]
+    assert "repository_ids" not in requested.headers["location"]
 
     github_reads = []
 
@@ -452,3 +457,20 @@ def test_legacy_github_identity_without_immutable_id_requires_relink(monkeypatch
     )
     assert response.status_code == 409
     assert "Reconnect your GitHub identity" in response.json()["detail"]
+
+
+def test_github_app_authorization_target_fails_closed_without_owner_account_id(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "apps.api.app.routers.onboarding.get_settings",
+        lambda: SimpleNamespace(github_app_slug="etis-engineering-studio"),
+    )
+
+    conn = SimpleNamespace(owner_github_account_id="")
+
+    with pytest.raises(HTTPException) as exc_info:
+        _github_app_authorization_url(conn)
+
+    assert exc_info.value.status_code == 409
+    assert "owner identity is not ready" in str(exc_info.value.detail).lower()

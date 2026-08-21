@@ -223,9 +223,11 @@ def test_alice_bob_carol_personal_repository_lifecycle_wargame(monkeypatch):
     )
     assert authorized.status_code == 303
     assert authorized.headers["location"] == (
-        "https://github.com/apps/etis-engineering-studio/installations/new"
+        "https://github.com/apps/etis-engineering-studio/"
+        "installations/new/permissions?"
+        f"suggested_target_id={alice['github_user_id']}"
     )
-    assert "target_id=" not in authorized.headers["location"]
+    assert "repository_ids" not in authorized.headers["location"]
 
     for person in (alice, bob, carol):
         repo_context = _context(person)["sections"][0]["repository"]
@@ -240,7 +242,9 @@ def test_alice_bob_carol_personal_repository_lifecycle_wargame(monkeypatch):
     )
     assert started.status_code == 200
     assert started.json()["authorization_url"] == (
-        "https://github.com/apps/etis-engineering-studio/installations/new"
+        "https://github.com/apps/etis-engineering-studio/"
+        "installations/new/permissions?"
+        f"suggested_target_id={alice['github_user_id']}"
     )
     assert started.json()["authorization_requested_at"]
 
@@ -441,9 +445,11 @@ def test_organization_repository_request_and_verification_are_team_wide(
     )
     assert requested.status_code == 303
     assert requested.headers["location"] == (
-        "https://github.com/apps/etis-engineering-studio/installations/new"
+        "https://github.com/apps/etis-engineering-studio/"
+        "installations/new/permissions?"
+        f"suggested_target_id={org_id}"
     )
-    assert "target_id=" not in requested.headers["location"]
+    assert "repository_ids" not in requested.headers["location"]
 
     for person in people.values():
         context = _context(person)
@@ -459,7 +465,9 @@ def test_organization_repository_request_and_verification_are_team_wide(
     )
     assert started.status_code == 200
     assert started.json()["authorization_url"] == (
-        "https://github.com/apps/etis-engineering-studio/installations/new"
+        "https://github.com/apps/etis-engineering-studio/"
+        "installations/new/permissions?"
+        f"suggested_target_id={org_id}"
     )
 
     for person in people.values():
