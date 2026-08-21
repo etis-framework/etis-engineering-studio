@@ -177,11 +177,16 @@ def test_deploy_workflow_reconciles_foundation_migrates_then_deploys_application
         ],
     )
 
-    foundation = text.index("infra/azure/main.bicep")
-    image_push = text.index("docker push")
-    migration = text.index("infra/azure/migration.bicep")
-    migration_start = text.index("az containerapp job start")
-    application = text.index("infra/azure/app.bicep")
+    # The release gate now compiles every Bicep template before Azure login.
+    # Deployment-order assertions therefore operate on the deploy job only,
+    # not on earlier compile-only references to those same template paths.
+    deploy = text[text.index("  deploy:"):]
+
+    foundation = deploy.index("infra/azure/main.bicep")
+    image_push = deploy.index("docker push")
+    migration = deploy.index("infra/azure/migration.bicep")
+    migration_start = deploy.index("az containerapp job start")
+    application = deploy.index("infra/azure/app.bicep")
 
     assert foundation < image_push < migration < migration_start < application, (
         "deployment order must be foundation -> image -> migration job "
@@ -296,3 +301,8 @@ def test_production_workflow_preserves_custom_domain_binding_configuration():
         r"(?m)^\s+ETIS_MANAGED_CERTIFICATE_NAME\s*$",
         text,
     ), "production deployment must fail closed when managed certificate is missing"
+
+def test_github_app_slug_is_required_by_application_template():
+    text = read_required(APPLICATION)
+    assert "param githubAppSlug string" in text
+    assert "param githubAppSlug string = ''" not in text

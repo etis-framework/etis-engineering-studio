@@ -247,14 +247,31 @@ def has_course_owner_assignment(
     db: Session,
     user_id: int | None,
 ) -> bool:
+    """Return whether the user has current Course Owner authority.
+
+    Archived Course Owner assignments remain historical read authority only.
+    They must never become application-global authority for creating or
+    mutating current/future semesters.
+    """
     if not user_id:
         return False
+
     return (
         db.query(SectionStaff)
-        .filter_by(
-            user_id=user_id,
-            staff_role="course_owner",
-            is_active=True,
+        .join(
+            CourseSection,
+            CourseSection.id == SectionStaff.section_id,
+        )
+        .join(
+            CourseTerm,
+            CourseTerm.id == CourseSection.term_id,
+        )
+        .filter(
+            SectionStaff.user_id == user_id,
+            SectionStaff.staff_role == "course_owner",
+            SectionStaff.is_active.is_(True),
+            CourseSection.is_active.is_(True),
+            CourseTerm.status.in_(MUTABLE_TERM_STATUSES),
         )
         .first()
         is not None

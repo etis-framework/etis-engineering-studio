@@ -58,7 +58,7 @@ param productionTestTeamKey string = 'production-test-team'
 param githubAppId string
 
 @description('GitHub App slug.')
-param githubAppSlug string = ''
+param githubAppSlug string
 
 @description('GitHub OAuth application client ID.')
 param githubOauthClientId string

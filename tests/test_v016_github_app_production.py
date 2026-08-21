@@ -136,6 +136,9 @@ def test_repository_configuration_and_local_docs_expose_no_pat_path():
 
     assert "GITHUB_TOKEN" not in env_example
     assert "GITHUB_TOKEN" not in local_development
+    assert "GITHUB_APP_ID=" in env_example
+    assert "GITHUB_APP_PRIVATE_KEY=" in env_example
+    assert "GITHUB_APP_SLUG=" in env_example
 
 
 from apps.api.app.services.github_app import GitHubAppTokenManager

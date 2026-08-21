@@ -26,8 +26,13 @@ def test_student_readiness_includes_authoritative_phase_release_state():
 
 def test_repository_status_is_derived_from_verified_onboarding_state():
     assert "if(ob.repository_connected)" in JS
-    assert "Repository connected" in JS
-    assert "Repository identified · verification required" in JS
+    assert "Verified team repository" in JS
+    assert "Production acceptance test repository" in JS
+    assert "Repository owner action required" in JS
+    assert "Waiting for repository owner" in JS
+    assert "Repository pending organization approval" in JS
+    assert "Candidate repository · owner not confirmed" in JS
+    assert "Repository identified · verification required" not in JS
     assert "Repository not connected" in JS
     load_context = JS[
         JS.index("async function loadStudentContext"):

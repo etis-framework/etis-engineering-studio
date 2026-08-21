@@ -36,6 +36,18 @@ jobs:
       - name: Check out selected commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
+      - name: Install pinned Bicep CLI
+        run: az bicep install --version v0.46.1
+
+      - name: Compile production Bicep templates
+        run: |
+          set -euo pipefail
+          az bicep build --file infra/azure/main.bicep --stdout >/dev/null
+          az bicep build --file infra/azure/secrets.bicep --stdout >/dev/null
+          az bicep build --file infra/azure/migration.bicep --stdout >/dev/null
+          az bicep build --file infra/azure/app.bicep --stdout >/dev/null
+          az bicep build --file infra/azure/operations.bicep --stdout >/dev/null
+
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
@@ -82,6 +94,7 @@ jobs:
             -e ENTRA_TENANT=11111111-2222-3333-4444-555555555555 \
             -e GITHUB_APP_ID=12345 \
             -e GITHUB_APP_PRIVATE_KEY=ci-placeholder-private-key \
+            -e GITHUB_APP_SLUG=ci-github-app \
             -e GITHUB_OAUTH_CLIENT_ID=ci-github-client \
             -e GITHUB_OAUTH_CLIENT_SECRET=ci-github-secret \
             -e GITHUB_OAUTH_REDIRECT_URI=https://studio.example.edu/auth/github/callback \
@@ -185,6 +198,7 @@ jobs:
             ETIS_PRODUCTION_TEST_SECTION_KEY
             ETIS_PRODUCTION_TEST_TEAM_KEY
             ETIS_GITHUB_APP_ID
+            ETIS_GITHUB_APP_SLUG
             ETIS_GITHUB_APP_PRIVATE_KEY
             ETIS_GITHUB_OAUTH_CLIENT_ID
             ETIS_GITHUB_OAUTH_CLIENT_SECRET

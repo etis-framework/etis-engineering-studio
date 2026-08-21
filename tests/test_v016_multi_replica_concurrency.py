@@ -19,6 +19,34 @@ def _unique_column_sets(table):
     }
 
 
+def _stub_reviewer_conversation(monkeypatch):
+    """Keep concurrency/idempotency tests deterministic and offline."""
+    from apps.api.app.routers import reviews as reviews_router
+
+    def fake_converse(*args, **kwargs):
+        reply = {
+            "text": "Deterministic reviewer follow-up.",
+            "lens": "chief_architect",
+            "provider": "deterministic-test",
+            "kind": "coaching",
+            "reviewer": {
+                "name": "Test Reviewer",
+                "role": "Reviewer",
+            },
+            "target_move": "consequence_visible",
+            "guidance_refs": [],
+            "teach_back": False,
+        }
+        merged = {"consequence_visible": True}
+        evaluation = {
+            "signals": {"consequence_visible": True},
+            "ready_to_commit": False,
+        }
+        return reply, merged, evaluation
+
+    monkeypatch.setattr(reviews_router.engine, "converse", fake_converse)
+
+
 def test_review_turn_schema_enforces_sequence_and_client_idempotency():
     """
     Review turns require database-enforced ordering and idempotency.
@@ -1537,11 +1565,13 @@ def test_review_start_request_id_cannot_be_reused_for_different_payload():
     assert second.status_code == 409, second.text
 
 
-def test_respond_client_turn_id_cannot_be_reused_for_changed_payload():
+def test_respond_client_turn_id_cannot_be_reused_for_changed_payload(monkeypatch):
     """A respond idempotency key must belong to exactly one logical response."""
     from fastapi.testclient import TestClient
 
     from apps.api.app.main import app
+
+    _stub_reviewer_conversation(monkeypatch)
 
     client = TestClient(app)
 
@@ -1589,11 +1619,13 @@ def test_respond_client_turn_id_cannot_be_reused_for_changed_payload():
     assert second.status_code == 409, second.text
 
 
-def test_clarify_client_turn_id_cannot_be_reused_for_changed_payload():
+def test_clarify_client_turn_id_cannot_be_reused_for_changed_payload(monkeypatch):
     """A clarify idempotency key must belong to exactly one logical question."""
     from fastapi.testclient import TestClient
 
     from apps.api.app.main import app
+
+    _stub_reviewer_conversation(monkeypatch)
 
     client = TestClient(app)
 
@@ -1635,11 +1667,13 @@ def test_clarify_client_turn_id_cannot_be_reused_for_changed_payload():
     assert second.status_code == 409, second.text
 
 
-def test_coach_client_turn_id_cannot_be_reused_for_changed_payload():
+def test_coach_client_turn_id_cannot_be_reused_for_changed_payload(monkeypatch):
     """A coach idempotency key must belong to exactly one logical coaching request."""
     from fastapi.testclient import TestClient
 
     from apps.api.app.main import app
+
+    _stub_reviewer_conversation(monkeypatch)
 
     client = TestClient(app)
 
@@ -1681,7 +1715,7 @@ def test_coach_client_turn_id_cannot_be_reused_for_changed_payload():
     assert second.status_code == 409, second.text
 
 
-def test_identical_clarify_retry_preserves_clarify_response_contract():
+def test_identical_clarify_retry_preserves_clarify_response_contract(monkeypatch):
     """
     An idempotent Clarify retry must preserve the Clarify endpoint's normal
     response shape. Browser recovery must receive `reply`, not the generic
@@ -1690,6 +1724,8 @@ def test_identical_clarify_retry_preserves_clarify_response_contract():
     from fastapi.testclient import TestClient
 
     from apps.api.app.main import app
+
+    _stub_reviewer_conversation(monkeypatch)
 
     client = TestClient(app)
 
@@ -1736,7 +1772,7 @@ def test_identical_clarify_retry_preserves_clarify_response_contract():
     assert second_payload["reply"]["text"] == first_payload["reply"]["text"]
 
 
-def test_identical_coach_retry_preserves_coach_response_contract():
+def test_identical_coach_retry_preserves_coach_response_contract(monkeypatch):
     """
     An idempotent Coach retry must preserve the Coach endpoint's normal
     response shape. Browser recovery must receive `reply`, not `follow_up`.
@@ -1744,6 +1780,8 @@ def test_identical_coach_retry_preserves_coach_response_contract():
     from fastapi.testclient import TestClient
 
     from apps.api.app.main import app
+
+    _stub_reviewer_conversation(monkeypatch)
 
     client = TestClient(app)
 

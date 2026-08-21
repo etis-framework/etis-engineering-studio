@@ -664,22 +664,15 @@ def test_student_review_start_cannot_impersonate_another_student():
         },
     )
 
-    assert response.status_code == 200
+    # A mismatched review subject is rejected rather than silently rewritten.
+    # Student-originated accountability remains explicit and fail-closed.
+    assert response.status_code == 403
 
-    payload = response.json()
-
-    # The API must report the authenticated student, not the supplied user_id.
-    assert payload["user"]["id"] == student_a_id
-    assert payload["user"]["id"] != student_b_id
-
-    # More importantly, the persisted Review Room accountability record must
-    # also belong to the authenticated student.
     verify_db = SessionLocal()
     try:
-        session = verify_db.get(ReviewSession, payload["session_id"])
-        assert session is not None
-        assert session.user_id == student_a_id
-        assert session.user_id != student_b_id
+        assert verify_db.query(ReviewSession).filter_by(
+            team_id=team_id
+        ).count() == 0
     finally:
         verify_db.close()
 
@@ -843,12 +836,11 @@ def test_staff_cannot_start_review_for_unassigned_section_team():
     assert response.status_code == 404
 
 
-def test_assigned_staff_can_start_review_for_section_team():
+def test_assigned_staff_can_read_but_cannot_start_student_review():
     """
-    Section-scoped authorization must preserve legitimate teaching-staff use.
-
-    An instructor actively assigned to the team's section may start a review
-    for a student on that team.
+    Teaching-staff Review Room access is read-only unless an endpoint grants
+    an explicit role-bounded staff mutation. An assigned instructor may inspect
+    a persisted student review but may not start one on the student's behalf.
     """
     from uuid import uuid4
 
@@ -988,18 +980,34 @@ def test_assigned_staff_can_start_review_for_section_team():
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 403
 
-    payload = response.json()
-
+    # Read authority remains available for a review that the student actually
+    # owns. Persist a deterministic historical session without asking the
+    # instructor to create it through the student mutation endpoint.
     verify_db = SessionLocal()
     try:
-        session = verify_db.get(ReviewSession, payload["session_id"])
-        assert session is not None
-        assert session.team_id == team_id
-        assert session.user_id == student_id
+        session = ReviewSession(
+            team_id=team_id,
+            user_id=student_id,
+            phase_id="A1",
+            mode="board_review",
+            status="active",
+            scenario_id="staff-read-only",
+            challenge_state_json="{}",
+        )
+        verify_db.add(session)
+        verify_db.commit()
+        review_id=session.id
     finally:
         verify_db.close()
+
+    readable=client.get(
+        f"/api/v1/reviews/{review_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert readable.status_code == 200
+    assert readable.json()["session"]["student"]["id"] == student_id
 
 
 def test_staff_cannot_start_team_review_for_nonmember_student():
@@ -1163,8 +1171,9 @@ def test_staff_cannot_start_team_review_for_nonmember_student():
         },
     )
 
-    # Do not disclose whether the supplied student is valid for another team.
-    assert response.status_code == 404
+    # Teaching-staff read authority never grants permission to start a
+    # student's Review Room session, regardless of the proposed subject.
+    assert response.status_code == 403
 
     verify_db = SessionLocal()
     try:
@@ -3190,18 +3199,29 @@ def test_revoked_staff_role_cannot_impersonate_team_member_when_caller_retains_t
         },
     )
 
-    # The caller still legitimately belongs to the team, so starting their
-    # own review remains valid.
-    assert response.status_code == 200
+    # A stale staff session cannot use a mismatched user_id as an
+    # impersonation attempt. The caller may still start their own review by
+    # explicitly using their own current identity.
+    assert response.status_code == 403
 
-    session_id = response.json()["session_id"]
+    own_response = client.post(
+        "/api/v1/reviews/start",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "team_id": team_id,
+            "user_id": caller_id,
+            "phase_id": "A1",
+            "mode": "board_review",
+            "repo_full_name": authoritative_repo,
+        },
+    )
+    assert own_response.status_code == 200
+
+    session_id = own_response.json()["session_id"]
 
     verify_db = SessionLocal()
     try:
         persisted = verify_db.get(ReviewSession, session_id)
-
-        # Current identity authority, not the stale staff role, determines
-        # whose Review Room record is created.
         assert persisted.user_id == caller_id
         assert persisted.user_id != other_student_id
     finally:
@@ -3778,6 +3798,7 @@ def _set_valid_production_environment(monkeypatch):
     )
     monkeypatch.setenv("GITHUB_APP_ID", "12345")
     monkeypatch.setenv("GITHUB_APP_PRIVATE_KEY", "test-private-key")
+    monkeypatch.setenv("GITHUB_APP_SLUG", "etis-test-app")
 
     monkeypatch.setenv("ENTRA_CLIENT_ID", "test-entra-client")
     monkeypatch.setenv("ENTRA_CLIENT_SECRET", "test-entra-secret")

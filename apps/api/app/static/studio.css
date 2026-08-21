@@ -200,3 +200,253 @@
   grid-template-columns:
     repeat(auto-fit,minmax(140px,1fr));
 }
+
+/* ============================================================
+   Production acceptance: GitHub team-repository onboarding UX
+   ============================================================ */
+
+/*
+   Repository onboarding intentionally distinguishes nomination from trust:
+   candidate -> owner authorization required -> verified team repository.
+   These styles make the current state and the student's next action explicit
+   while preserving the existing amber setup-required visual language.
+*/
+
+.repository-change-controls{
+  display:grid;
+  gap:8px;
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid rgba(240,179,91,.22);
+}
+
+.repository-change-controls label{
+  color:#dce8ec;
+  font-size:11px;
+  font-weight:800;
+}
+
+.repository-change-controls .quiet{
+  margin:0;
+  line-height:1.45;
+}
+
+.repository-change-controls input{
+  width:100%;
+  margin:0;
+  border-color:#3a5360;
+}
+
+.repository-change-controls input:focus{
+  border-color:#5d8b86;
+  box-shadow:0 0 0 3px rgba(114,213,200,.09);
+}
+
+.repository-input-help{
+  display:block;
+  color:#e8bd78;
+  font-size:10.5px;
+  line-height:1.45;
+}
+
+.repository-input-help.valid{
+  color:#86d8a6;
+}
+
+.repository-editor-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:2px;
+}
+
+.repository-primary-action{
+  width:max-content;
+  min-height:38px;
+}
+
+.repository-primary-action:disabled{
+  cursor:not-allowed!important;
+  opacity:.48!important;
+  filter:saturate(.55);
+}
+
+.repository-change-link{
+  align-self:flex-start;
+  margin-top:10px;
+  padding:0;
+  font-size:11px;
+  font-weight:700;
+}
+
+.repository-steps{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-top:13px;
+}
+
+.repository-step{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:6px;
+  min-width:0;
+  padding:13px;
+  border:1px solid #314651;
+  border-radius:11px;
+  background:#0a1821;
+}
+
+.repository-step small{
+  color:#8fa3af;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.11em;
+}
+
+.repository-step b{
+  color:#edf4f7;
+  font-size:12px;
+  line-height:1.35;
+}
+
+.repository-step span{
+  color:#9fb2bb;
+  font-size:11px;
+  line-height:1.5;
+}
+
+.repository-step strong{
+  color:#dce9ed;
+}
+
+.repository-step.active{
+  border-color:rgba(240,179,91,.68);
+  background:linear-gradient(180deg,rgba(240,179,91,.08),#0a1821);
+  box-shadow:0 0 0 1px rgba(240,179,91,.06) inset;
+}
+
+.repository-step.active small{
+  color:#f3c77f;
+}
+
+.repository-step.complete{
+  border-color:rgba(113,212,155,.48);
+  background:linear-gradient(180deg,rgba(113,212,155,.07),#0a1821);
+}
+
+.repository-step.complete small{
+  color:#8edcaf;
+}
+
+.repository-step.locked{
+  opacity:.62;
+  border-style:dashed;
+}
+
+.repository-github-link{
+  width:max-content;
+  max-width:100%;
+  margin-top:auto;
+}
+
+.repository-next-step{
+  display:grid;
+  gap:4px;
+  margin-top:12px;
+  padding:11px 12px;
+  border:1px solid rgba(240,179,91,.36);
+  border-radius:9px;
+  background:rgba(240,179,91,.07);
+}
+
+.repository-next-step small{
+  color:#f0bd72;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.11em;
+}
+
+.repository-next-step b{
+  color:#edf4f7;
+  font-size:11px;
+  line-height:1.4;
+}
+
+.repository-next-step span{
+  color:#a9bac2;
+  font-size:10.5px;
+  line-height:1.45;
+}
+
+.repository-secondary-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+
+.repository-inline-error{
+  display:grid;
+  gap:4px;
+  margin-top:12px;
+  padding:11px 12px;
+  border:1px solid rgba(255,125,117,.52);
+  border-radius:9px;
+  background:rgba(255,125,117,.09);
+  box-shadow:0 0 0 1px rgba(255,125,117,.04) inset;
+}
+
+.repository-inline-error b{
+  color:#ffc1bd;
+  font-size:11px;
+}
+
+.repository-inline-error span{
+  color:#e4b2af;
+  font-size:10.5px;
+  line-height:1.5;
+}
+
+.verified-repository-card{
+  border-color:rgba(113,212,155,.48)!important;
+  background:linear-gradient(135deg,rgba(113,212,155,.08),#0f172a)!important;
+}
+
+.verified-repository-card small{
+  color:#8edcaf!important;
+  font-weight:800;
+}
+
+.repository-primary-action:focus-visible,
+.repository-github-link:focus-visible,
+.repository-change-link:focus-visible,
+.repository-secondary-actions a:focus-visible{
+  outline:3px solid rgba(114,213,200,.35);
+  outline-offset:3px;
+}
+
+@media(max-width:800px){
+  .repository-steps{
+    grid-template-columns:1fr;
+  }
+
+  .repository-editor-actions,
+  .repository-secondary-actions{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .repository-primary-action,
+  .repository-github-link,
+  .repository-editor-actions .text-button,
+  .repository-secondary-actions .link-button{
+    width:100%;
+    max-width:none;
+  }
+}
+
+.detail-head-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}

@@ -107,6 +107,7 @@ jobs:
             -e ENTRA_TENANT=11111111-2222-3333-4444-555555555555 \
             -e GITHUB_APP_ID=12345 \
             -e GITHUB_APP_PRIVATE_KEY=ci-placeholder-private-key \
+            -e GITHUB_APP_SLUG=ci-github-app \
             -e GITHUB_OAUTH_CLIENT_ID=ci-github-client \
             -e GITHUB_OAUTH_CLIENT_SECRET=ci-github-secret \
             -e GITHUB_OAUTH_REDIRECT_URI=https://studio.example.edu/auth/github/callback \

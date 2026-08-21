@@ -274,7 +274,16 @@ def request_identity(request: Request) -> dict|None:
         return None
 
 def github_authorize_url(state: str) -> str:
-    s=get_settings(); q=urlencode({"client_id":s.github_oauth_client_id,"redirect_uri":s.github_oauth_redirect_uri,"scope":"read:user user:email","state":state,"prompt":"select_account"})
+    s=get_settings()
+    q=urlencode({
+        "client_id":s.github_oauth_client_id,
+        "redirect_uri":s.github_oauth_redirect_uri,
+        # ETIS only needs GitHub's public account identity (login + immutable
+        # numeric account ID). Omitting scope is the least-privilege OAuth
+        # request and does not grant access to private profile/email data.
+        "state":state,
+        "prompt":"select_account",
+    })
     return f"https://github.com/login/oauth/authorize?{q}"
 
 def github_exchange(code: str) -> dict:

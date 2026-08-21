@@ -112,6 +112,11 @@ class Settings(BaseSettings):
                     "GITHUB_APP_PRIVATE_KEY must be configured in production"
                 )
 
+            if not self.github_app_slug.strip():
+                raise ValueError(
+                    "GITHUB_APP_SLUG must be configured in production"
+                )
+
             if not self.github_oauth_client_id.strip():
                 raise ValueError(
                     "GITHUB_OAUTH_CLIENT_ID must be configured in production"
