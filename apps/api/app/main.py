@@ -229,7 +229,11 @@ def health():
         "environment": settings.etis_env,
         "entra_sso_ready": bool(settings.entra_client_id and settings.entra_client_secret),
         "github_identity_link_ready": bool(settings.github_oauth_client_id and settings.github_oauth_client_secret),
-        "github_app_ready": bool(settings.github_app_id or settings.github_app_slug),
+        "github_app_ready": bool(
+            settings.github_app_id
+            and settings.github_app_private_key
+            and settings.github_app_slug
+        ),
     }
 
 

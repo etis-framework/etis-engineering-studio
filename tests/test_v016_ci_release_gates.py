@@ -53,6 +53,7 @@ def test_ci_runs_production_container_smoke_test_against_ready_endpoint():
         "ENTRA_TENANT=",
         "GITHUB_APP_ID=",
         "GITHUB_APP_PRIVATE_KEY=",
+        "GITHUB_APP_SLUG=",
         "GITHUB_OAUTH_CLIENT_ID=",
         "GITHUB_OAUTH_CLIENT_SECRET=",
         "OPENAI_API_KEY=",
@@ -138,7 +139,15 @@ def test_manual_deploy_release_gate_revalidates_exact_selected_commit():
         "python -m pip install -r requirements-dev.txt",
         "python -m pytest -q",
         "python scripts/validate_course_model.py",
+        "az bicep install --version v0.46.1",
+        "az bicep build --file infra/azure/main.bicep",
+        "az bicep build --file infra/azure/secrets.bicep",
+        "az bicep build --file infra/azure/migration.bicep",
+        "az bicep build --file infra/azure/app.bicep",
+        "az bicep build --file infra/azure/operations.bicep",
         "docker build -f apps/api/Dockerfile",
+        "GITHUB_APP_SLUG=ci-github-app",
+        "http://127.0.0.1:8000/ready",
     }
 
     missing = sorted(
@@ -198,3 +207,19 @@ def test_manual_deploy_requires_bootstrap_owner_email_and_passes_it_to_bicep():
         "production deployment must explicitly pass the protected bootstrap "
         "owner identity to app.bicep"
     )
+
+def test_manual_deploy_requires_github_app_slug_before_azure_application_deploy():
+    workflow = _text(DEPLOY)
+
+    assert (
+        "ETIS_GITHUB_APP_SLUG: ${{ vars.ETIS_GITHUB_APP_SLUG }}"
+        in workflow
+    )
+    assert re.search(
+        r"(?m)^\s+ETIS_GITHUB_APP_SLUG\s*$",
+        workflow,
+    ), (
+        "production deployment validation must fail closed when the GitHub "
+        "App slug is missing"
+    )
+    assert 'githubAppSlug="${ETIS_GITHUB_APP_SLUG}"' in workflow

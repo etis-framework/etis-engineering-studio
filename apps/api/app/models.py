@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -277,19 +277,48 @@ class GitHubIdentity(Base):
     github_login: Mapped[str] = mapped_column(String(120), unique=True, index=True)
     github_user_id: Mapped[str] = mapped_column(String(80), default="")
     linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (
+        Index(
+            "uq_github_identities_github_user_id_nonempty",
+            "github_user_id",
+            unique=True,
+            sqlite_where=text("github_user_id <> ''"),
+            postgresql_where=text("github_user_id <> ''"),
+        ),
+    )
+
+
+REPOSITORY_STATUS_CANDIDATE = "candidate"
+REPOSITORY_STATUS_OWNER_AUTHORIZATION_REQUIRED = "owner_authorization_required"
+REPOSITORY_STATUS_VERIFIED = "verified"
+
+REPOSITORY_OWNER_USER = "User"
+REPOSITORY_OWNER_ORGANIZATION = "Organization"
 
 
 class RepositoryConnection(Base):
+    """
+    Team repository onboarding state.
+
+    ``repo_full_name`` is the current nominated candidate until ``status`` is
+    ``verified``. ``Team.repo_full_name`` remains the authoritative evidence
+    source and must not be populated from an unverified candidate.
+    """
+
     __tablename__ = "repository_connections"
     id: Mapped[int] = mapped_column(primary_key=True)
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), unique=True, index=True)
     repo_full_name: Mapped[str] = mapped_column(String(260), index=True)
     clone_url: Mapped[str] = mapped_column(String(500))
-    status: Mapped[str] = mapped_column(String(40), default="identified")
+    status: Mapped[str] = mapped_column(String(40), default=REPOSITORY_STATUS_CANDIDATE)
+    owner_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    owner_login: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    owner_github_account_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
     github_app_installed: Mapped[bool] = mapped_column(Boolean, default=False)
     installation_id: Mapped[str] = mapped_column(String(100), default="")
     connected_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     connected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    authorization_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 

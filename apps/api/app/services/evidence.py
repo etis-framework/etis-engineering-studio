@@ -12,6 +12,7 @@ from ..config import get_settings
 from .course_model import get_phase
 from .evidence_assessor import SemanticEvidenceAssessor
 from .github_app import manager as github_app_manager
+from .repository_policy import is_comp330_starter_kit
 from .repository_intelligence import (
     ArtifactFact,
     ReviewFinding,
@@ -94,9 +95,18 @@ class GitHubEvidenceProvider:
 
     def _headers_for(self, repo_full_name: str):
         headers=dict(self.headers)
+
+        # The shared starter kit is a known public acceptance fixture. It is
+        # intentionally fetched without credentials. Whether it may become a
+        # team's authoritative repository is enforced separately by onboarding
+        # and is limited to the configured production-test student identity.
+        if is_comp330_starter_kit(repo_full_name):
+            return headers
+
         if 'Authorization' not in headers and github_app_manager.configured():
             installation=github_app_manager.token_for_repo(repo_full_name)
             headers['Authorization']=f'Bearer {installation.token}'
+
         return headers
 
     def _json_count(self, response, exclude_prs=False):

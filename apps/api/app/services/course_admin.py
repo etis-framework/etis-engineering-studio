@@ -1,5 +1,6 @@
 from __future__ import annotations
 import csv, io, re
+from urllib.parse import urlsplit
 from datetime import datetime, timedelta, timezone, time
 from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
@@ -147,12 +148,75 @@ def roster_rows(db: Session, section_id: int):
     return sorted(rows,key=lambda x:x["name"])
 
 
-def repo_name_from_clone(value: str) -> tuple[str,str]:
-    value=(value or "").strip()
-    m=re.match(r"https://github\.com/([^/]+)/([^/]+?)(?:\.git)?/?$",value,re.I)
-    if not m: raise ValueError("Use the HTTPS Git clone URL, for example https://github.com/owner/repository.git")
-    owner,repo=m.group(1),m.group(2)
-    return f"{owner}/{repo}",f"https://github.com/{owner}/{repo}.git"
+def repo_name_from_clone(value: str) -> tuple[str, str]:
+    """Return a canonical GitHub owner/repository name and HTTPS clone URL.
+
+    Repository nomination is a security boundary. Accept only an unambiguous
+    HTTPS github.com URL containing exactly one owner and one repository path.
+    Credentials, ports, query strings, fragments, extra path segments, and
+    malformed GitHub account/repository names are rejected server-side.
+    """
+    value = (value or "").strip()
+
+    try:
+        parsed = urlsplit(value)
+    except ValueError as exc:
+        raise ValueError(
+            "Use the HTTPS Git clone URL, for example "
+            "https://github.com/owner/repository.git"
+        ) from exc
+
+    try:
+        parsed_port = parsed.port
+    except ValueError as exc:
+        raise ValueError(
+            "Use an HTTPS GitHub repository URL with no credentials, port, "
+            "query string, or fragment"
+        ) from exc
+
+    if (
+        parsed.scheme.casefold() != "https"
+        or parsed.hostname is None
+        or parsed.hostname.casefold() != "github.com"
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed_port is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError(
+            "Use an HTTPS GitHub repository URL with no credentials, port, "
+            "query string, or fragment"
+        )
+
+    normalized_path = parsed.path[:-1] if parsed.path.endswith("/") else parsed.path
+    parts = normalized_path.split("/")
+    if (
+        len(parts) != 3
+        or parts[0] != ""
+        or not parts[1]
+        or not parts[2]
+    ):
+        raise ValueError(
+            "Use the HTTPS Git clone URL, for example "
+            "https://github.com/owner/repository.git"
+        )
+
+    owner, repo = parts[1], parts[2]
+    if repo.casefold().endswith(".git"):
+        repo = repo[:-4]
+
+    owner_pattern = re.compile(
+        r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"
+    )
+    repo_pattern = re.compile(r"^[A-Za-z0-9._-]{1,100}$")
+
+    if not owner_pattern.fullmatch(owner) or "--" in owner:
+        raise ValueError("GitHub repository owner name is invalid")
+    if repo in {".", ".."} or not repo_pattern.fullmatch(repo):
+        raise ValueError("GitHub repository name is invalid")
+
+    return f"{owner}/{repo}", f"https://github.com/{owner}/{repo}.git"
 
 
 def suggest_project_name(repo_full_name: str) -> str:

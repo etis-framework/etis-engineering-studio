@@ -13,9 +13,27 @@ def test_student_review_room_surfaces_setup_readiness():
     assert "function renderStudentReadiness()" in JS
     assert "ob.github_identity" in JS
     assert "ob.repository_connected" in JS
-    assert "Finish GitHub setup before your first review" in JS
-    assert "Connect your team repository before starting a review" in JS
-    assert "Only one teammate needs to connect and verify the repository" in JS
+    assert "Connect your GitHub account" in JS
+    assert "Nominate your team repository" in JS
+    assert "Action required — complete your team's repository connection" in JS
+    assert "Waiting for repository owner" in JS
+    assert "Repository access pending organization approval" in JS
+    assert "STEP 1 OF 2" in JS
+    assert "STEP 2 OF 2" in JS
+    assert "Authorize ETIS on GitHub" in JS
+    assert "Request organization access on GitHub" in JS
+    assert "Check & verify repository access" in JS
+    assert "No action is required from you right now" in JS
+    assert "Change linked GitHub account" in JS
+    assert "Retry owner check" in JS
+    assert "Repository wrong? Use a different repository" in JS
+    assert "Production acceptance test repository" in JS
+    assert "window.open('about:blank','_blank')" in JS
+    assert "/repository/authorize`,{method:'POST'}" in JS
+    assert "validGitHubRepositoryUrl" in JS
+    assert "repository-inline-error" in CSS
+    assert "Install / authorize GitHub App" not in JS
+    assert "I've authorized ETIS — verify access" not in JS
 
 
 def test_review_start_is_blocked_until_student_setup_is_ready():

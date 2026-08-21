@@ -24,6 +24,7 @@ from ..services.auth import (
     require_section_role,
     require_team_access,
 )
+from ..services.semester_lifecycle import active_student_section_ids, require_team_mutable
 
 router = APIRouter(prefix="/api/v1/reviews", tags=["reviews"], dependencies=[Depends(require_authenticated)])
 
@@ -350,7 +351,7 @@ def _save_memory(state: dict, reply: dict):
 
 
 
-def _authorize_session(
+def _authorize_session_read(
     db: Session,
     session: ReviewSession,
     ctx: dict,
@@ -358,13 +359,16 @@ def _authorize_session(
     if ctx.get("role") == "developer":
         return
 
-    # A student always retains access to their own Review Room conversation.
+    # A student may read their own Review Room only while that team's term
+    # still grants current student access. Archived-term history is retained
+    # for authorized teaching-staff inspection but is no longer student-visible.
     if session.user_id == ctx.get("uid"):
+        require_team_access(db, ctx, session.team_id)
         return
 
-    # Access to another student's review requires current database-backed
-    # teaching-staff authority for the team's section. A stale role embedded
-    # in an unexpired session token is not sufficient.
+    # Authorized teaching staff may inspect persisted review history, but this
+    # helper grants read authority only. Mutation endpoints must use a stricter
+    # student or explicitly role-bounded mutation helper below.
     section_link = (
         db.query(TeamSection)
         .filter_by(team_id=session.team_id)
@@ -388,6 +392,77 @@ def _authorize_session(
             status_code=403,
             detail="You are not authorized to access this review conversation",
         ) from exc
+
+
+def _authorize_session_student_mutation(
+    db: Session,
+    session: ReviewSession,
+    ctx: dict,
+) -> int | None:
+    """Authorize a student-originated Review Room mutation.
+
+    Teaching-staff read access never implies authority to speak, decide,
+    complete, coach, or dispute evidence as the student. The local developer
+    identity remains available only for deterministic development fixtures.
+    """
+    if ctx.get("role") == "developer":
+        return None
+
+    user_id = ctx.get("uid")
+    if not user_id or session.user_id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the student who owns this review may perform that action",
+        )
+
+    # Re-resolve active semester/team authority from current database state.
+    require_team_access(db, ctx, session.team_id)
+    require_team_mutable(db, session.team_id)
+    membership = db.query(TeamMembership).filter_by(
+        team_id=session.team_id,
+        user_id=user_id,
+    ).first()
+    if not membership:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the student who owns this review may perform that action",
+        )
+
+    return user_id
+
+
+FINDING_VALIDATION_STAFF_ROLES = {"course_owner", "instructor"}
+
+
+def _authorize_finding_disposition_mutation(
+    db: Session,
+    session: ReviewSession,
+    ctx: dict,
+    status: str,
+) -> int | None:
+    if status not in {"confirmed", "corrected", "resolved"}:
+        return _authorize_session_student_mutation(db, session, ctx)
+
+    if ctx.get("role") == "developer":
+        return None
+
+    require_team_mutable(db, session.team_id)
+    section_link = db.query(TeamSection).filter_by(
+        team_id=session.team_id
+    ).first()
+    if not section_link:
+        raise HTTPException(
+            status_code=403,
+            detail="This finding state requires current Instructor or Course Owner validation",
+        )
+
+    require_section_role(
+        db,
+        ctx,
+        section_link.section_id,
+        FINDING_VALIDATION_STAFF_ROLES,
+    )
+    return ctx.get("uid")
 @router.get("")
 def list_reviews(request:Request, team_id: int | None = None, user_id: int | None = None, limit: int = 12, db: Session = Depends(get_db)):
     ctx = auth_context(request)
@@ -427,9 +502,22 @@ def list_reviews(request:Request, team_id: int | None = None, user_id: int | Non
                 ReviewSession.team_id.in_(authorized_team_ids)
             )
         else:
-            # No current teaching-staff authority: self-service only. This
-            # deliberately ignores any stale staff role embedded in the token.
+            # No current teaching-staff authority: self-service only. Restrict
+            # enumeration to teams in the caller's currently active student
+            # sections so retained archived-term review history is not exposed
+            # merely because the user has another active Studio enrollment.
             user_id = caller_user_id
+            active_section_ids = active_student_section_ids(db, caller_user_id)
+            if not active_section_ids:
+                query = query.filter(ReviewSession.id == -1)
+            else:
+                active_team_ids = (
+                    db.query(TeamSection.team_id)
+                    .filter(TeamSection.section_id.in_(active_section_ids))
+                )
+                query = query.filter(
+                    ReviewSession.team_id.in_(active_team_ids)
+                )
 
     if team_id:
         # Explicit team selection must independently satisfy the current
@@ -651,42 +739,27 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
     ctx = auth_context(request)
     team = require_team_access(db, ctx, team.id)
 
-    # Selecting another person as the subject of a Review Room session is
-    # privileged authority. Derive that authority from current database state,
-    # never from a staff role embedded in an already-issued session token.
-    can_select_review_subject = ctx.get("role") == "developer"
-
-    if not can_select_review_subject:
-        section_ids = accessible_section_ids(db, ctx)
-
-        if section_ids is None:
-            # Active course-owner authority is intentionally global.
-            can_select_review_subject = True
-        else:
-            section_link = (
-                db.query(TeamSection)
-                .filter_by(team_id=team.id)
-                .first()
-            )
-            can_select_review_subject = bool(
-                section_link
-                and section_link.section_id in section_ids
-            )
-
-    if not can_select_review_subject:
-        # The authenticated caller is authoritative. A stale staff token must
-        # not preserve the ability to create a review attributed to another
-        # team member.
-        req.user_id = ctx.get("uid")
-
-        if not db.query(TeamMembership).filter_by(
-            team_id=team.id,
-            user_id=req.user_id,
-        ).first():
+    # Review Room sessions are student-owned. Teaching staff may inspect the
+    # persisted conversation but cannot start a review on a student's behalf.
+    # Development fixtures may still name a seeded subject explicitly.
+    if ctx.get("role") != "developer":
+        caller_user_id = ctx.get("uid")
+        if not caller_user_id or (req.user_id is not None and req.user_id != caller_user_id):
             raise HTTPException(
                 status_code=403,
-                detail="You are not assigned to this team",
+                detail="Only the student may start their Review Room session",
             )
+
+        membership = db.query(TeamMembership).filter_by(
+            team_id=team.id,
+            user_id=caller_user_id,
+        ).first()
+        if not membership:
+            raise HTTPException(
+                status_code=403,
+                detail="Only a current student team member may start a review",
+            )
+        req.user_id = caller_user_id
 
     user = db.get(User, req.user_id) if req.user_id else None
     if not user or not user.is_active:
@@ -760,7 +833,7 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
                     "client_request_id was already used for a different review start request",
                 )
 
-            _authorize_session(
+            _authorize_session_student_mutation(
                 db,
                 existing_session,
                 auth_context(request),
@@ -939,7 +1012,7 @@ def get_review(session_id: int, request:Request, db: Session = Depends(get_db)):
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(db, session, auth_context(request))
+    _authorize_session_read(db, session, auth_context(request))
     turns = db.query(ReviewTurn).filter_by(session_id=session_id).order_by(ReviewTurn.sequence).all()
     state = _safe_json(session.challenge_state_json, {})
     snapshot = db.get(EvidenceSnapshot, state.get("evidence_snapshot_id")) if state.get("evidence_snapshot_id") else None
@@ -983,7 +1056,7 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(db, session, auth_context(request))
+    _authorize_session_student_mutation(db, session, auth_context(request))
     if session.status != "active":
         raise HTTPException(409, "Review session is not active")
     duplicate = _idempotent_result(
@@ -1018,7 +1091,7 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
             raise HTTPException(404, "Review session not found")
 
         session = locked_session
-        _authorize_session(db, session, auth_context(request))
+        _authorize_session_student_mutation(db, session, auth_context(request))
         if session.status != "active":
             raise HTTPException(409, "Review session is not active")
 
@@ -1085,7 +1158,7 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(db, session, auth_context(request))
+    _authorize_session_student_mutation(db, session, auth_context(request))
     if session.status != "active":
         raise HTTPException(409, "Review session is not active")
     duplicate = _idempotent_result(
@@ -1120,7 +1193,7 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
             raise HTTPException(404, "Review session not found")
 
         session = locked_session
-        _authorize_session(db, session, auth_context(request))
+        _authorize_session_student_mutation(db, session, auth_context(request))
         if session.status != "active":
             raise HTTPException(409, "Review session is not active")
 
@@ -1189,7 +1262,7 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(db, session, auth_context(request))
+    _authorize_session_student_mutation(db, session, auth_context(request))
     if session.status != "active":
         raise HTTPException(409, "Review session is not active")
 
@@ -1228,7 +1301,7 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
         # Re-evaluate authorization and mutable session state after acquiring
         # the database lock because another replica may have committed changes
         # while this request was waiting.
-        _authorize_session(db, session, auth_context(request))
+        _authorize_session_student_mutation(db, session, auth_context(request))
         if session.status != "active":
             raise HTTPException(409, "Review session is not active")
 
@@ -1306,7 +1379,7 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(db, session, auth_context(request))
+    _authorize_session_student_mutation(db, session, auth_context(request))
 
     lock = _session_lock(session_id)
     if not lock.acquire(blocking=False):
@@ -1330,7 +1403,7 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
 
         # Authorization and mutable state must be re-evaluated after waiting
         # for another replica's transaction to finish.
-        _authorize_session(db, session, auth_context(request))
+        _authorize_session_student_mutation(db, session, auth_context(request))
         if session.status != "active":
             raise HTTPException(409, "Review session is not active")
 
@@ -1357,7 +1430,7 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
             )
 
         # Authority may have changed while waiting for the snapshot lock.
-        _authorize_session(db, session, auth_context(request))
+        _authorize_session_student_mutation(db, session, auth_context(request))
 
         evidence = _safe_json(snapshot.summary_json, {})
 
@@ -1615,7 +1688,9 @@ def finding_disposition(
         raise HTTPException(404, "Review session not found")
 
     ctx = auth_context(request)
-    _authorize_session(db, session, ctx)
+    actor_user_id = _authorize_finding_disposition_mutation(
+        db, session, ctx, req.status
+    )
     if session.status != "active":
         raise HTTPException(409, "Review session is not active")
 
@@ -1640,7 +1715,9 @@ def finding_disposition(
 
         session = locked_session
         ctx = auth_context(request)
-        _authorize_session(db, session, ctx)
+        actor_user_id = _authorize_finding_disposition_mutation(
+            db, session, ctx, req.status
+        )
         if session.status != "active":
             raise HTTPException(409, "Review session is not active")
 
@@ -1668,36 +1745,11 @@ def finding_disposition(
         # snapshot lock. Re-read the session before committing shared state.
         db.refresh(session)
         ctx = auth_context(request)
-        _authorize_session(db, session, ctx)
+        actor_user_id = _authorize_finding_disposition_mutation(
+            db, session, ctx, req.status
+        )
         if session.status != "active":
             raise HTTPException(409, "Review session is not active")
-
-        # Students may express disposition and risk decisions, but they cannot
-        # unilaterally declare a board finding confirmed/corrected/resolved.
-        # Those states require current database-backed teaching-staff authority
-        # or the local developer identity.
-        if req.status in {"confirmed", "corrected", "resolved"}:
-            if ctx.get("role") != "developer":
-                section_link = (
-                    db.query(TeamSection)
-                    .filter_by(team_id=session.team_id)
-                    .first()
-                )
-                if not section_link:
-                    raise HTTPException(
-                        status_code=403,
-                        detail=(
-                            "This finding state requires board evidence validation "
-                            "or teaching-staff action"
-                        ),
-                    )
-
-                require_section_role(
-                    db,
-                    ctx,
-                    section_link.section_id,
-                    STAFF_ROLES,
-                )
 
         _upsert_finding_state(
             db,
@@ -1705,7 +1757,7 @@ def finding_disposition(
             snapshot_id=snapshot.id,
             finding_id=finding_id,
             status=req.status,
-            user_id=session.user_id,
+            user_id=actor_user_id or session.user_id,
             evidence_path=req.evidence_path,
             rationale=req.rationale,
         )
@@ -1726,7 +1778,7 @@ def commit_position(session_id: int, request:Request, db: Session = Depends(get_
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(db, session, auth_context(request))
+    _authorize_session_student_mutation(db, session, auth_context(request))
 
     lock = _session_lock(session_id)
     if not lock.acquire(blocking=False):
@@ -1749,7 +1801,7 @@ def commit_position(session_id: int, request:Request, db: Session = Depends(get_
         session = locked_session
 
         # Re-check authority and mutable state after any database lock wait.
-        _authorize_session(db, session, auth_context(request))
+        _authorize_session_student_mutation(db, session, auth_context(request))
         if session.status != "active":
             raise HTTPException(409, "Review session is not active")
 
@@ -1849,7 +1901,7 @@ def complete(session_id: int, request:Request, db: Session = Depends(get_db)):
     session = db.get(ReviewSession, session_id)
     if not session:
         raise HTTPException(404, "Review session not found")
-    _authorize_session(db, session, auth_context(request))
+    _authorize_session_student_mutation(db, session, auth_context(request))
 
     lock = _session_lock(session_id)
     if not lock.acquire(blocking=False):
@@ -1871,7 +1923,7 @@ def complete(session_id: int, request:Request, db: Session = Depends(get_db)):
         session = locked_session
 
         # Re-check authority after waiting for any competing replica.
-        _authorize_session(db, session, auth_context(request))
+        _authorize_session_student_mutation(db, session, auth_context(request))
 
         # Completion is idempotent. A retry must not rewrite the historical
         # completion timestamp.

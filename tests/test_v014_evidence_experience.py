@@ -35,7 +35,8 @@ def test_engineering_evidence_workspace_has_interactive_surfaces():
         assert marker in html
     for behavior in ['configureFocusedFromEvidence','configureFindingFromEvidence','renderEngineeringEvidence','loadEngineeringEvidence']:
         assert behavior in js
-    assert 'target="_blank" rel="noopener noreferrer"' in js
+    assert 'id="artifactExternalLink"' in html
+    assert 'target="_blank" rel="noopener noreferrer"' in html
 
 
 def test_current_evidence_endpoint_returns_same_frozen_snapshot():

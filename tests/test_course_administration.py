@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from apps.api.app.main import app
 
@@ -154,3 +155,151 @@ def test_reviewer_instructor_intelligence_is_limited_to_assigned_sections():
     second=created.json()['id']; token=_staff_token(first,'reviewer'); headers={'Authorization':f'Bearer {token}'}
     assert client.get('/api/v1/instructor/overview',headers=headers).status_code==200
     assert client.get(f'/api/v1/instructor/overview?section_id={second}',headers=headers).status_code==403
+
+
+def test_github_repository_url_parser_accepts_only_canonical_https_urls():
+    import pytest
+    from apps.api.app.services.course_admin import repo_name_from_clone
+
+    assert repo_name_from_clone(
+        "https://github.com/example-owner/team_repo.git"
+    ) == (
+        "example-owner/team_repo",
+        "https://github.com/example-owner/team_repo.git",
+    )
+    assert repo_name_from_clone(
+        "https://github.com/example-owner/team_repo/"
+    ) == (
+        "example-owner/team_repo",
+        "https://github.com/example-owner/team_repo.git",
+    )
+
+    rejected = [
+        "http://github.com/example-owner/team_repo.git",
+        "git://github.com/example-owner/team_repo.git",
+        "git@github.com:example-owner/team_repo.git",
+        "https://user:secret@github.com/example-owner/team_repo.git",
+        "https://github.com:443/example-owner/team_repo.git",
+        "https://github.com:abc/example-owner/team_repo.git",
+        "https://github.com/example-owner/team_repo.git?ref=main",
+        "https://github.com/example-owner/team_repo.git#readme",
+        "https://github.com/example-owner/team_repo/tree/main",
+        "https://github.com/example-owner//team_repo.git",
+        "https://github.com/-example/team_repo.git",
+        "https://github.com/example-/team_repo.git",
+        "https://github.com/example--owner/team_repo.git",
+        "https://github.com/example-owner/team%2Frepo.git",
+        "https://github.com/example-owner/team repo.git",
+    ]
+
+    for value in rejected:
+        with pytest.raises(ValueError):
+            repo_name_from_clone(value)
+
+
+@pytest.mark.parametrize("role", ["ta", "reviewer"])
+def test_read_only_staff_cannot_mutate_team_repository_or_project(role):
+    seed=client.post('/api/v1/dev/seed').json()
+    setup=client.get('/api/v1/admin/setup').json()
+    section=setup['terms'][0]['sections'][0]['id']
+    token=_staff_token(section,role)
+    headers={'Authorization':f'Bearer {token}'}
+
+    # Read access remains available.
+    assert client.get(
+        f'/api/v1/admin/sections/{section}/students',
+        headers=headers,
+    ).status_code==200
+
+    # Generic team-read authority must not become configuration authority.
+    project=client.put(
+        f'/api/v1/onboarding/teams/{seed["team_id"]}/project',
+        headers=headers,
+        json={'project_name':'Unauthorized Project Change'},
+    )
+    assert project.status_code==403
+
+    nominate=client.post(
+        f'/api/v1/onboarding/teams/{seed["team_id"]}/repository',
+        headers=headers,
+        json={'clone_url':'https://github.com/example/unauthorized.git'},
+    )
+    assert nominate.status_code==403
+
+    verify=client.post(
+        f'/api/v1/onboarding/teams/{seed["team_id"]}/repository/verify',
+        headers=headers,
+    )
+    assert verify.status_code==403
+
+    reset=client.post(
+        f'/api/v1/onboarding/teams/{seed["team_id"]}/repository/reset',
+        headers=headers,
+    )
+    assert reset.status_code==403
+
+
+def test_instructor_repository_reset_preserves_historical_engineering_records():
+    import json
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import (
+        EvidenceSnapshot,
+        RepositoryConnection,
+        ReviewSession,
+        Team,
+    )
+
+    seed=client.post('/api/v1/dev/seed').json()
+    setup=client.get('/api/v1/admin/setup').json()
+    section=setup['terms'][0]['sections'][0]['id']
+    token=_staff_token(section,'instructor')
+    headers={'Authorization':f'Bearer {token}'}
+
+    db=SessionLocal()
+    try:
+        snapshot=EvidenceSnapshot(
+            team_id=seed['team_id'],
+            phase_id='A1',
+            source='reset-preservation-test',
+            commit_sha='frozen-before-reset',
+            summary_json='{"frozen":true}',
+        )
+        db.add(snapshot)
+        db.flush()
+        review=ReviewSession(
+            team_id=seed['team_id'],
+            user_id=seed['user_id'],
+            phase_id='A1',
+            mode='board_review',
+            status='completed',
+            scenario_id='reset-history',
+            challenge_state_json=json.dumps({'evidence_snapshot_id':snapshot.id}),
+        )
+        db.add(review)
+        db.commit()
+        snapshot_id=snapshot.id
+        review_id=review.id
+        assert db.query(RepositoryConnection).filter_by(
+            team_id=seed['team_id']
+        ).one().status in {'verified','connected'}
+    finally:
+        db.close()
+
+    response=client.post(
+        f'/api/v1/onboarding/teams/{seed["team_id"]}/repository/reset',
+        headers=headers,
+    )
+    assert response.status_code==200
+    assert response.json()['status']=='no_repository'
+
+    db=SessionLocal()
+    try:
+        team=db.get(Team,seed['team_id'])
+        assert team.repo_full_name==''
+        assert db.query(RepositoryConnection).filter_by(
+            team_id=seed['team_id']
+        ).first() is None
+        assert db.get(EvidenceSnapshot,snapshot_id) is not None
+        assert db.get(ReviewSession,review_id) is not None
+    finally:
+        db.close()

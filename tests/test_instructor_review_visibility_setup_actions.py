@@ -81,7 +81,7 @@ def test_required_my_team_actions_use_amber_setup_semantics():
     assert "setup-required-card" in JS
     assert "setup-required-label" in JS
     assert "setup-required-action" in JS
-    assert "SETUP REQUIRED · TEAM REPOSITORY" in JS
-    assert "SETUP REQUIRED · GITHUB IDENTITY" in JS
+    assert "ACTION REQUIRED · TEAM REPOSITORY" in JS
+    assert "ACTION REQUIRED · GITHUB IDENTITY" in JS
     assert ".setup-required-card" in CSS
     assert "var(--amber)" in CSS

@@ -1,12 +1,14 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
+from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from ..db import get_db
 from ..config import get_settings
 from ..models import User, InstitutionalIdentity, SectionEnrollment, GitHubIdentity, SectionStaff
 from ..services.auth import (github_authorize_url, github_exchange, entra_authorize_url, entra_exchange, resolve_entra_identity,
-    create_session_token, request_identity, COOKIE_NAME, highest_staff_role,
+    create_session_token, request_identity, auth_context, COOKIE_NAME, highest_staff_role,
     create_flow_state, parse_flow_state, request_session_token,
     revoke_session_token, csrf_token_for_session)
 from ..services.course_admin import ensure_term, ensure_section, generate_schedule
@@ -100,19 +102,102 @@ def github_link(request:Request):
     if not ident: raise HTTPException(401,"Sign in with Loyola before connecting GitHub")
     s=get_settings()
     if not s.github_oauth_client_id: raise HTTPException(503,"GitHub identity linking is not configured")
-    state=create_flow_state("github-link",{"user_id":ident["uid"]}); return RedirectResponse(github_authorize_url(state))
+    state=create_flow_state(
+        "github-link",
+        {"user_id":ident["uid"], "session_id":ident["sid"]},
+    )
+    return RedirectResponse(github_authorize_url(state))
 
 @router.get("/github/callback")
-def github_callback(code:str,state:str,db:Session=Depends(get_db)):
+def github_callback(
+    code:str,
+    state:str,
+    request:Request,
+    db:Session=Depends(get_db),
+):
     pending=parse_flow_state(state,"github-link")
-    profile=github_exchange(code); login=profile["login"]
+
+    # Signed OAuth state identifies the flow, but it is not authentication.
+    # Require the still-valid, revocation-aware Studio session that initiated
+    # the link and bind the callback to that same Studio user before exchanging
+    # the GitHub code or mutating identity state.
+    studio_identity=auth_context(request)
+    if studio_identity.get("role") == "developer":
+        raise HTTPException(403,"GitHub identity linking requires a Studio user session")
+
+    state_user_id=pending.get("user_id")
+    state_session_id=pending.get("session_id")
+    if (
+        not state_user_id
+        or not state_session_id
+        or studio_identity.get("uid") != state_user_id
+        or studio_identity.get("sid") != state_session_id
+    ):
+        raise HTTPException(403,"GitHub authorization does not match the initiating Studio session")
+
+    profile=github_exchange(code)
+
+    login=str(profile.get("login") or "").strip()
+    github_user_id=str(profile.get("id") or "").strip()
+
+    if not login or not github_user_id:
+        raise HTTPException(
+            401,
+            "GitHub identity response was incomplete",
+        )
+
     if pending.get("kind")=="github-link":
-        user_id=pending["user_id"]; conflict=db.query(GitHubIdentity).filter_by(github_login=login).first()
-        if conflict and conflict.user_id!=user_id: raise HTTPException(409,"That GitHub identity is already linked to another Studio user")
-        link=db.query(GitHubIdentity).filter_by(user_id=user_id).first()
-        if not link: link=GitHubIdentity(user_id=user_id,github_login=login,github_user_id=str(profile.get("id", ""))); db.add(link)
-        else: link.github_login=login; link.github_user_id=str(profile.get("id", ""))
-        db.commit(); return RedirectResponse("/?github=linked")
+        user_id=pending["user_id"]
+
+        # GitHub login names can change. The immutable GitHub account ID is
+        # therefore part of the authorization boundary, not display data.
+        conflict=(
+            db.query(GitHubIdentity)
+            .filter(
+                or_(
+                    func.lower(GitHubIdentity.github_login)
+                    == login.casefold(),
+                    GitHubIdentity.github_user_id == github_user_id,
+                )
+            )
+            .first()
+        )
+
+        if conflict and conflict.user_id!=user_id:
+            raise HTTPException(
+                409,
+                "That GitHub identity is already linked to another Studio user",
+            )
+
+        link=(
+            db.query(GitHubIdentity)
+            .filter_by(user_id=user_id)
+            .first()
+        )
+
+        if not link:
+            link=GitHubIdentity(
+                user_id=user_id,
+                github_login=login,
+                github_user_id=github_user_id,
+            )
+            db.add(link)
+        else:
+            # Legitimate rename of the same GitHub account.
+            link.github_login=login
+            link.github_user_id=github_user_id
+
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                409,
+                "That GitHub identity is already linked to another Studio user",
+            ) from exc
+
+        return RedirectResponse("/?github=linked")
+
     raise HTTPException(400,"Unsupported GitHub authorization flow")
 
 @router.post("/logout", status_code=204)
