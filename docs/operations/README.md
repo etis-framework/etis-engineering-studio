@@ -2,40 +2,68 @@
 
 > **Status:** Production operational readiness is **GO** as of 2026-08-21.
 
-This directory contains the runbooks and historical gate records used to operate ETIS Engineering Studio in production.
+This directory contains the production runbooks, recovery procedures, live
+acceptance evidence, and historical gate records used to operate ETIS
+Engineering Studio.
+
+## Gate 16 and Gate 17 relationship
+
+These artifacts originated in **Gate 16 — Operations, Recovery, and Production
+Readiness** and were consumed by **Gate 17 — Final Pre-Azure Go/No-Go**.
+
+Gate 16 deliberately separated:
+
+- controls proven during **pre-deployment** hardening;
+- controls continuously verified in CI;
+- controls requiring **post-provisioning** Azure **evidence**;
+- final production-access decisions.
+
+An explicit Gate 17 GO authorized Azure provisioning/deployment. It did not by
+itself authorize normal student production use. After provisioning, the live
+Gate 16 evidence was collected and evaluated through Post-Provisioning
+Production Acceptance, which reached GO on 2026-08-21.
 
 ## Current operator documents
 
 ### `PRODUCTION_OPERATIONS_RUNBOOK.md`
 
-Day-to-day production operation, health/readiness interpretation, telemetry, alert handling, deployment/rollback posture, semester operation, and evidence collection.
+Day-to-day production operation, `/health` and `/ready` interpretation,
+telemetry, alert handling, deployment/rollback posture, semester operation, and
+evidence collection.
 
 ### `INCIDENT_RESPONSE_RUNBOOK.md`
 
-Incident declaration, triage, containment, credential response, evidence preservation, communication, and recovery.
+Incident declaration, triage, containment, credential response, evidence
+preservation, communication, and recovery.
 
 ### `DATABASE_RECOVERY_RUNBOOK.md`
 
-PostgreSQL backup/PITR recovery procedure. A real non-destructive production PITR exercise passed on 2026-08-21.
+PostgreSQL backup and **point-in-time restore** procedure, restore to a separate
+server, private-network validation, Alembic compatibility, Key Vault cutover,
+`/ready` validation, rollback, and RTO/RPO measurement. A real non-destructive
+production point-in-time restore exercise passed on 2026-08-21.
 
 ### `POST_PROVISIONING_PRODUCTION_ACCEPTANCE.md`
 
-The live acceptance control set and the 2026-08-21 GO decision record.
+The live acceptance control set, post-provisioning evidence, and the 2026-08-21
+GO decision record.
 
-## Historical Gate 17 records
+## Historical gate records
 
-These documents are retained as decision history, not current “to-do” lists:
+These documents are retained as decision history, not current to-do lists:
 
 - `GATE17_PRODUCTION_SECURITY_REVIEW.md`
 - `GATE17_RETENTION_DECISION.md`
 - `GATE17_COST_CONTROL_PLAN.md`
 - `../GATE17_PRE_AZURE_GO_NO_GO.md`
 
-Gate 17 authorized Azure provisioning. Post-Provisioning Production Acceptance separately authorized normal student production use.
+The historical records explain what was planned/proven before Azure authority
+was granted; the post-provisioning record explains what was verified live.
 
 ## Current live baseline
 
-See `../PRODUCTION_BASELINE.md` for the concise accepted live topology and control state.
+See `../PRODUCTION_BASELINE.md` for the concise accepted live topology and
+control state.
 
 Key accepted operations evidence includes:
 
@@ -45,11 +73,13 @@ Key accepted operations evidence includes:
 - Application Insights + Log Analytics;
 - production Azure Monitor alerts/action group;
 - 7-day PostgreSQL PITR;
-- successful real PITR restore drill;
+- successful real point-in-time restore drill;
 - immutable ACR rollback images;
 - `$100/month` production budget with 50/80/100% notifications;
 - one minimum warm Container App replica and five maximum replicas.
 
 ## Operational rule
 
-Do not make emergency changes silently. If Azure runtime state is changed outside source control, document it and reconcile the source-controlled IaC/configuration in a later controlled PR.
+Do not make emergency changes silently. If Azure runtime state is changed
+outside source control, document it and reconcile the source-controlled
+IaC/configuration in a later controlled PR.

@@ -149,6 +149,20 @@ Production identity rules:
 
 The controlled external production-test student is an exact configured identity exception. It must not become a general Gmail-domain allowance.
 
+### Production-test student operator configuration
+
+The bounded production-test identity is configured through these operator-owned values:
+
+- `ETIS_PRODUCTION_TEST_STUDENT_OID` — exact Entra Object ID;
+- `ETIS_PRODUCTION_TEST_STUDENT_EMAIL` — exact roster/email identity;
+- `ETIS_PRODUCTION_TEST_STUDENT_ID` — exact course student identifier;
+- `ETIS_PRODUCTION_TEST_SECTION_KEY` — designated production-test section;
+- `ETIS_PRODUCTION_TEST_TEAM_KEY` — designated production-test team.
+
+The exception must match the **exact Entra Object ID**, the **designated production-test section**, and the **designated production-test team**. It **does not allow gmail.com generally** and does not create a generic external-domain student login path.
+
+Do not publish the operator-selected principal values in public deployment documentation. Institution adopters must create their own bounded test identity and values.
+
 ## GitHub OAuth configuration
 
 GitHub OAuth is used to link the individual Studio user to a GitHub identity.
