@@ -1,5 +1,8 @@
 # Repository Intelligence and Review Orchestration
 
+> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+
+
 ## Purpose
 
 The ETIS Engineering Studio does not review an assignment by looking for one seeded file. A review begins from a **frozen repository evidence baseline**, evaluates that baseline against the **current COMP 330 phase contract**, identifies both strengths and material concerns, ranks a small number of high-value engineering conversations, and then lets a senior-reviewer persona coach the student through the judgment.

@@ -1,0 +1,33 @@
+name: Feature request
+description: Propose an educational, engineering, or institutional capability
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / educational outcome
+      description: What problem should ETIS solve, and who benefits?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed capability
+      description: Describe behavior, not just implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Why this belongs upstream
+      description: Explain whether the need is broadly useful across institutions or specific to one deployment.
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Security / privacy / evidence implications
+      description: Identify any effect on authority, repository access, evidence immutability, student data, AI behavior, or operational risk.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

@@ -1,5 +1,85 @@
 # Changelog
 
+## Unreleased - Public Institutional Adoption Readiness
+
+### Changed
+- Prepared the repository for public institutional adoption under Apache License 2.0.
+- Reframed root/community documentation to distinguish the ETIS Framework reference deployment from independent institutional deployments.
+- Added explicit institutional adoption, public-deployment security, public-release, governance, conduct, citation, and trademark guidance.
+
+### Added
+- `NOTICE`, `CODE_OF_CONDUCT.md`, `GOVERNANCE.md`, `TRADEMARKS.md`, and `CITATION.cff`.
+- `.github/CODEOWNERS`, pull-request template, and structured issue forms.
+- `docs/INSTITUTIONAL_ADOPTION.md`, `docs/PUBLIC_DEPLOYMENT_SECURITY.md`, and `docs/PUBLIC_RELEASE_CHECKLIST.md`.
+
+### Runtime impact
+- None. This public-readiness package changes documentation, licensing, community/governance metadata, and GitHub contribution templates only.
+
+
+## Production-accepted baseline — 2026-08-21
+
+This section records the production-integration and acceptance hardening completed after the original v0.15.0 baseline. The running FastAPI service still reports application version `0.15.0`; no artificial version bump is introduced by this documentation cleanup.
+
+### Added
+
+- Production Microsoft Entra authentication/authorization integration with explicit tenant and `luc.edu` policy.
+- Exact-principal production-test student exception for controlled acceptance testing without broad Gmail-domain access.
+- PostgreSQL + Alembic production migration path and PostgreSQL-specific CI coverage.
+- Multi-replica/concurrency/idempotency hardening across authorization, evidence, repository onboarding, and reviews.
+- GitHub repository onboarding state model: No repository → Candidate repository → Owner authorization required → Verified team repository.
+- Immutable GitHub account-ID owner resolution for personal repositories.
+- Organization repository authorization/request flow through the GitHub App.
+- Exact selected-repository GitHub App token scope and fail-closed rejection of `all repositories` installations.
+- Controlled repository-onboarding reset for Course Owner/Instructor recovery while preserving frozen historical evidence/reviews.
+- GitHub App owner-targeted installation routing, public App installability, Setup URL, and Redirect-on-update completion flow.
+- Browser Back/Forward navigation for meaningful Studio views with section/team/review context restoration.
+- Shared instructor section context, stable team identifiers, and multi-student active-review visibility.
+- Improved student repository onboarding status/progress guidance and project-action wording.
+- Explicit Current Recommendation guidance and distinction from State My Recommendation.
+- Command Center team attention-status legend.
+- Azure managed identity + Key Vault secret references, private PostgreSQL networking, Application Insights/Log Analytics, and production alerting.
+- Azure production resource-group budget and actual-cost notifications.
+
+### Security and authorization hardening
+
+- GitHub OAuth callback requires the initiating, revocation-aware Studio session and matching user/session state.
+- TA/Reviewer read authority no longer silently grants repository/project/student-review mutation authority.
+- Archived terms cannot grant current student/team/reviewer authority or leak Course Owner authority globally.
+- Strict server-side GitHub URL canonicalization rejects credentials, ports, query/fragment components, extra path segments, malformed names, and non-HTTPS GitHub URLs.
+- Candidate nomination does not prematurely mutate authoritative team project/repository metadata.
+- GitHub authorization GET navigation remains side-effect free.
+- Verification re-reads/locks candidate state after external GitHub checks to prevent candidate-change promotion races.
+- Legacy GitHub identity rows without immutable GitHub account ID follow a safe relink path rather than being treated as fully linked.
+
+### Production acceptance
+
+Live production acceptance passed for:
+
+- Loyola Entra sign-in to the correct instructor surface with no second ETIS-specific password/MFA enrollment observed;
+- bounded external production-test student access;
+- starter-kit acceptance fixture;
+- GitHub identity relink/account-switch/logout-login persistence;
+- personal private repository onboarding;
+- organization-owned repository onboarding;
+- **Only select repositories** GitHub App configuration;
+- separate authorization and exact-repository verification steps;
+- repository reset with historical evidence/review preservation;
+- browser navigation and GitHub return-to-Studio behavior;
+- managed identity and Key Vault RBAC/secret references;
+- `/health` and `/ready` with current Alembic revision;
+- Application Insights, Log Analytics, and Azure Monitor alert configuration;
+- 7-day PostgreSQL PITR configuration and a real non-destructive PITR restore drill;
+- immutable ACR commit-SHA rollback assets;
+- `$100/month` resource-group budget with 50%, 80%, and 100% actual-cost notifications;
+- accepted runtime scaling of one minimum and five maximum Container App replicas.
+
+### Residual notes
+
+- Multi-student owner/non-owner repository propagation is automated-test/CI proven but was not repeated live with multiple production student identities.
+- A rollback was not deliberately executed against healthy production; multiple prior immutable ACR images were verified available.
+- `infra/azure/app.bicep` still defaults `minReplicas` to `0` while the accepted runtime was manually set to `1`; reconcile this IaC/runtime drift before relying on a future deployment to preserve the warm-replica setting.
+- The application health metadata still reports `0.15.0`.
+
 ## 0.15.0 - Interaction Integrity & Pre-Azure Product Hardening
 
 ### Fixed
@@ -72,6 +152,20 @@
 - Course-model validation, Python compilation, and JavaScript syntax validation pass.
 - Browser interaction smoke tests cover review-mode selection, finding selection, start, Enter-to-send, coaching, and instructor shell behavior.
 
+## 0.12.0
+
+### Added
+- Single-select Board Review, Focused Review, and Review Findings launcher with one Start Review action.
+- Locked review purpose and explicit active-session banner.
+- Finding lifecycle persistence and corrected/resolved suppression for the same evidence baseline.
+- Up to three related findings in a finding-focused session.
+- Broader semantic repository discovery and equivalent-evidence recognition across alternate filenames.
+- Evidence-scope metadata and richer novice/adversarial conversation regression cases.
+
+### Changed
+- Review Findings now supports understanding, challenging, resolving, accepting, or deferring findings rather than only disputing them.
+- Canonical paths are evidence-discovery clues, not mandatory filenames.
+
 ## 0.11.0 - Identity, Semester Operations & Team Onboarding
 
 ### Added
@@ -129,7 +223,6 @@
 
 ### Validation
 - Automated tests, course-model validation, Python compilation, JavaScript syntax validation, and untouched COMP 330 starter-kit A1/A2 repository-intelligence scenarios pass.
-
 
 ## 0.9.0
 
@@ -201,6 +294,17 @@
 - Expanded automated tests for conversation memory, repetition repair, personalized openings, and boundary progression.
 - Course-model validation, Python compilation, and JavaScript syntax checks pass.
 
+## 0.5.0 - Stateful Senior-Engineer Coaching
+
+### Changed
+- Reworked reviewer conversation logic around cumulative reasoning state rather than one-turn keyword scoring.
+- Reviewers now acknowledge the substance of the student's actual response before asking the next question.
+- Conversation controls are treated as student intent hints, not rigid modes; a student can answer while in clarification mode and the reviewer follows the reasoning.
+- Added progressive, target-specific coaching for consequence, evidence boundary, decision, scope boundary, ownership, closure evidence, uncertainty, and tradeoffs.
+- Added natural reviewer handoffs as the discussion moves from evidence to architecture/decision boundary, delivery ownership, and red-team challenge.
+- Prevented repeated canned clarification responses and added direct handling for answer-seeking, uncertainty, and "I don't know" behavior.
+- Updated the student composer to encourage natural conversation and make decision posture explicitly optional until the student is ready.
+
 ## 0.4.0 - Engineering Apprenticeship Review
 
 ### Added
@@ -248,29 +352,3 @@
 - Azure Container Apps/PostgreSQL/Key Vault Bicep starter.
 - CI and Azure deployment workflows.
 - Security, product, architecture, deployment, and acceptance documentation.
-
-## 0.5.0 - Stateful Senior-Engineer Coaching
-
-### Changed
-- Reworked reviewer conversation logic around cumulative reasoning state rather than one-turn keyword scoring.
-- Reviewers now acknowledge the substance of the student's actual response before asking the next question.
-- Conversation controls are treated as student intent hints, not rigid modes; a student can answer while in clarification mode and the reviewer follows the reasoning.
-- Added progressive, target-specific coaching for consequence, evidence boundary, decision, scope boundary, ownership, closure evidence, uncertainty, and tradeoffs.
-- Added natural reviewer handoffs as the discussion moves from evidence to architecture/decision boundary, delivery ownership, and red-team challenge.
-- Prevented repeated canned clarification responses and added direct handling for answer-seeking, uncertainty, and "I don't know" behavior.
-- Updated the student composer to encourage natural conversation and make decision posture explicitly optional until the student is ready.
-
-
-## 0.12.0
-
-### Added
-- Single-select Board Review, Focused Review, and Review Findings launcher with one Start Review action.
-- Locked review purpose and explicit active-session banner.
-- Finding lifecycle persistence and corrected/resolved suppression for the same evidence baseline.
-- Up to three related findings in a finding-focused session.
-- Broader semantic repository discovery and equivalent-evidence recognition across alternate filenames.
-- Evidence-scope metadata and richer novice/adversarial conversation regression cases.
-
-### Changed
-- Review Findings now supports understanding, challenging, resolving, accepting, or deferring findings rather than only disputing them.
-- Canonical paths are evidence-discovery clues, not mandatory filenames.

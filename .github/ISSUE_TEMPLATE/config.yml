@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/etis-framework/etis-engineering-studio/security/policy
+    about: Do not disclose vulnerabilities in a public issue. Follow the security policy and private reporting path.
+  - name: Institutional adoption guide
+    url: https://github.com/etis-framework/etis-engineering-studio/blob/main/docs/INSTITUTIONAL_ADOPTION.md
+    about: Start here before opening a deployment/adoption issue.

@@ -1,104 +1,212 @@
 # Architecture — ETIS Engineering Studio
 
+> **Status:** Current production architecture. Production Post-Provisioning Acceptance reached **GO** on 2026-08-21. See `PRODUCTION_BASELINE.md` for the accepted live topology and configuration.
+
 ## 1. Product posture
 
-The Studio is a **decision-and-defense environment**. Its primary user experience is an Engineering Review Room, not a dashboard.
+ETIS Engineering Studio is an engineering apprenticeship system, not an autonomous engineering authority. Its architecture is built around a deterministic control plane that owns authorization, evidence boundaries, review purpose, persistence, and lifecycle rules, with bounded AI services used for semantic interpretation, coaching, critique, and synthesis.
 
-A student enters with a team, project, lifecycle phase, role context, and a frozen repository evidence snapshot. Bounded reviewer agents challenge claims from professional lenses. The student must make a decision and defend the tradeoff, evidence, uncertainty, consequence, owner, and condition that would change the decision.
-
-The system records learning signals and review history. It does **not** autonomously grade the student or generate the assignment answer.
+The system must remain useful when students are uncertain, disagree with the reviewer, use non-expert language, or supply contrary evidence. The reviewer is fallible; repository evidence and governed system state are authoritative where appropriate.
 
 ## 2. Logical architecture
 
 ```text
 Browser
-  |
-  v
-FastAPI / Web Surface
-  |-- Course Model / Phase Contracts (deterministic)
-  |-- Access & Course Namespace
-  |-- Review Session Service
-  |-- Challenge Control Plane (deterministic)
-  |      |-- Evidence gap rules
-  |      |-- Phase decision defenses
-  |      |-- Scenario library
-  |      `-- Engineering-move evaluator
-  |-- AI Reviewer Adapter (optional, bounded)
-  |      `-- OpenAI Responses API
-  |-- Evidence Acquisition
-  |      |-- GitHub App / GitHub REST (read-only)
-  |      `-- Frozen Evidence Snapshot
-  `-- Persistence
-         `-- PostgreSQL (SQLite local)
+  ├─ Student Engineering Studio
+  └─ Instructor Workspace
+          │
+          ▼
+FastAPI application
+  ├─ Authentication / session boundary
+  ├─ Course / term / section / team authorization
+  ├─ GitHub identity + repository onboarding
+  ├─ Evidence acquisition / snapshot service
+  ├─ Review orchestrator / challenge engine
+  ├─ Semantic coaching / critic adapters
+  ├─ Instructor administration / recovery
+  └─ Health / readiness / telemetry
+          │
+          ├─────────────► GitHub OAuth + GitHub App
+          ├─────────────► Microsoft Entra
+          ├─────────────► OpenAI API
+          │
+          ▼
+PostgreSQL
+  ├─ identity/course authority
+  ├─ repository onboarding state
+  ├─ frozen evidence + findings
+  ├─ reviews/turns/learning state
+  └─ AI usage / audit-relevant records
 ```
 
-## 3. Why the deterministic control plane matters
+Production infrastructure places the application in Azure Container Apps and PostgreSQL Flexible Server behind private VNet integration. Runtime secrets are Key Vault-backed and read through managed identity.
 
-LLMs are used for conversational challenge and synthesis, not for defining course requirements or inventing evaluation rules. The authoritative control plane is the instructor-defined phase contract and repository evidence snapshot.
+## 3. Deterministic control plane
 
-This prevents five common failures:
+AI output never defines authority. Deterministic application logic controls:
 
-1. A generic chatbot giving plausible but course-misaligned advice.
-2. The model inventing missing repository evidence.
-3. The system rewarding polished language instead of engineering reasoning.
-4. An agent silently expanding assignment scope beyond Sakai.
-5. A student receiving the answer rather than being forced to defend a choice.
+- current user/session identity;
+- current term/section/team/role authority;
+- review purpose and allowed mutations;
+- which repository is verified;
+- which frozen snapshot is in scope;
+- finding lifecycle and correction state;
+- persistence and idempotency;
+- production configuration readiness.
 
-## 4. Evidence model
+This separation is the primary fail-closed boundary when model output, GitHub state, or external services are uncertain.
 
-Evidence has four distinct states that the UI should never collapse:
+## 4. Identity and course authority
 
-- **Location coverage** — does assignment-appropriate evidence exist and can it be found?
-- **Quality** — is the evidence specific, current, linked, reviewable, honest, and actionable?
-- **Workflow traceability** — does GitHub show how intent became controlled, reviewed, verified change?
-- **Judgment sufficiency** — can the student/team defend the consequential decision supported by that evidence?
+```text
+Microsoft Entra → authenticated Studio user
+Course/Term/Section → current course authority
+TeamMembership → current team authority
+StaffAssignment → current role-scoped staff authority
+```
 
-Artifact presence alone is never scored as maturity.
+`CourseTerm.status` is authoritative:
 
-## 5. Review-agent model
+- `setup` — administrative preparation;
+- `active` — normal semester operation;
+- `archived` — historical/read-only; cannot grant current authority.
 
-Agents are professional lenses, not autonomous authorities. Active lenses vary by phase. The Chief Architect synthesizes; specialist lenses challenge; Red Team attacks the weakest assumption.
+Archived-term authority must never become application-global authority.
 
-Every AI reviewer is bounded by the same rules:
+## 5. GitHub identity and repository authority
 
-- No browsing beyond explicitly supplied evidence.
-- No fabricated evidence.
-- No autonomous final grade.
-- No hidden change to course requirements.
-- No “optimal answer” supplied to the student.
-- Ask the minimum useful challenge that forces a professional engineering move.
-- Preserve disagreement when professional lenses legitimately differ.
+GitHub identity is individual. Repository trust is team-level.
 
-## 6. Authentication and authorization
+```text
+GitHub OAuth identity link
+        │
+        └─ immutable GitHub account ID
 
-### Human login
+Candidate repository
+        │
+        ├─ resolve personal or organization owner
+        ├─ authorize GitHub App for correct owner
+        ├─ require Only select repositories
+        └─ verify exact nominated repository
+                    │
+                    ▼
+           Verified team repository
+```
 
-Production human authentication uses Loyola Microsoft Entra. Authentication proves the human identity; **current course authorization still gates access**. GitHub is linked separately as the student's engineering identity for repository and engineering-activity attribution. An authenticated Loyola identity without current Studio authorization is not admitted to an active semester.
+Important invariants:
 
-### Repository access
+- a typed URL is never authoritative evidence;
+- personal owner authority is based on immutable GitHub account ID, not mutable username;
+- organization owners/admins may need to approve GitHub App access;
+- staff who can read a team do not automatically gain repository mutation authority;
+- GitHub App tokens are exact-repository scoped;
+- `all repositories` installation scope fails closed;
+- OAuth callback is bound to the initiating Studio session;
+- GET navigation does not persist authorization transitions;
+- verification locks/re-reads candidate state after external GitHub checks to prevent race promotion.
 
-Production recommendation: a read-only GitHub App installed on course team repositories. This is superior to student PATs because authority is explicit, scoped, centrally revocable, auditable, and does not require sharing credentials.
+## 6. Evidence architecture
 
-### Instructor
+Evidence has two layers:
 
-Teaching-staff authority is derived from current term and section assignments rather than from an application-global role. During an active semester, authorized teaching staff may view the sections and teams within their assigned scope. After archive, assigned Course Owners and Instructors may retain read-only historical access for that archived semester; TA and Reviewer authority does not survive archive. Students can access only their current active semester/team context and their own permitted review history.
+### FACT
 
-## 7. Semester isolation
+Deterministic facts about the frozen repository baseline: commit identity, paths, selected contents, workflow signals, provenance, phase scope, and other directly observed repository state.
 
-Every durable record is scoped through the course/term hierarchy and course namespace (for example `COMP330-F26`). Normal semester lifecycle is forward-only: `setup -> active -> archived`.
+### REVIEW
 
-Archive removes current operational authority without deleting the historical engineering record. Frozen evidence, review conversations, finding lifecycle state, attribution, and membership history remain associated with the archived semester rather than being mixed into a later active term. Active reviews present at archive become explicitly `archived_incomplete`, not ordinarily completed.
+Bounded interpretation of FACT: strengths, weaknesses, contradictions, traceability gaps, judgment concerns, equivalent evidence, and review findings.
 
-The authoritative privacy, retention, archive, deletion, and data-classification policy is defined in [SECURITY_AND_PRIVACY.md](SECURITY_AND_PRIVACY.md). Semester rollover or archive must not invent a destructive retention period.
+Frozen FACT evidence is immutable. REVIEW interpretation can be corrected when contrary evidence proves the interpretation wrong. A correction must persist so the same false finding is not rediscovered against the same snapshot.
 
-## 8. Deployment decision
+## 7. Review architecture
 
-Azure Container Apps is the recommended initial host because it supports containerized web applications without requiring Kubernetes operations. PostgreSQL Flexible Server is the durable relational store. Key Vault holds secrets. Application Insights / Log Analytics provide service telemetry. GitHub Actions uses federated Azure credentials/OIDC where practical rather than long-lived deployment secrets.
+Exactly one review purpose is active per session:
 
-For ~30 students, concurrency is modest. The initial production design should optimize for simplicity, security, and recoverability—not premature scale.
+- **Board Review** — phase-gate apprenticeship review selected/ranked by the board;
+- **Focused Review** — student-selected engineering subject;
+- **Review Findings** — work directly with one or a small related set of existing REVIEW findings.
 
-## 9. Wave 1 scope boundary
+The selected purpose is locked during the session. Students may ask questions in any mode.
 
-**In:** A1/A2, repository snapshot, evidence rail, guided review, scenarios, student review history foundation, instructor overview, GitHub/AI provider abstractions, Azure deployment starter.
+Review orchestration combines:
 
-**Deferred:** full A3-A6 conversational depth, full GitHub App installation management UI, roster import UI, instructor annotations workflow, replay/archive UI, advanced analytics, push notifications, research exports, fine-grained rate/cost controls, production SSO alternative.
+- frozen evidence;
+- current phase contract;
+- prior corrected findings;
+- current review purpose;
+- cumulative student reasoning/learning state;
+- senior-reviewer lens selection;
+- bounded semantic coaching.
+
+## 8. Student responsibility and recommendation model
+
+Students can think aloud before deciding. **Current recommendation** is a revisable decision posture used by the reviewer to challenge the student's current thinking. **State My Recommendation** is the later explicit action indicating that the student is prepared to defend the position.
+
+Not every review requires a recommendation. Review Findings may be purely explanatory/corrective, and Focused Review may be exploratory.
+
+## 9. Teaching-staff boundary
+
+Authorized teaching staff may inspect persisted student/team evidence and review conversations within their current authority. Read authority does not permit staff to impersonate student actions.
+
+Administrative mutations such as roster, term, section, repository reset, or staff assignment remain role-bounded.
+
+Unsent browser drafts remain private to the student browser and are not instructor-visible.
+
+## 10. AI architecture
+
+The AI layer is divided by purpose:
+
+- reviewer conversation — `gpt-5.6-sol` in the accepted configuration;
+- repository interpretation — `gpt-5.6-luna`;
+- selective critic — `gpt-5.6-luna`.
+
+The provider boundary tracks token usage, cached input, output tokens, latency, response IDs, and estimated cost. Cost warnings are advisory and must not silently interrupt an active learning conversation.
+
+## 11. Production Azure topology
+
+```text
+Internet / HTTPS
+      │
+      ▼
+simulator.etisframework.org
+      │
+Azure Container App (public ingress)
+      │  user-assigned managed identity
+      ├────────► Key Vault
+      ├────────► ACR
+      │
+      ▼
+Container Apps managed environment / VNet
+      │
+      ▼
+Private PostgreSQL Flexible Server
+
+Telemetry → Application Insights → Log Analytics → Azure Monitor alerts
+```
+
+See `AZURE_DEPLOYMENT.md` and `infra/azure/README.md`.
+
+## 12. Availability and recovery posture
+
+Accepted production runtime keeps one minimum replica warm and allows up to five replicas.
+
+Database durability uses Azure PostgreSQL automatic backups with 7-day PITR. A real restore drill passed during acceptance. Application rollback uses immutable ACR commit-SHA images in Single revision mode.
+
+## 13. Design invariants
+
+The following must not regress:
+
+- no fabricated evidence;
+- no hidden autonomous grading;
+- no authority inferred from generic visibility;
+- no archived-term current authority;
+- no direct student replacement of a verified repository;
+- no broad GitHub App installation scope;
+- no PAT repository path;
+- no retained GitHub OAuth access token;
+- no production SQLite;
+- no application-startup schema mutation;
+- no mutation of frozen evidence snapshots;
+- no exposure of unsent drafts to staff;
+- no silent fallback that pretends deterministic text is equivalent to configured semantic coaching.

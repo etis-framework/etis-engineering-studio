@@ -1,5 +1,8 @@
 # Conversation Quality and Behavioral Evals
 
+> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+
+
 The Engineering Studio treats the reviewer conversation as an engineering apprenticeship, not a form-completion workflow. Natural-language variability is therefore a first-class product requirement.
 
 ## Core contract

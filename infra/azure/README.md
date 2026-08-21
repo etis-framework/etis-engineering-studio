@@ -1,212 +1,110 @@
 # ETIS Engineering Studio Azure Infrastructure
 
-This directory contains the source-controlled Azure Infrastructure as Code for
-the ETIS Engineering Studio production environment.
+> **Status:** Source-controlled production IaC. The current Azure environment was provisioned and Post-Provisioning Production Acceptance reached **GO** on 2026-08-21.
 
-The infrastructure is divided into explicit deployment layers so that
-foundation resources, secrets, database migration, application deployment, and
-operational controls can be reconciled independently and in a controlled order.
+This directory contains the Bicep templates used by the protected production deployment workflow.
 
 ## Files
 
 ### `main.bicep`
 
-Creates the long-lived Azure production foundation:
+Creates the long-lived production foundation:
 
-- Azure Virtual Network;
-- Container Apps infrastructure subnet;
-- delegated PostgreSQL subnet;
-- PostgreSQL private DNS zone and VNet link;
-- Log Analytics workspace;
+- VNet and Container Apps/PostgreSQL subnets;
+- PostgreSQL private DNS zone/link;
+- Log Analytics;
 - workspace-based Application Insights;
-- Azure Container Registry;
+- ACR;
 - user-assigned runtime managed identity;
-- Azure Key Vault;
-- managed-identity role assignments for ACR and Key Vault;
-- Azure Container Apps managed environment;
-- Azure Database for PostgreSQL Flexible Server;
-- ETIS PostgreSQL database.
-
-PostgreSQL is deployed through private VNet integration rather than a public
-database-access model.
+- Key Vault and RBAC;
+- Container Apps managed environment;
+- PostgreSQL Flexible Server/database.
 
 ### `secrets.bicep`
 
-Provisions production runtime secrets into Azure Key Vault from secure
-deployment parameters.
+Writes protected deployment inputs into Key Vault for:
 
-It manages:
-
-- ETIS PostgreSQL SQLAlchemy connection URL;
-- ETIS session signing secret;
-- Microsoft Entra client secret;
+- database URL;
+- session secret;
+- Entra client secret;
 - GitHub App private key;
 - GitHub OAuth client secret;
 - OpenAI API key.
 
-Secret values must never be committed to this repository.
+Secret values must never be committed.
 
 ### `migration.bicep`
 
-Creates the manual Azure Container Apps migration job.
-
-The job:
-
-- runs the immutable production application image;
-- uses the runtime managed identity;
-- pulls from private ACR without registry credentials;
-- obtains the database URL from Key Vault;
-- runs `alembic upgrade head`;
-- executes inside the Container Apps environment so it can reach private
-  PostgreSQL.
-
-A successful production migration is required before application deployment.
+Creates the Container Apps migration job that runs the immutable application image and `alembic upgrade head` inside the private network.
 
 ### `app.bicep`
 
-Deploys the ETIS Engineering Studio production Container App.
+Defines the production Container App:
 
-It defines:
-
-- public HTTPS application ingress;
-- user-assigned managed identity;
-- private ACR image pull;
-- Key Vault-backed runtime secrets;
-- fail-closed production configuration;
-- Microsoft Entra configuration;
-- GitHub App and GitHub OAuth configuration;
-- OpenAI configuration;
-- `/health` liveness probe;
-- `/ready` readiness probe;
-- bounded horizontal scaling.
-
-The application may scale to zero when idle.
+- public HTTPS ingress/custom domain;
+- managed identity;
+- ACR image pull;
+- Key Vault-backed secrets;
+- Entra/GitHub/OpenAI production configuration;
+- `/health` and `/ready` probes;
+- horizontal scaling.
 
 ### `operations.bicep`
 
-Creates the initial Azure Monitor operational controls:
+Defines the production action group and metric alerts for:
 
-- production operations action group;
-- Container App `RestartCount` alert;
-- Container App HTTP `5xx` alert;
-- PostgreSQL `is_db_alive` alert;
-- PostgreSQL `storage_percent` alert.
-
-These alerts are intentionally compatible with application scale-to-zero
-behavior.
+- Container App restart count;
+- HTTP 5xx;
+- PostgreSQL availability;
+- PostgreSQL storage percentage.
 
 ## Deployment order
 
-The authorized production deployment workflow is:
+The protected manual workflow in `.github/workflows/deploy-azure.yml` follows this intent:
 
-`release validation -> foundation -> secrets -> immutable image -> migration -> application -> operational controls -> readiness verification`
+`release gate → foundation/secrets → immutable image → migration → application → operational controls → readiness verification`
 
-The implementation lives in:
-
-`.github/workflows/deploy-azure.yml`
-
-The deployment workflow is manually triggered and protected by the GitHub
-`production` environment.
-
-Azure authority is acquired only after the selected commit passes the release
-gate.
+The release gate installs a pinned Bicep CLI and compiles the templates before Azure deployment authority is used.
 
 ## CI validation
 
-GitHub CI validates the Azure infrastructure without requiring Azure
-credentials.
+CI validates production configuration without live deployment authority, including:
 
-CI:
+- Bicep compilation;
+- migrations;
+- PostgreSQL-specific tests;
+- production-container smoke;
+- `/ready` behavior;
+- application regression tests.
 
-- installs a pinned Bicep CLI;
-- compiles all Bicep templates;
-- validates production database migrations;
-- performs a PostgreSQL logical backup/restore drill;
-- builds the production container;
-- smoke-tests `/ready`;
-- runs the complete Python regression suite.
+CI cannot by itself prove live DNS/TLS, Key Vault RBAC, alert configuration, PITR recovery, or GitHub/Entra behavior; those were exercised during Post-Provisioning Production Acceptance.
 
-Successful Bicep compilation proves template syntax and type checking. It does
-not prove live Azure region availability, quota, alert delivery, networking, or
-point-in-time recovery.
+## Runtime identity and secrets
 
-## Identity and secret boundaries
-
-Application runtime authority is separate from GitHub deployment authority.
-
-The application and migration job use a user-assigned managed identity with only
-the Azure roles required for:
-
-- ACR image pull;
-- Key Vault secret access.
-
-ACR administrative credentials remain disabled.
-
-Runtime secrets remain in Azure Key Vault and are referenced by Container Apps
-rather than stored as literal environment values.
+Application runtime uses a user-assigned managed identity with bounded ACR pull and Key Vault secret-read authority. Key Vault remains the source of production secret values; Container App environment variables use secret references rather than literal secrets.
 
 ## Database boundary
 
-Azure Database for PostgreSQL Flexible Server is the durable application store.
+PostgreSQL is private-networked through delegated subnet/private DNS. Public network access is disabled. Alembic owns schema lifecycle; application startup does not silently migrate production.
 
-The production database is VNet-integrated through its delegated subnet and
-private DNS configuration.
+Accepted live database posture is documented in `../../docs/PRODUCTION_BASELINE.md`.
 
-Production schema lifecycle is owned by Alembic.
+## Scaling note — current source/runtime drift
 
-Application startup does not silently create or migrate the production schema.
+The accepted production runtime is:
 
-## Operational readiness
+- `minReplicas=1`;
+- `maxReplicas=5`.
 
-Gate 16 operational procedures are documented under:
-
-`docs/operations/`
-
-Those procedures cover:
-
-- monitoring;
-- health/readiness interpretation;
-- incident response;
-- credential incidents;
-- database recovery;
-- point-in-time restore;
-- RTO/RPO planning;
-- recovery evidence;
-- post-provisioning verification.
-
-Some operational controls can be proven before Azure provisioning; others
-require live post-provisioning evidence.
-
-In particular, live Azure point-in-time restore, alert delivery, telemetry
-ingestion, and restored-server networking must be verified after production
-resources exist and before student production access is approved.
+`app.bicep` currently defaults `minReplicas` to `0`. That default predates the final acceptance decision to keep one replica warm. **Do not treat the source default as the accepted runtime value.** Reconcile it in a separate infrastructure PR with normal CI/Bicep/deployment validation before the next deployment that could reset scaling.
 
 ## Production boundary
 
-These templates define the intended production infrastructure, but source code
-alone does not authorize deployment or student use.
+Gate 17 is closed and Post-Provisioning Production Acceptance is GO. Future production changes still require:
 
-Before production Azure provisioning begins, the project still requires:
+1. branch/PR review;
+2. CI/release gate;
+3. protected manual deployment;
+4. targeted live acceptance of the changed boundary.
 
-- protected GitHub production-environment configuration;
-- Azure OIDC configuration;
-- production secret values at the deployment boundary;
-- the intended production hostname and DNS plan;
-- Microsoft Entra callback configuration;
-- GitHub App/OAuth configuration;
-- explicit **Gate 17 — Final Pre-Azure Go/No-Go** approval.
-
-A Gate 17 GO authorizes provisioning and deployment only.
-
-After provisioning and before student production access, the project still
-requires:
-
-- final hostname, DNS, HTTPS, and callback validation;
-- live Azure operational validation;
-- Gate 16 post-provisioning evidence;
-- live point-in-time recovery validation;
-- production authentication and authorization validation;
-- explicit **Post-Provisioning Production Acceptance** GO.
-
-No infrastructure requirement should be weakened merely to simplify local
-development or initial deployment.
+No infrastructure requirement should be weakened merely to simplify local development or deployment.

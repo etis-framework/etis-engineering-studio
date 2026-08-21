@@ -1,5 +1,7 @@
 # ETIS Engineering Studio Incident Response Runbook
 
+> **Status:** Current production incident-response runbook for the accepted semester baseline.
+
 ## 1. Purpose
 
 This runbook defines how authorized operators respond to security, privacy,

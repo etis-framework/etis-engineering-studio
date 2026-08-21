@@ -1,18 +1,34 @@
-# Wave 1 Acceptance Criteria
+# Wave 1 Acceptance
 
-Wave 1 is ready for controlled student use when:
+**Status:** **PASS / Production GO — 2026-08-21**
 
-- A1 and A2 phase contracts load from machine-readable configuration.
-- A student can authenticate and is denied if not enrolled.
-- A student sees only an authorized team.
-- The Studio can freeze a repository evidence snapshot at a known commit.
-- Missing evidence generates a consequence-oriented challenge, not a “file missing” checklist response.
-- A student can defend a decision and receive a Socratic follow-up without being given the answer.
-- Scenario mode works for A1/A2.
-- AI can be disabled without breaking the core product.
-- The Studio never invents evidence and clearly marks provenance.
-- Instructor can see team review activity and unresolved signals.
-- No confidential peer review data appears in team/student surfaces.
-- The service passes automated tests and health checks.
-- Azure budgets/alerts, secrets, HTTPS, logging, backups, and access controls are configured.
-- At least three representative repositories (strong, mixed, weak) have been tested against A1 and A2.
+Wave 1 was accepted for controlled semester use after source/CI gates and live Post-Provisioning Production Acceptance.
+
+## Accepted capabilities
+
+- A1-A6 machine-readable phase contracts load; A1/A2 have the deepest current review behavior.
+- Unauthorized/non-current users fail closed.
+- Students see only current authorized team context.
+- Repository evidence is frozen at a known commit/snapshot.
+- Starter-kit scaffold is not misrepresented as team-completed evidence.
+- Weak/missing evidence produces consequence-oriented engineering challenge rather than simple missing-file grading.
+- Students can ask, disagree, provide contrary evidence, receive progressive coaching, and state a recommendation without being handed a hidden answer.
+- Board Review, Focused Review, and Review Findings are distinct and locked per session.
+- Instructors can see bounded team/evidence/review activity without seeing unsent drafts or gaining student impersonation authority.
+- Repository onboarding is team-wide only after exact GitHub verification.
+- Personal and organization repository flows passed production acceptance.
+- Automated tests/CI, health, readiness, production migrations, Bicep compilation, and container smoke gates pass.
+- Azure secrets, HTTPS, logging, alerts, backups/PITR, rollback assets, and cost budget are configured/accepted.
+- A real PostgreSQL PITR restore drill passed.
+
+## Live versus automated evidence
+
+Live production evidence includes Entra instructor login, the bounded production-test student, GitHub identity linking/relinking, starter-kit fixture, personal private repository, organization repository, repository reset/history preservation, browser navigation, GitHub return flow, Key Vault/managed identity, health/readiness, monitoring configuration, PITR recovery, and budget configuration.
+
+Multi-student GitHub owner/non-owner propagation is automated/CI proven rather than live-proven with multiple production student identities.
+
+See:
+
+- `BUILD_REPORT.md`
+- `docs/PRODUCTION_BASELINE.md`
+- `docs/operations/POST_PROVISIONING_PRODUCTION_ACCEPTANCE.md`

@@ -1,103 +1,138 @@
 # Identity, Course Administration, and Team Onboarding
 
+> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+
 ## Governing model
 
-Engineering Studio deliberately separates four identities/authorizations that are often conflated:
+Engineering Studio deliberately separates four concerns that are often conflated:
 
-1. **Loyola Microsoft SSO** authenticates the human being.
-2. **Term/section roster and staff assignments** authorize course access and privileges.
-3. **GitHub identity linking** maps the authenticated person to their engineering identity once.
-4. **GitHub App installation** authorizes the Studio to read the team's selected private repository using short-lived installation tokens.
+1. **Microsoft Entra** authenticates the human being.
+2. **Term/section roster and staff assignments** authorize current course access and privileges.
+3. **GitHub identity linking** maps the authenticated person to an immutable GitHub account identity.
+4. **GitHub App repository authorization** allows ETIS to read only the verified team repository using short-lived installation tokens.
 
 The Studio never stores a separate student, TA, reviewer, or instructor password.
 
-OAuth/OIDC flow state is signed and self-contained rather than kept only in process memory so authentication can survive production deployments with more than one application replica.
-
 ## Data hierarchy
 
-`Course Template -> Term -> Section -> Team -> Student`
+`Course Template → Term → Section → Team → Student`
 
-A term may contain multiple parallel COMP 330 sections. Sections inherit the same A1-A6 course model but can diverge in dates, release state, roster, teams, and teaching staff.
+A term may contain multiple parallel sections. Sections inherit the course model but may diverge in dates, release state, roster, teams, and teaching staff.
 
 ## Teaching-staff authorization
 
-- **Course Owner**: term-scoped elevated authority. May create and prepare terms, create sections, grant elevated staff roles, activate/archive semesters, and manage permitted setup/active-semester administration. An archived-term assignment provides only the historical authority permitted for that archived term; it is not application-global authority over another semester.
-- **Instructor**: manages assigned setup/active section rosters, teams, schedules, students, and may add bounded TA/Reviewer access. An Instructor assigned to an archived semester may retain read-only historical access.
-- **TA**: bounded section-scoped review/read authority while the semester lifecycle permits it; does not alter roster, schedule, term lifecycle, or elevated privileges, and does not retain archived-semester authority.
-- **Reviewer**: bounded section-scoped review/read authority while the semester lifecycle permits it; does not alter course administration and does not retain archived-semester authority.
-- **Student**: only current active section/team context, shared team evidence, and review activity authorized by the active semester. Semester archive ends student operational access without deleting the historical engineering record.
+- **Course Owner** — term-scoped elevated authority for term lifecycle and permitted administration.
+- **Instructor** — manages assigned setup/active section rosters, teams, schedules, students, and bounded staff access.
+- **TA** — bounded current-section read/review authority; no roster/schedule/term-lifecycle/elevated privilege mutation.
+- **Reviewer** — bounded current-section read/review authority; no course-administration mutation.
+- **Student** — only current active section/team context and student-originated review actions.
 
-Authentication answers *who are you?* Authorization answers *what are you allowed to do here?*
+Generic team visibility is not mutation authority. Teaching staff who can read a student's persisted Review Room conversation cannot silently start/respond/clarify/coach/commit/complete as that student.
+
+Authentication answers *who are you?* Authorization answers *what are you allowed to do here now?*
+
+## Semester lifecycle
+
+The normal lifecycle is forward-only:
+
+`setup → active → archived`
+
+- `setup` — administrative preparation; no normal student operational access.
+- `active` — normal semester operation.
+- `archived` — historical/read-only; cannot grant current student/team/reviewer authority.
+
+Archive preserves enrollment, membership history, frozen evidence, review sessions/turns, finding corrections/dispositions, membership events, and AI usage records. Active reviews become `archived_incomplete` rather than successful completions.
+
+An archived Course Owner/Instructor assignment is not application-global authority over another term.
 
 ## Student onboarding
 
-The normal first-login path is intentionally short:
+Normal first-login path:
 
-`Loyola sign-in -> roster check -> team assignment -> GitHub identity link -> enter Studio`
+`Loyola sign-in → current roster/team authorization → GitHub identity link (if needed) → repository readiness → Engineering Studio`
 
-If the team repository is not yet connected, the first team member who reaches that state and has linked GitHub may paste the required HTTPS `.git` URL. The Studio verifies the repository and guides the student to install/authorize the ETIS GitHub App when necessary. The repository is a **team-level connection**; later teammates are never asked to provide the URL again.
+The bounded production-test student is an exact configured exception used only for controlled acceptance testing; it does not authorize Gmail generally.
 
-A transactional team-row lock protects the authoritative repository binding when two teammates onboard at nearly the same time.
+## GitHub identity linking
+
+GitHub OAuth links the current Studio user to a GitHub account. The immutable GitHub account ID is authoritative; username renames do not break identity ownership.
+
+OAuth callback mutation requires:
+
+- valid signed state;
+- the still-valid/revocation-aware Studio session that initiated linking;
+- matching user/session identity.
+
+GitHub OAuth access tokens are not retained.
+
+Legacy GitHub identity rows that lack immutable GitHub account ID are incomplete and must follow the relink path rather than being treated as fully linked.
+
+## Team repository onboarding
+
+Repository trust is team-level and follows this state model:
+
+```text
+No repository
+  → Candidate repository
+  → Owner authorization required
+  → Verified team repository
+```
+
+A student pastes the HTTPS GitHub repository URL for the team's actual working repository. The `.git` suffix is optional. Browser validation is convenience only; the server validates/canonicalizes the repository URL.
+
+Nomination alone does not make the repository trusted evidence and does not mutate the authoritative team's verified repository field.
+
+### Personal repositories
+
+- ownership is resolved from the repository owner's immutable GitHub account ID;
+- only the actual owner may perform the owner authorization step;
+- non-owning teammates wait for the owner;
+- successful exact verification becomes team-wide;
+- username changes do not change ownership authority.
+
+### Organization repositories
+
+- repository owner is the GitHub organization;
+- students use GitHub's native GitHub App installation/request flow;
+- organization owners/admins may need to approve repository access;
+- ETIS must not claim an instructor is the approver unless that instructor actually has organization authority;
+- after GitHub grants access, ETIS still verifies the exact nominated repository.
+
+### GitHub App security
+
+- App installation must use **Only select repositories**;
+- `all repositories` fails closed;
+- installation token is requested for the exact repository only;
+- PATs are not supported;
+- authorization navigation is side-effect free until an explicit state transition is posted;
+- verification re-reads/locks candidate state after external GitHub checks to prevent candidate-change races.
+
+### Verified repository recovery
+
+Students cannot directly replace a verified repository. Course Owner/Instructor may use the bounded **Reset repository onboarding** action. Reset clears the current team repository binding/onboarding state and then requires the normal nomination/authorization/verification path. Historical frozen evidence and review snapshots remain immutable.
 
 ## Shared versus individual state
 
-**Shared team state:** project identity, team membership, repository connection, frozen evidence snapshots, findings, strengths, repository history.
+**Shared team state:** project identity, team membership, verified repository, frozen evidence snapshots, strengths/findings, repository history.
 
-**Individual student state:** conversations, assistance progression, demonstrated concepts, recorded recommendations, review history.
+**Individual state:** student conversations, assistance progression, demonstrated concepts, current recommendation, recorded recommendations, review history.
 
-A repository refresh never mutates evidence underneath an active review. The active conversation remains pinned to its original snapshot.
+A repository refresh never mutates evidence underneath an active review. Active review conversation remains pinned to its original frozen snapshot.
 
 ## Enrollment changes
 
-Roster imports are repeatable and use only `Student ID` and `Name`. Grade columns are ignored. Missing students are not deactivated unless the instructor explicitly chooses that option. Drops preserve historical reviews. Moving a student records a membership event; earlier reviews remain associated with the earlier team context.
+Roster imports are repeatable and use only required identity fields. Grade columns are ignored. Drops preserve history. Team moves record membership events; earlier reviews remain associated with their original team context.
 
-## Semester lifecycle and archive
+## Section calendar
 
-The normal term lifecycle is forward-only:
-
-`setup -> active -> archived`
-
-`setup` is administrative preparation. Course Owner and Instructor authority may be used to prepare the semester, but setup status does not provide normal student semester access.
-
-`active` is the operational teaching state. Student access, team authority, review access, and staff privileges are resolved from the current database-backed term, section, enrollment, membership, and staff relationships.
-
-`archived` is the normal terminal state. Archive:
-
-- ends student operational access for that semester;
-- makes semester administration and review state read-only;
-- revokes outstanding sessions associated with the archived semester so authorization is reevaluated;
-- preserves enrollment and membership history;
-- preserves frozen evidence and review transcripts;
-- preserves finding corrections, disputes, resolutions, accepted risks, and deferrals;
-- preserves identity attribution required to interpret the engineering record;
-- closes still-active reviews as `archived_incomplete` rather than ordinary successful completions.
-
-Course Owners and Instructors assigned to the archived semester may retain read-only historical access. TA and Reviewer authority ends at archive.
-
-Archive is not deletion. There is no normal Delete Term lifecycle operation, and an archived semester is not normally reactivated.
-
-Retention, deletion, anonymization, external-processing, and data-classification rules are governed by [`../SECURITY_AND_PRIVACY.md`](../SECURITY_AND_PRIVACY.md). No calendar-based retention period is implied merely because a semester has ended.
-
-## Semester and section calendar
-
-Each section receives a proposed A1-A6 calendar from the COMP 330 cadence template. Proposed times are created in the term's configured timezone (default `America/Chicago`): review availability begins at 12:05 AM local time and deadline-style fields default to 11:55 PM local time. Instructors may change the dates independently for each section.
-
-Each phase stores `available_at`, `due_at`, `accept_until`, and `release_override`:
-
-- `auto`: release automatically at the section availability date/time;
-- `released`: instructor releases early;
-- `locked`: instructor temporarily prevents formal review.
-
-Students may revisit released earlier phases. A locked future phase cannot be used for a formal phase review, although a reviewer may still explain a future concept when useful.
-
-Sakai remains authoritative for official course submission requirements and deadlines. The Studio calendar governs Studio review availability and phase context.
+Each section has instructor-controlled phase availability/release state. Sakai remains authoritative for official course submission requirements and deadlines. The Studio calendar governs Studio review availability and phase context.
 
 ## Review entry points
 
 Students have three phase-aware ways to work with the board:
 
-1. **Board Review** - recommended/default; the board chooses the highest-value current challenge.
-2. **Focused Review** - the student asks for review of a specific artifact, decision, PR, risk, or engineering area.
-3. **Explore a Finding** - the student questions, challenges, or works through a finding already derived from the frozen snapshot.
+1. **Board Review** — normal/default phase-gate review; the board chooses the highest-value current challenge.
+2. **Focused Review** — the student selects a specific artifact, decision, PR, risk, architecture choice, AI-use question, or other engineering area.
+3. **Review Findings** — the student works with one or a small coherent set of existing findings to understand, challenge, resolve, accept, defer, or provide contrary evidence.
 
-All three operate against the same frozen evidence semantics and the same section release controls.
+Exactly one purpose is active per session and is locked after the review starts.

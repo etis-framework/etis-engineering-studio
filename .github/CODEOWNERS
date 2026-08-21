@@ -1,0 +1,13 @@
+# Upstream review ownership
+* @woconnell1
+
+# Security/deployment-sensitive areas
+/.github/ @woconnell1
+/infra/ @woconnell1
+/migrations/ @woconnell1
+/apps/api/app/routers/auth.py @woconnell1
+/apps/api/app/routers/onboarding.py @woconnell1
+/apps/api/app/services/auth.py @woconnell1
+/apps/api/app/services/github_app.py @woconnell1
+/apps/api/app/services/repository_policy.py @woconnell1
+/SECURITY.md @woconnell1

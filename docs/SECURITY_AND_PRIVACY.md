@@ -1,5 +1,9 @@
 # Security, Privacy, Data Retention, and Governance
 
+> **Institutional adoption:** this policy describes upstream/reference design boundaries. Each adopting institution must approve its own privacy, records, accessibility, AI-governance, retention, and legal/compliance requirements before production use.
+
+> **Status:** Current governing policy for the production-accepted 2026-08-21 baseline. This policy remains authoritative over conflicting implementation notes.
+
 ## 1. Purpose and authority
 
 This document defines the Engineering Studio's authoritative security, privacy,
@@ -277,22 +281,33 @@ authorization.
 
 ## 9. GitHub processing boundary
 
-GitHub is the authoritative source for repository evidence that the Studio is
-permitted to inspect.
+GitHub is the authoritative source for repository evidence that the Studio is permitted to inspect. GitHub identity linking is individual; repository authorization is team-level.
 
-Production access uses a GitHub App with short-lived installation tokens.
+Production repository access uses the ETIS GitHub App with short-lived installation tokens.
+
+Security requirements:
+
+- a pasted URL is only a candidate until exact repository verification succeeds;
+- HTTPS GitHub repository URLs are canonicalized/validated server-side;
+- personal repository owner authority is based on immutable GitHub account ID;
+- organization repository access follows GitHub organization owner/admin authorization;
+- the GitHub App must use **Only select repositories**; `all repositories` fails closed;
+- installation tokens are requested for the exact repository only;
+- personal access tokens are not supported;
+- GitHub OAuth access tokens are not retained;
+- OAuth callback mutation requires the initiating, revocation-aware Studio session;
+- changing an individual GitHub identity does not silently replace the team's verified repository.
 
 The Studio may retain:
 
-- repository identity;
-- repository connection state;
+- GitHub account identity needed for attribution/ownership resolution;
+- repository identity and onboarding state;
+- immutable repository owner account ID where required for authority;
 - commit SHA;
 - bounded evidence derived from the repository;
 - engineering attribution needed for the review.
 
-GitHub credentials, installation tokens, and OAuth access credentials are not
-engineering-record evidence and must not be persisted as long-lived application
-secrets.
+GitHub installation tokens, OAuth authorization codes, and OAuth access credentials are not engineering-record evidence and must not be persisted as long-lived application secrets.
 
 ## 10. Logging and observability boundary
 
@@ -321,8 +336,7 @@ Normal application logs must not contain:
 - unnecessary student email addresses;
 - unnecessary repository evidence content.
 
-Future Azure Application Insights / Log Analytics configuration must preserve
-this boundary.
+Azure Application Insights / Log Analytics production configuration must preserve this boundary. The accepted baseline uses workspace-backed Application Insights and 30-day Log Analytics retention.
 
 Operational telemetry retention must be configured separately from
 engineering-record retention.
@@ -366,7 +380,7 @@ records during ordinary archive operations.
 Any future physical deletion pathway must explicitly analyze its foreign-key
 effects before being enabled.
 
-## 13. External services and future deployment
+## 13. External services and production deployment
 
 Application-controlled durable server data is stored in PostgreSQL.
 
@@ -375,8 +389,7 @@ External processing boundaries include:
 - Microsoft Entra for human authentication;
 - GitHub for repository access and linked engineering identity;
 - OpenAI for bounded model-assisted review processing;
-- Azure hosting, secrets, database, and operational telemetry when the
-  production environment is deployed.
+- Azure hosting, secrets, database, and operational telemetry in the deployed production environment.
 
 Deployment-provider retention settings must not silently redefine the
 Engineering Studio engineering-record policy.

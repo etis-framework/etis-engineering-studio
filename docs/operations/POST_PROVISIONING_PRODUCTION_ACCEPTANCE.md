@@ -1,553 +1,181 @@
 # Post-Provisioning Production Acceptance
 
+**Decision:** **GO**
+**Decision date:** 2026-08-21
+**Accepted source commit:** `db57225e98cb83499e6aa606740239a0b5bc697f`
+
 ## 1. Purpose
 
-**Post-Provisioning Production Acceptance** is the live-environment acceptance
-review performed after Gate 17 has authorized Azure provisioning and after the
-production infrastructure/application have been deployed.
+Post-Provisioning Production Acceptance is the live-environment acceptance gate that follows Gate 17 and successful Azure deployment. It authorizes normal student production use only after controls that cannot be proven from source/CI have been exercised in the real environment.
+
+This document records the 2026-08-21 acceptance result.
+
+## 2. Decision boundary
+
+Gate 17 GO authorized provisioning/deployment. It did not itself authorize student use.
+
+Post-Provisioning Production Acceptance required evidence for:
+
+- hostname/DNS/TLS;
+- Microsoft Entra authentication;
+- GitHub OAuth/App behavior;
+- authorization boundaries;
+- Key Vault/managed identity;
+- health/readiness;
+- PostgreSQL/migrations;
+- observability/alerts;
+- backup/PITR/recovery;
+- rollback assets;
+- cost controls;
+- Wave 1 student/instructor production journeys.
+
+## 3. Acceptance summary
+
+| Control | Result | Evidence classification |
+|---|---|---|
+| Production deployment workflow | PASS | CI + live |
+| DNS / HTTPS / security headers | PASS | live |
+| Loyola Entra sign-in | PASS | live instructor identity |
+| Second ETIS-specific password/MFA enrollment | Not observed | live |
+| Bounded external production-test student | PASS | live |
+| GitHub identity link/relink/account switch | PASS | live |
+| Personal private repository onboarding | PASS | live |
+| Organization repository onboarding | PASS | live |
+| GitHub App Only select repositories | PASS | live + automated |
+| Exact repository verification/token scope | PASS | live + automated |
+| Repository reset/history preservation | PASS | live + automated |
+| Multi-student owner/non-owner propagation | PASS | automated/CI; not multi-student live |
+| Managed identity / Key Vault | PASS | live configuration |
+| Container App state | PASS | live |
+| `/health` | PASS | live |
+| `/ready` + DB + Alembic | PASS | live |
+| Application Insights / Log Analytics | PASS | live configuration |
+| Azure Monitor alerts/action group | PASS | live configuration |
+| PostgreSQL backup retention | PASS | live configuration |
+| Real PITR restore drill | PASS | live recovery exercise |
+| Restored schema/data validation | PASS | live recovery exercise |
+| Immutable image rollback assets | PASS | live inventory |
+| Production budget/alerts | PASS | live configuration |
+| Browser Back/Forward | PASS | live |
+| GitHub return-to-Studio UX | PASS | live |
 
-Its purpose is to determine whether the deployed ETIS Engineering Studio is
-safe and operationally ready for controlled **student access**.
+## 4. GitHub acceptance details
 
-Student access remains disabled until this review reaches an **explicit GO**.
+The controlled production-test student exercised:
 
-A successful deployment is not itself a go-live decision.
+- initial GitHub identity link;
+- relink to the same identity;
+- switch to another available GitHub identity and return;
+- logout/login persistence;
+- verified-repository protection against direct student replacement;
+- staff reset of repository onboarding;
+- preservation of historical evidence/reviews;
+- bounded public starter-kit fixture;
+- private personal repository `usranger290/LUC_CS272`;
+- organization repository `etis-framework/comp330-f26-production-acceptance`.
 
-A successful `/ready` response is necessary but not sufficient for student
-production authorization.
+The GitHub App was changed from private-to-owner-only installation to public/installable so approved personal repository owners can install it. This does not make any repository public.
 
----
+Accepted GitHub App settings include:
 
-## 2. Relationship to Gate 17
+- **Only select repositories**;
+- Setup URL `https://simulator.etisframework.org/github/setup-complete`;
+- Redirect on update enabled.
 
-Gate 17 authorizes Azure provisioning.
+Step 1 authorization and Step 2 exact repository verification remain separate.
 
-Post-Provisioning Production Acceptance authorizes student production use.
+## 5. Secrets and managed identity
 
-This review consumes:
+Container App uses user-assigned identity `etis-studio-prod-runtime`.
 
-- Gate 17 evidence;
-- live Azure deployment evidence;
-- Gate 16 operational evidence;
-- identity/integration validation;
-- recovery evidence;
-- final Wave 1 acceptance evidence.
+The identity has `Key Vault Secrets User` at the production Key Vault scope. The Container App secret definitions reference Key Vault for database, session, Entra, GitHub App, GitHub OAuth, and OpenAI secret values. Runtime environment variables consume those through secret references.
 
-No live control may be marked verified merely because corresponding
-infrastructure-as-code exists.
+No secret values were recorded as acceptance evidence.
 
----
+## 6. Health and readiness
 
-## 3. Decision outcomes
+Live `/health` returned HTTP 200 with production mode, semantic-coaching readiness, Entra readiness, GitHub identity-link readiness, and GitHub App readiness.
 
-### GO
+Live `/ready` returned HTTP 200 with:
 
-GO means all required live production controls pass and controlled student
-access may be enabled.
+- `database_connected=true`;
+- `migration_current=true`;
+- current revision `d42b8f5ae201`;
+- head revision `d42b8f5ae201`.
 
-### NO-GO
+## 7. Observability and alerts
 
-NO-GO means student access remains disabled until blocking findings are
-resolved and revalidated.
+Accepted live configuration:
 
-A deployment may remain online for controlled operator testing during NO-GO
-when doing so is necessary to complete acceptance evidence and does not expose
-students or unauthorized users.
+- Application Insights `etis-studio-prod-appi`, status Succeeded;
+- workspace-connected Log Analytics `etis-studio-prod-law`;
+- 30-day log retention;
+- operations action group enabled with email receiver;
+- PostgreSQL storage alert enabled;
+- Container App restart alert enabled;
+- PostgreSQL not-alive alert enabled;
+- HTTP 5xx alert enabled.
 
----
+## 8. PostgreSQL backup/PITR
 
-## 4. Final hostname, DNS, and HTTPS
+Accepted PostgreSQL state:
 
-Verify:
+- PostgreSQL 16;
+- server Ready;
+- private network access disabled from the public Internet;
+- 7-day backup retention;
+- earliest restore point was visible through Azure;
+- geo-redundant backup disabled;
+- HA disabled.
 
-- final production DNS resolves to the intended service;
-- the intended hostname matches `ETIS_WEB_ORIGIN`;
-- HTTPS is enforced;
-- the browser receives a valid certificate;
-- insecure HTTP is not accepted where prohibited;
-- security headers remain present;
-- callback origins match the public hostname.
+A real temporary PITR server was restored to a point approximately ten minutes before the exercise. It reached Ready with the same private subnet/DNS posture. From the production Container App, the restored database returned:
 
-Result: **PASS / FAIL**
+- connection PASS;
+- Alembic revision `d42b8f5ae201`;
+- 21 tables;
+- restored course-term data;
+- restored team data.
 
-Evidence:
+The temporary PITR server was then deleted and ResourceNotFound confirmed cleanup.
 
-Owner:
+## 9. Rollback
 
----
+Container Apps uses Single revision mode. Production rollback is based on redeploying a retained immutable ACR commit-SHA image.
 
-## 4A. Production-test student identity
+Acceptance verified the current image and multiple prior commit-SHA image tags. Production was not deliberately rolled back solely for acceptance.
 
-Production Acceptance must exercise the deployed system using the configured
-nonprivileged test student.
+## 10. Cost controls
 
-The deployed configuration must contain:
+Production resource-group budget was configured through Azure Resource Manager:
 
-- `ETIS_PRODUCTION_TEST_STUDENT_OID`
-- `ETIS_PRODUCTION_TEST_STUDENT_EMAIL`
-- `ETIS_PRODUCTION_TEST_STUDENT_ID`
-- `ETIS_PRODUCTION_TEST_SECTION_KEY`
-- `ETIS_PRODUCTION_TEST_TEAM_KEY`
+- amount: `$100`;
+- time grain: monthly;
+- 50% actual-cost notification;
+- 80% actual-cost notification;
+- 100% actual-cost notification.
 
-Verify that authentication resolves the configured **exact Entra Object ID**
-and that the principal is recognized only after normal Studio authorization
-checks.
+Budget notifications are warnings, not automatic shutdown controls.
 
-Verify that the test student:
+## 11. Scaling
 
-- is enrolled only in the **designated production-test section**;
-- is assigned only to the **designated production-test team**;
-- receives student authority and no staff/admin authority;
-- can exercise the normal student workflow;
-- cannot access another team or section;
-- loses authority when its enrollment is deactivated.
+During acceptance the Container App was changed from `minReplicas=0` to `minReplicas=1`, with `maxReplicas=5`, to avoid scale-to-zero cold starts during the semester.
 
-Also verify that another Gmail or external identity is rejected. The exception
-**does not allow gmail.com generally**.
+The resulting revision became both LatestRevision and LatestReadyRevision and remained Running.
 
-Do not record the guest principal's Object ID, access token, session cookie, or
-other credential material in acceptance evidence unless an identifier is
-strictly required and appropriately protected.
+Known follow-up: source `infra/azure/app.bicep` still defaults `minReplicas` to `0` and should be reconciled separately.
 
-Result: **PASS / FAIL**
+## 12. Residual evidence notes
 
-Evidence:
+Accepted residual notes:
 
-Owner:
+- normal Loyola student authorization was not live-tested with a second `luc.edu` student identity; the Loyola instructor identity and bounded student test identity covered the two sides of the flow, and student authorization is automated-tested;
+- multi-student GitHub propagation was automated/CI proven, not live-proven with multiple production student identities;
+- application rollback assets were live verified, but healthy production was not deliberately rolled backward;
+- intermittent 15–25 second load behavior became non-reproducible; keep one warm replica and capture Network timing if it returns;
+- application version metadata remains `0.15.0`.
 
-## 5. Microsoft Entra authentication
+## 13. Final decision
 
-Verify live **Microsoft Entra** behavior:
+**GO.**
 
-- authorized Loyola identity can authenticate;
-- unauthorized/non-enrolled identity does not gain course access;
-- redirect/callback URI is exact;
-- session creation succeeds only after valid authentication;
-- archived/deactivated authority remains revoked;
-- role and section authorization remain database-derived.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 6. GitHub OAuth and GitHub App
-
-Verify live **GitHub OAuth** identity linking and the production **GitHub App**.
-
-At minimum:
-
-- GitHub identity linking succeeds for an authorized user;
-- callback URI is exact;
-- GitHub App installation is limited to intended repositories;
-- an authorized private repository can be read;
-- an unauthorized repository cannot be substituted;
-- student credentials/PATs are not used for production repository evidence;
-- GitHub App access remains scoped and fail closed.
-
-At least one **authorized private repository** must be exercised.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 7. Secrets and Key Vault
-
-Verify:
-
-- production secrets reside in Azure Key Vault;
-- the application retrieves required secrets through the intended managed
-  identity boundary;
-- no registry password is required;
-- secrets are absent from logs and browser configuration;
-- secret references survive application restart/revision changes.
-
-Do not record secret values.
-
-Do not place an access token, database password, API key, session cookie,
-private key, or OAuth secret in the evidence record.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 8. Application Insights and Log Analytics
-
-Verify live observability.
-
-### Application Insights
-
-Confirm **Application Insights** receives expected bounded telemetry.
-
-Verify that telemetry does not contain:
-
-- credentials;
-- session material;
-- unnecessary student content;
-- repository secret material;
-- raw AI prompts/responses where policy prohibits collection.
-
-### Log Analytics
-
-Confirm **Log Analytics** receives expected operational logging.
-
-Verify logging remains consistent with `docs/SECURITY_AND_PRIVACY.md`.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 9. Azure Monitor action group and alerts
-
-Verify the production **action group** reaches the intended operator.
-
-Confirm all four Gate 16 alerts exist, are enabled, and target the intended
-resource.
-
-Required alerts:
-
-1. Container App `RestartCount`;
-2. HTTP `5xx`;
-3. PostgreSQL `is_db_alive`;
-4. PostgreSQL `storage_percent`.
-
-Where safe, perform a controlled test of alert delivery or otherwise obtain
-sufficient live evidence that the alert/action-group path is functional.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 10. Health and readiness
-
-Verify the deployed endpoints.
-
-### `/health`
-
-Verify:
-
-- HTTP success;
-- service identity/version is expected;
-- semantic-coaching state accurately reflects production configuration;
-- identity/integration readiness indicators are accurate.
-
-### `/ready`
-
-Verify:
-
-- HTTP 200 only when the database is connected;
-- Alembic migration is current;
-- `database_connected` is true;
-- `migration_current` is true.
-
-Also perform a bounded failure test where practicable to confirm readiness fails
-closed when a required dependency is unavailable.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 11. PostgreSQL backup posture
-
-Verify live PostgreSQL **backup** configuration:
-
-- automatic backup is enabled;
-- configured retention matches the approved production posture;
-- backup/recovery settings are documented;
-- expected operational owner is known.
-
-The CI logical backup/restore drill remains supporting evidence but does not
-replace this live verification.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 12. Live point-in-time recovery exercise
-
-Perform an Azure PostgreSQL **point-in-time restore**.
-
-The exercise must:
-
-1. choose a documented safe restore point;
-2. restore to a **separate recovery server**;
-3. preserve the original source server;
-4. preserve required **private networking**;
-5. validate restored database content;
-6. validate Alembic state;
-7. validate application compatibility;
-8. demonstrate the controlled Key Vault connection-switch procedure;
-9. verify `/health`;
-10. verify `/ready`;
-11. verify representative durable engineering records;
-12. measure actual recovery duration;
-13. retain a rollback option.
-
-Do not overwrite or destructively repurpose the source server during the
-exercise.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 13. Alembic and data integrity
-
-Against the recovery candidate verify:
-
-- expected Alembic revision;
-- migration compatibility;
-- required schema exists;
-- representative durable records are intact;
-- evidence snapshots remain immutable;
-- review history remains available;
-- no known-bad state is silently accepted.
-
-If migration is required, use the normal Alembic migration process. Do not
-manually falsify the Alembic version table.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 14. Authentication and authorization validation
-
-Perform live production **authentication** and **authorization** tests using
-controlled accounts.
-
-Verify:
-
-- enrolled student access;
-- non-enrolled denial;
-- team isolation;
-- instructor section scope;
-- course-owner authority;
-- archived/deactivated access revocation;
-- stale-session authority fails closed;
-- private repository authorization;
-- no unauthorized student/instructor data crossover.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 15. Wave 1 controlled-use acceptance
-
-Reconfirm the complete Wave 1 acceptance criteria against the deployed system.
-
-The live environment must demonstrate or retain evidence for:
-
-- A1 and A2 phase contracts;
-- authentication and enrollment denial;
-- authorized-team isolation;
-- frozen evidence at a known commit;
-- consequence-oriented missing-evidence handling;
-- Socratic reviewer conversation;
-- A1/A2 scenarios;
-- AI-disabled deterministic core behavior;
-- non-fabricated evidence and provenance;
-- instructor review visibility;
-- peer/privacy boundaries;
-- automated tests and health checks;
-- Azure **budget**;
-- Azure **alerts**;
-- Key Vault **secrets**;
-- **HTTPS**;
-- production **logging**;
-- PostgreSQL **backups**;
-- production **access controls**;
-- strong/mixed/weak representative repositories against A1 and A2.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 16. Budget and cost controls
-
-Verify the live Azure and OpenAI cost-control posture.
-
-Confirm:
-
-- Azure budget exists as approved;
-- cost notifications reach intended recipients;
-- PostgreSQL SKU is as expected;
-- Container Apps scaling is as expected;
-- telemetry ingestion posture is understood;
-- OpenAI usage controls and monitoring are active;
-- unexpected spend has an identified escalation owner.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 17. RTO and RPO evidence
-
-Record actual recovery evidence.
-
-The initial planning targets remain:
-
-- **RTO:** 4 hours;
-- **RPO:** 24 hours.
-
-These are engineering planning targets and are not an SLA.
-
-Record:
-
-- actual **RTO** observed during the recovery exercise;
-- actual **RPO** demonstrated by the selected restore point;
-- deviations;
-- operational implications;
-- any required follow-up.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 18. Rollback and cutover
-
-Verify the production **rollback** and cutover procedure.
-
-Confirm:
-
-- original database/source state is preserved until recovery acceptance;
-- previous known-good application revision is identifiable;
-- Key Vault connection changes are controlled;
-- rollback authority is known;
-- failed acceptance does not force continued use of an untrusted candidate;
-- student access can remain disabled independently of infrastructure state.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 19. Retention and privacy
-
-Before student access, verify the approved retention posture for:
-
-- engineering records;
-- identity/attribution information;
-- archived course administration;
-- authentication/session records;
-- telemetry;
-- backups;
-- externally processed data where configurable.
-
-Confirm operational telemetry and evidence collection remain bounded by
-`docs/SECURITY_AND_PRIVACY.md`.
-
-Result: **PASS / FAIL**
-
-Evidence:
-
-Owner:
-
----
-
-## 20. Acceptance evidence record
-
-For each live verification record:
-
-- date/time;
-- operator;
-- resource;
-- Git SHA;
-- control;
-- expected result;
-- actual result;
-- evidence reference;
-- PASS/FAIL;
-- follow-up;
-- owner.
-
-Do not record secret values.
-
-Never record an access token, database password, API key, session cookie,
-private key, or OAuth secret.
-
----
-
-## 21. Final decision
-
-Production Acceptance must end with an explicit decision:
-
-### GO
-
-All blocking production controls pass.
-
-Controlled student production access may be enabled.
-
-### NO-GO
-
-One or more blocking production controls have failed, are unresolved, or lack
-sufficient evidence.
-
-Student access remains disabled.
-
-The decision record must identify:
-
-- decision;
-- date/time;
-- decision owner;
-- supporting evidence;
-- unresolved issues;
-- accepted deferrals, if any;
-- required follow-up.
-
-A successful deployment is not itself a go-live decision.
-
-A successful `/ready` response is necessary but not sufficient for student
-production authorization.
+All blocking production controls required for Wave 1 controlled semester use have sufficient evidence. The application may remain deployed for the semester. Future changes must follow the normal branch/PR/CI/protected-deployment/targeted-acceptance process.

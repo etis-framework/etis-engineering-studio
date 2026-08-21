@@ -1,5 +1,7 @@
 # ETIS Engineering Studio Database Recovery Runbook
 
+> **Status:** Current production recovery runbook. A real non-destructive PITR recovery drill passed on 2026-08-21.
+
 ## 1. Purpose
 
 This runbook defines recovery of the ETIS Engineering Studio production
@@ -361,11 +363,9 @@ Do not record secret values.
 
 ## 17. Live recovery exercise
 
-The first live Azure point-in-time restore exercise must be performed after the
-production Azure infrastructure exists and before student production access is
-approved.
+The first live Azure point-in-time restore exercise was completed successfully during Post-Provisioning Production Acceptance on 2026-08-21. Future exercises should be repeated after material database/networking changes or when operational policy requires renewed evidence.
 
-The exercise should:
+A recovery exercise should:
 
 1. identify a safe restore point;
 2. restore to a new server;
@@ -400,24 +400,13 @@ Database recovery succeeds only when:
 - rollback remains understood;
 - actual RTO and RPO are recorded.
 
-## 19. Gate 16 evidence boundary
+## 19. Gate 16 / production-acceptance evidence boundary
 
-Before Azure provisioning, Gate 16 can prove:
+Gate 16 established the recovery procedure and CI evidence. Post-Provisioning Production Acceptance subsequently proved the live PITR/restored-networking/database-validation path and reached GO.
 
-- recovery procedure completeness;
-- PostgreSQL logical backup/restore correctness in CI;
-- migration compatibility checking;
-- operational alert definitions;
-- recovery safety rules.
+For future production-changing releases, determine whether the change affects database durability, private networking, Key Vault database references, migration compatibility, or recovery procedure. If it does, collect renewed targeted recovery evidence rather than assuming the 2026-08-21 drill covers the changed boundary.
+## Acceptance drill record — 2026-08-21
 
-After Azure provisioning, Gate 16 evidence must additionally prove:
+Production acceptance exercised this runbook against the live PostgreSQL Flexible Server. A temporary PITR server was restored to an earlier point within the 7-day recovery window, preserved private subnet/private DNS configuration, reached Ready, and accepted a real application connection from the production Container App. Validation confirmed Alembic revision `d42b8f5ae201`, 21 tables, and restored course/team data. The temporary server was then deleted and its absence confirmed.
 
-- actual point-in-time restore;
-- actual restored-server networking;
-- actual Azure recovery duration;
-- actual alert delivery;
-- actual production readiness after restoration.
-
-Those live results become evidence for the **Post-Provisioning Production
-Acceptance** decision that occurs after Gate 17 has authorized Azure
-provisioning and before student production access is enabled.
+This drill is evidence that the documented PITR path is operational, not merely configured. Future recovery exercises should continue to avoid destructive cutover unless an incident or explicit drill requires it.
