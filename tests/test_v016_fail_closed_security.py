@@ -4022,3 +4022,41 @@ def test_github_identity_link_forces_explicit_account_selection(monkeypatch):
     assert query["client_id"] == ["test-github-client"]
     assert query["state"] == ["signed-test-state"]
     assert query["prompt"] == ["select_account"]
+
+def test_studio_production_bootstrap_fails_closed_before_authentication():
+    """
+    An unauthenticated production visitor must never see the Studio shell
+    while authentication is still being resolved.
+
+    The application shell starts hidden, and production authentication must
+    complete before course/application state is loaded.
+    """
+    from pathlib import Path
+
+    html = Path(
+        "apps/api/app/static/index.html"
+    ).read_text(encoding="utf-8")
+
+    javascript = Path(
+        "apps/api/app/static/studio.js"
+    ).read_text(encoding="utf-8")
+
+    assert '<div id="loginGate" class="login-gate hidden">' in html
+    assert '<div id="appShell" class="shell hidden">' in html
+
+    init = javascript[javascript.index("(async function init()"):]
+
+    production = init[
+        init.index("}else{const me=await fetch('/auth/me')")
+    :]
+
+    auth_check = production.index("fetch('/auth/me')")
+    course_load = production.index("fetch('/api/v1/course')")
+    shell_reveal = production.index(
+        "$('#appShell').classList.remove('hidden')"
+    )
+
+    assert auth_check < course_load
+    assert auth_check < shell_reveal
+    assert course_load < shell_reveal
+
