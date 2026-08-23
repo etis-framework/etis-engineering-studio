@@ -96,7 +96,7 @@ The accepted production runtime is:
 - `minReplicas=1`;
 - `maxReplicas=5`.
 
-`app.bicep` currently defaults `minReplicas` to `0`. That default predates the final acceptance decision to keep one replica warm. **Do not treat the source default as the accepted runtime value.** Reconcile it in a separate infrastructure PR with normal CI/Bicep/deployment validation before the next deployment that could reset scaling.
+`app.bicep` defaults `minReplicas` to `1` for the production deployment so one application replica remains warm and student access does not incur a scale-from-zero cold start. The accepted production scaling baseline is `minReplicas=1` and `maxReplicas=5`.
 
 ## Production boundary
 
