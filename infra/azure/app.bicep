@@ -99,7 +99,7 @@ param openAiApiKeySecretName string = 'openai-api-key'
 @minValue(0)
 @maxValue(5)
 @description('Minimum number of application replicas.')
-param minReplicas int = 0
+param minReplicas int = 1
 
 @minValue(1)
 @maxValue(10)
