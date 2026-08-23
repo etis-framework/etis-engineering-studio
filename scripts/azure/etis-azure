@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+usage() {
+  cat <<'USAGE'
+ETIS Engineering Studio — Azure Operations
+
+Usage:
+  ./scripts/azure/etis-azure <command> [options]
+
+Read-only commands:
+  doctor       Check this Mac and Azure operations readiness
+  status       Show concise production status
+  config       Show important non-secret production configuration
+  health       Public health/readiness checks
+  replicas     Replica detail
+  revisions    Revision and traffic history
+  logs         Production logs
+  cost         Month-to-date Azure cost
+  budget       Azure budget status
+  smoke        Non-destructive production smoke tests
+  drift        Runtime vs source-of-truth comparison
+  acceptance   Full post-deployment acceptance report
+
+Mutating commands:
+  scale        Guarded live runtime scale override
+
+Options by command:
+  logs --tail N
+  logs --all
+  logs --raw
+  logs --follow
+  scale <min-replicas> <max-replicas>
+
+For command-specific help:
+  ./scripts/azure/etis-azure logs --help
+  ./scripts/azure/etis-azure scale --help
+
+Other:
+  help         Show this help
+
+Production deployment is intentionally NOT provided here.
+Deployments remain controlled through:
+  branch -> PR -> CI -> merge -> GitHub Deploy Azure workflow
+USAGE
+}
+
+command="${1:-help}"
+shift || true
+
+case "${command}" in
+  doctor)
+    exec "${SCRIPT_DIR}/doctor.sh" "$@"
+    ;;
+  status)
+    exec "${SCRIPT_DIR}/status.sh" "$@"
+    ;;
+  config)
+    exec "${SCRIPT_DIR}/config.sh" "$@"
+    ;;
+  health)
+    exec "${SCRIPT_DIR}/health.sh" "$@"
+    ;;
+  replicas)
+    exec "${SCRIPT_DIR}/replicas.sh" "$@"
+    ;;
+  revisions)
+    exec "${SCRIPT_DIR}/revisions.sh" "$@"
+    ;;
+  logs)
+    exec "${SCRIPT_DIR}/logs.sh" "$@"
+    ;;
+  cost)
+    exec "${SCRIPT_DIR}/cost.sh" "$@"
+    ;;
+  budget)
+    exec "${SCRIPT_DIR}/budget.sh" "$@"
+    ;;
+  smoke)
+    exec "${SCRIPT_DIR}/smoke.sh" "$@"
+    ;;
+  drift)
+    exec "${SCRIPT_DIR}/drift.sh" "$@"
+    ;;
+  acceptance)
+    exec "${SCRIPT_DIR}/acceptance.sh" "$@"
+    ;;
+  scale)
+    exec "${SCRIPT_DIR}/scale.sh" "$@"
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    printf 'Unknown command: %s\n\n' "${command}" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
