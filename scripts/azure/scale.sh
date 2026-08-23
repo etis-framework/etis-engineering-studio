@@ -5,9 +5,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/lib/output.sh"
 source "${SCRIPT_DIR}/lib/common.sh"
 
-etis_require_az_login
-etis_require_container_app
-
 usage() {
   cat <<'USAGE'
 Usage:
@@ -56,6 +53,10 @@ fi
 if (( requested_max > 10 )); then
   etis_die "Maximum replicas above 10 are outside the accepted operational safety boundary."
 fi
+
+etis_require_command python3
+etis_require_az_login
+etis_require_container_app
 
 current_json="$(
   az containerapp show \

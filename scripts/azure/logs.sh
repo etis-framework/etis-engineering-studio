@@ -7,10 +7,6 @@ source "${SCRIPT_DIR}/lib/output.sh"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
 
-etis_require_az_login
-etis_require_container_app
-etis_require_command python3
-
 follow=false
 raw=false
 show_all=false
@@ -56,6 +52,10 @@ USAGE
   esac
   shift
 done
+
+etis_require_command python3
+etis_require_az_login
+etis_require_container_app
 
 etis_header "ETIS Engineering Studio" "Production Logs"
 
