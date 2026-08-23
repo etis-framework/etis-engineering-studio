@@ -4042,7 +4042,7 @@ def test_studio_production_bootstrap_fails_closed_before_authentication():
     ).read_text(encoding="utf-8")
 
     assert '<div id="loginGate" class="login-gate hidden">' in html
-    assert '<div id="appShell" class="shell hidden">' in html
+    assert '<div id="appShell" class="shell hidden" hidden>' in html
 
     init = javascript[javascript.index("(async function init()"):]
 
