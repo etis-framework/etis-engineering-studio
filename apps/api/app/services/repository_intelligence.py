@@ -230,7 +230,12 @@ def build_findings(phase_id: str, artifacts: list[ArtifactFact], metrics: dict, 
     # Contradiction: readiness language while phase evidence is still scaffold/missing.
     readme = next((a for a in artifacts if a.path == 'README.md'), None)
     unresolved = [f for f in findings if f.category in {'missing_evidence','artifact_theater','weak_evidence'} and f.severity >= 3]
-    if readme and READY_CLAIM_RE.search(readme.content_excerpt or '') and unresolved:
+    if (
+        readme
+        and readme.provenance != 'BASELINE'
+        and READY_CLAIM_RE.search(readme.content_excerpt or '')
+        and unresolved
+    ):
         findings.append(ReviewFinding('readiness-contradiction', 'contradiction', 'Readiness language may outrun the evidence', 'The README uses readiness/completion language while material phase evidence remains missing, scaffolded, or weak.', 'A reviewer should be able to reconcile the team\'s readiness claim with the actual evidence baseline.', 4, 'moderate', evidence_refs=['PATH:README.md'] + [x.evidence_refs[0] for x in unresolved[:2] if x.evidence_refs], suggested_lens='chief_architect'))
 
     # CI placeholder is a known course baseline control, not actual CI evidence.

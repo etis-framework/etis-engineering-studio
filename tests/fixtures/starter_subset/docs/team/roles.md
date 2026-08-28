@@ -1,5 +1,15 @@
 # Team Roles, Identities, and Evidence Ownership
 
+> **Starter Kit Example**
+>
+> This file contains sample data showing what a completed team role record looks like.
+> Replace all sample student names, GitHub identities, role assignments, deliverable
+> ownership, and acknowledgement evidence with your team's actual information.
+> **Keep the instructor entry.**
+>
+> Do not simply change the names. As a team, decide who will own and back up each
+> responsibility.
+
 Every student is a **Developer** and also holds at least one specialized engineering role. Each specialized role must have a primary owner and a different backup owner.
 
 The purpose of this file is to provide one authoritative, reviewable record of:
@@ -111,8 +121,8 @@ The **Evidence** column should reference a repository-visible confirmation made 
 
 | Student Name | Acknowledged | Evidence |
 |---|---|---|
-| Jordan Smith | Yes | Issue #2 comment |
-| Taylor Nguyen | Yes | PR #3 review |
+| Jordan Smith | Yes | Issue #2 — acknowledgement comment |
+| Taylor Nguyen | Yes | PR #3 — review acknowledgement |
 | Morgan Lee | Pending |  |
 | Casey Patel | Pending |  |
 | Riley Chen | Pending |  |
@@ -121,7 +131,7 @@ The **Evidence** column should reference a repository-visible confirmation made 
 
 - Include one row for every declared student.
 - Use `Yes` only after the student has personally confirmed the assignment.
-- In **Evidence**, link or reference the student's own repository-visible confirmation, such as `Issue #2 comment`, `PR #3 review`, or `Commit abc1234`.
+- In **Evidence**, link or reference the student's own repository-visible confirmation, such as `Issue #2 — acknowledgement comment`, `PR #3 — review acknowledgement`, or `Commit abc1234`.
 - Do not use meeting notes or another student's statement as the only acknowledgement evidence.
 - If acknowledgement evidence is not yet available, use `Pending` and leave the Evidence field blank until the student confirms.
 - The instructor does not complete an acknowledgement row.
