@@ -171,6 +171,18 @@
       {
         "path": "GitHub Issues",
         "claim": "Meaningful work has repository-visible intent, owner, outcome, and completion evidence."
+      },
+      {
+        "path": "docs/requirements/",
+        "claim": "Reviewed requirements, acceptance criteria, assumptions, and open questions remain current as planning decisions evolve."
+      },
+      {
+        "path": "docs/decisions/",
+        "claim": "Scope cuts, deferred work, technical debt, and consequential planning tradeoffs are recorded with rationale."
+      },
+      {
+        "path": "docs/ai/ai-use-log.md",
+        "claim": "AI assistance used for requirements, planning, estimates, risks, or task decomposition is disclosed and human-reviewed."
       }
     ],
     "decisions_to_defend": [
@@ -266,20 +278,56 @@
     "gate_question": "What will be hard, risky, expensive, or unsafe to change later if this architecture is accepted now?",
     "expected_evidence": [
       {
-        "path": "docs/architecture/",
-        "claim": "Architecture, boundaries, responsibilities, data/context, and contracts are explicit."
+        "path": "docs/architecture/README.md",
+        "claim": "The architecture package is navigable and identifies the architecture baseline, major evidence, and unresolved review items."
+      },
+      {
+        "path": "docs/architecture/architecture.md",
+        "claim": "System purpose, major components, responsibilities, dependency direction, and support for the Cycle 1 vertical slice are explicit."
+      },
+      {
+        "path": "docs/architecture/architecture-diagram.png",
+        "claim": "The architecture diagram makes users, roles, components, interfaces, data stores, external services, trust/tool boundaries, and governance points inspectable."
+      },
+      {
+        "path": "docs/architecture/component-responsibilities.md",
+        "claim": "Major component ownership, responsibilities, non-responsibilities, inputs, outputs, and evidence boundaries are explicit."
+      },
+      {
+        "path": "docs/architecture/api-contracts.md",
+        "claim": "Important API and tool boundaries define inputs, outputs, errors, permissions, action limits, and consequences."
+      },
+      {
+        "path": "docs/architecture/data-context.md",
+        "claim": "Authoritative and sensitive data, context ownership, visibility limits, AI/tool access, and logging expectations are explicit."
       },
       {
         "path": "docs/decisions/",
-        "claim": "Important decisions show alternatives, consequences, risks, and ownership."
+        "claim": "Important architecture decisions record alternatives, consequences, risks, assumptions, and ownership."
       },
       {
         "path": "docs/reviews/architecture-review.md",
-        "claim": "Peer challenge and dispositions are visible."
+        "claim": "Architecture review findings, author responses, dispositions, owners, and follow-up actions are visible."
+      },
+      {
+        "path": "docs/planning/",
+        "claim": "Architecture decisions have been reflected in scope, estimates, risks, schedule, task planning, and re-estimation where they changed the plan."
       },
       {
         "path": "docs/testing/test-strategy.md",
-        "claim": "Architecture risks and contracts map to planned verification."
+        "claim": "Important architecture risks, contracts, workflows, trust boundaries, and failure paths map to planned verification."
+      },
+      {
+        "path": "docs/ai/ai-use-log.md",
+        "claim": "AI assistance used for architecture, diagrams, contracts, decisions, risk analysis, or review preparation is disclosed and human-verified."
+      },
+      {
+        "path": "GitHub Issues",
+        "claim": "Architecture review actions and consequential follow-up work are visible, owned, and traceable in repository workflow evidence."
+      },
+      {
+        "path": "GitHub Pull Requests",
+        "claim": "Architecture changes and review responses are connected to visible repository review and change history where applicable."
       }
     ],
     "decisions_to_defend": [
@@ -329,29 +377,61 @@
   {
     "id": "A4",
     "title": "Construction & Integration",
-    "etis_alignment": "ES-106 Implementation Readiness; ES-107 Implementation; ES-108 Review & Integration",
+    "etis_alignment": "ES-106 Implementation Readiness; ES-107 Implementation; ES-108 Review & Integration; ES-109 Testing & Validation",
     "goal": "Prove controlled, reviewed, tested, traceable, AI-governed change.",
     "gate_question": "Why is this change safe enough to merge, and what evidence would make you change that judgment?",
     "expected_evidence": [
       {
+        "path": "docs/reviews/assignment4-review-package.md",
+        "claim": "The construction, integration, review, AI-use, CI/CD, and test evidence package is navigable and current."
+      },
+      {
         "path": "src/",
-        "claim": "Implementation corresponds to traceable intent."
+        "claim": "Implementation corresponds to traceable engineering intent and the accepted architecture."
       },
       {
         "path": "tests/",
-        "claim": "Important behavior is challenged by tests."
+        "claim": "Automated tests challenge important requirements, business rules, edge cases, boundaries, failure paths, and regression risks."
+      },
+      {
+        "path": "docs/testing/",
+        "claim": "CI, manual, runtime, logging, or other verification evidence is preserved where it supports construction and integration claims."
+      },
+      {
+        "path": "docs/reviews/architecture-review.md",
+        "claim": "Architecture review findings show what changed, what was deferred, and what evidence supports closure or continued risk."
+      },
+      {
+        "path": "docs/planning/traceability.md",
+        "claim": "Requirements and tasks connect to issues, branches, commits, pull requests, tests, CI results, and known limitations."
+      },
+      {
+        "path": ".github/pull_request_template.md",
+        "claim": "Pull requests consistently expose intent, issue linkage, evidence, risks, tests, and AI assistance for review."
+      },
+      {
+        "path": "GitHub Issues",
+        "claim": "Implementation work has repository-visible intent, ownership, requirement linkage, status, and completion evidence."
       },
       {
         "path": "GitHub Pull Requests",
-        "claim": "Meaningful changes have review, verification, risks, and merge decisions."
+        "claim": "Meaningful changes show review comments, author response, status checks, risk discussion, and a merge or no-merge decision."
       },
       {
-        "path": ".github/workflows/",
-        "claim": "Configured checks prove specific things and their limits are understood."
+        "path": ".github/workflows/ci.yml",
+        "claim": "The configured CI workflow runs automated build/test checks on appropriate pull requests or branches and its limits are understood."
       },
       {
         "path": "docs/ai/ai-use-log.md",
-        "claim": "AI-assisted implementation is disclosed and verified."
+        "claim": "AI-assisted code, tests, reviews, documentation, debugging, or refactoring are disclosed with accepted/rejected output and human verification."
+      },
+      {
+        "path": "docs/planning/risk-register.md",
+        "claim": "Construction, dependency, integration, AI, and release-readiness risks remain visible with owners, mitigations, and status."
+      },
+      {
+        "path": "docs/release/known-limitations.md",
+        "claim": "Known limitations, deferred work, failed or incomplete evidence, and early release-readiness concerns are explicit."
       }
     ],
     "decisions_to_defend": [
@@ -403,19 +483,39 @@
     "expected_evidence": [
       {
         "path": "docs/release/",
-        "claim": "Release scope, baseline, notes, limitations, traceability, and presentation evidence are reviewable."
+        "claim": "The Cycle 1 release package makes shipped scope, changed evidence since A4, the exact release baseline, release notes, known limitations, traceability, presentation evidence, and Cycle 2 handoff inspectable."
       },
       {
         "path": "docs/testing/",
-        "claim": "Final tests and CI evidence support release claims."
+        "claim": "Final test, CI/CD, manual, runtime, and other validation evidence support the team's Cycle 1 release claims and disclose failed or incomplete checks."
       },
       {
         "path": "docs/quality/",
-        "claim": "Defects are classified and dispositioned."
+        "claim": "Defects are classified by severity and disposition, with ownership, mitigation, deferral, and regression evidence where applicable."
       },
       {
         "path": "test-evidence/",
-        "claim": "Manual/runtime evidence supports important claims where useful."
+        "claim": "Inspectible execution, manual, screenshot, log, or other verification evidence supports important release claims where useful."
+      },
+      {
+        "path": "docs/ai/ai-use-log.md",
+        "claim": "AI assistance used for implementation, tests, documentation, release work, presentation preparation, or review is disclosed with human verification."
+      },
+      {
+        "path": "docs/planning/risk-register.md",
+        "claim": "Known limitations and residual technical, user-facing, AI, security, and operational risks have explicit ownership, mitigation, disposition, and Cycle 2 implications."
+      },
+      {
+        "path": "docs/planning/traceability.md",
+        "claim": "Requirements connect through issues/tasks, branches or commits, pull requests, CI/CD, tests or evaluations, demo evidence, release notes, and the identified release baseline."
+      },
+      {
+        "path": "GitHub Issues",
+        "claim": "Cycle 1 implementation, defects, risks, and deferred work remain repository-visible with intent, ownership, status, and follow-up."
+      },
+      {
+        "path": "GitHub Pull Requests",
+        "claim": "Release-relevant changes preserve visible review, verification, status checks, merge decisions, and traceability into the release."
       }
     ],
     "decisions_to_defend": [
@@ -464,30 +564,49 @@
     "title": "Final Release & Maturity",
     "etis_alignment": "Evidence-selected ES-109 through ES-114, especially release, operations, monitoring, learning, and stewardship",
     "goal": "Show evidence-driven maturity improvement, operational readiness, governance, observability, recovery, stewardship, and final release defensibility.",
-    "gate_question": "Can another engineer understand, operate, diagnose, recover, govern, and evolve the system within its documented limits?",
+    "gate_question": "Can the team defend the final release as an evidence-driven maturity improvement, and can another engineer understand, operate, diagnose, recover, govern, and evolve the system within its documented limits?",
     "expected_evidence": [
       {
+        "path": "docs/release/",
+        "claim": "The final release package identifies the exact controlled baseline, what changed during Cycle 2, known limitations, residual risks, traceability, maturity results, presentation evidence, and future stewardship."
+      },
+      {
+        "path": "docs/planning/",
+        "claim": "Postmortem evidence, re-estimation, risks, scope decisions, task planning, and Cycle 2 maturity targets show why final improvement work was selected and what was completed, deferred, or cut."
+      },
+      {
+        "path": "docs/testing/",
+        "claim": "Final unit, integration, system, regression, manual, AI validation, CI/CD, and runtime evidence support the team's final release claims and disclose failed or incomplete checks."
+      },
+      {
+        "path": "docs/quality/",
+        "claim": "Final defects are classified by severity and disposition, with ownership, mitigation, deferral, and regression evidence where applicable."
+      },
+      {
         "path": "docs/operations/",
-        "claim": "Runbook, failure/recovery, postmortem, and supportability evidence are current."
+        "claim": "Runbook, postmortem, failure modes, diagnosis, recovery paths, dependencies, operating assumptions, and supportability evidence are current and executable."
       },
       {
         "path": "docs/observability/",
-        "claim": "Runtime signals and limits are visible."
+        "claim": "Logs, metrics, runtime behavior, failure signals, operational limits, and recovery indicators make important system behavior inspectable."
       },
       {
         "path": "docs/security/",
-        "claim": "Permissions, data handling, governance, and residual security concerns are explicit."
+        "claim": "Permissions, approvals, sensitive-data handling, audit expectations, tool boundaries, governance controls, and residual security concerns are explicit."
       },
       {
-        "path": "docs/release/",
-        "claim": "Final release baseline, maturity changes, residual risks, and stewardship are defensible."
+        "path": "docs/ai/ai-use-log.md",
+        "claim": "Final AI assistance across implementation, tests, documentation, review, presentation preparation, and maturity work is disclosed with human acceptance, rejection, modification, and verification."
       }
     ],
     "decisions_to_defend": [
       "What evidence from Cycle 1 justified each maturity target?",
+      "What materially improved during Cycle 2, and what evidence shows the intended risk reduction was actually achieved?",
       "What can fail and how will an engineer know?",
       "How is recovery performed?",
       "What residual risk remains and who owns it?",
+      "How was AI-assisted final-release work independently reviewed or verified before the team trusted it?",
+      "Why does the identified final repository baseline support the claims the team is making about the release?",
       "What would make you revoke or constrain the release?"
     ],
     "active_agents": [
