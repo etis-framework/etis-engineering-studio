@@ -96,7 +96,7 @@ class EvidencePackageBuilder:
             "branches": (metrics.get("branches") or [])[:8],
             "issues": (metrics.get("issues") or [])[:8],
             "pull_requests": (metrics.get("pull_requests") or [])[:6],
-            "actions": (metrics.get("action_run_summaries") or [])[:6],
+            "actions": (metrics.get("action_runs") or [])[:6],
         }
         return CompactEvidencePackage(
             phase_id=evidence.get("phase_id", ""),
