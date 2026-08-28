@@ -67,12 +67,18 @@ class EvidenceSnapshotData:
 
 
 def _path_matches(expected: str, actual_paths: set[str]) -> bool:
-    expected = expected.strip('/')
+    expected = expected.strip()
     if expected.startswith('GitHub '):
         return False
-    if expected.endswith('/'):
-        return any(p.startswith(expected) for p in actual_paths)
-    return expected in actual_paths
+
+    is_directory = expected.endswith('/')
+    normalized = expected.strip('/')
+
+    if is_directory:
+        prefix = normalized + '/'
+        return any(p.startswith(prefix) for p in actual_paths)
+
+    return normalized in actual_paths
 
 
 class GitHubEvidenceProvider:
