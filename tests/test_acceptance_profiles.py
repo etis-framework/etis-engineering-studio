@@ -74,6 +74,13 @@ def make_mixed_profile(root: Path):
         "R-001 covers GitHub integration uncertainty; Alex owns the mitigation spike.",
     )
 
+    # Mixed means some genuine team-authored engineering evidence exists while
+    # substantial Starter Kit scaffolding and unresolved evidence remain.
+    write_project_evidence(
+        root / "docs/decisions/adr-001-cycle1-scope.md",
+        "Cycle 1 Scope Decision",
+    )
+
 
 def make_strong_profile(root: Path):
     """

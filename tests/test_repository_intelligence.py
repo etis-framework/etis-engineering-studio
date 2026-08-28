@@ -8,10 +8,23 @@ FIXTURE = Path(__file__).parent / 'fixtures' / 'starter_subset'
 def test_official_starter_subset_is_recognized_as_baseline_not_team_evidence():
     result = analyze_local_repository(FIXTURE, 'A1')
     artifacts = result['artifacts']
-    roles = next(a for a in artifacts if a['path'] == 'docs/team/roles.md')
-    assert roles['provenance'] == 'BASELINE'
-    assert roles['quality'] == 'scaffold'
+
+    fixture_paths = {
+        path.relative_to(FIXTURE).as_posix()
+        for path in FIXTURE.rglob('*')
+        if path.is_file()
+    }
+    artifact_by_path = {artifact['path']: artifact for artifact in artifacts}
+
+    assert set(artifact_by_path) == fixture_paths
+
+    for path in sorted(fixture_paths):
+        artifact = artifact_by_path[path]
+        assert artifact['provenance'] == 'BASELINE', path
+        assert artifact['quality'] == 'scaffold', path
+
     assert any(f['category'] == 'artifact_theater' for f in result['findings'])
+    assert not any(f['category'] == 'contradiction' for f in result['findings'])
     assert result['strengths']
 
 
