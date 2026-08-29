@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.16.1] - 2026-08-29
+
+### Evidence Correctness & Phase-Gate Alignment
+
+This maintenance release improves the correctness of repository evidence
+interpretation and aligns Studio coaching expectations with the current
+COMP 330 Assignment 1-6 checkpoint contracts.
+
+### Fixed
+
+- Refreshes the official COMP 330 Fall 2026 Starter Kit evidence baseline so
+  current untouched scaffold content is classified correctly.
+- Corrects deterministic evidence matching for expected directories while
+  rejecting similarly named paths outside the required directory.
+- Restores bounded GitHub Actions run evidence to the compact reviewer evidence
+  package.
+
+### Changed
+
+- Aligns A1-A6 phase-gate evidence expectations with the current COMP 330
+  assignment packages while preserving the Studio's role as a pre-submission
+  engineering coach rather than a grader.
+- Preserves the existing A1 launch contract and expands continuing A2
+  requirements, decision, and AI-use evidence.
+- Makes A3 architecture evidence materially more explicit.
+- Strengthens A4 construction, review, traceability, CI, risk, and known-limit
+  evidence and aligns A4 through ETIS ES-109 Testing & Validation.
+- Refines A5 release-readiness evidence around testing, defects, AI
+  accountability, residual risk, traceability, and repository workflow.
+- Broadens A6 to require an evidence-driven final maturity argument alongside
+  operational, observability, security, recovery, and stewardship evidence.
+- Updates application and `/health` release metadata from `0.16.0` to `0.16.1`.
+
+### Validation
+
+- Adds regression coverage for current Starter Kit provenance and mixed-project
+  evidence behavior.
+- Adds deterministic regression coverage for directory evidence matching and
+  bounded GitHub Actions evidence.
+- Adds explicit A1-A6 assignment/gate evidence-contract regression coverage.
+- Preserves existing semantic evidence, acceptance-profile, course-model, and
+  production packaging contracts.
+
+### Scope
+
+No database schema, authentication, authorization, reviewer-persona, Studio UI,
+or Azure infrastructure changes are included in this release.
+
 ## [0.16.0] - 2026-08-21
 
 ### Production-accepted institutional release
