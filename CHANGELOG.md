@@ -4,6 +4,13 @@
 
 ### Added
 
+- Adds PR4 analytical evaluation infrastructure without changing production review behavior: a 42-case A1-A6 war-game corpus with exactly seven cases per phase and Board, Focused, and Finding Review represented in every phase.
+- Adds explicit expert oracles for independent reasoning validation and next-question planning, covering polished prose without evidence, blind AI agreement, reflexive AI rejection, correct student challenges, strong-code/weak-architecture, strong-docs/weak-implementation, AI-assisted work without understanding, contradictions, stale evidence, legitimate uncertainty, and uneven team understanding.
+- Adds deterministic CI coverage for corpus balance, enum contracts, selector authority, unauthorized-evidence rejection, teaching calibration, Finding Review reviewer fallibility, and legitimate-uncertainty handling.
+- Adds optional live analytical evaluation tooling for PR2 reasoning validation and PR3 planner/selector/realizer quality, with per-phase/overall scoring and usage/latency summaries.
+- Adds randomized blinded current-vs-shadow A/B review packet generation using the live current semantic engine by default, with opaque review IDs, oracle-free case context, per-option rubric scoring, and enforcement of at least two completed ratings per case.
+- Adds `evals/analytical_engine_rubric.json` with zero-tolerance authority failures and explicit machine, blinded-human, and production-shadow thresholds required before future `validated` or `selected` enablement.
+- Adds `docs/architecture/ANALYTICAL_EVALUATION_AND_WARGAMES_V017.md` as the PR4 evaluation and enablement contract.
 - Adds PR3 shadow Review Planner / Next-Question Selector for sessions explicitly started with planning mode `shadow`, while the legacy semantic question remains student-visible and authoritative.
 - Separates PR3 candidate generation from question realization: the planner proposes bounded engineering moves, the application-owned selector locks one move, and a second structured realizer phrases only that selected move.
 - Persists internal current-vs-shadow planning telemetry including selected objective outcome, structured selection/rejection reason codes, proposed shadow question, target agreement, and question similarity without exposing shadow data through normal Review Room APIs.
@@ -26,6 +33,8 @@
 
 ### Compatibility
 
+- PR4 changes evaluation data, offline/live evaluation tooling, tests, and architecture documentation only. It does not add a production AI call, database migration, API response field, student UI change, evidence-contract change, readiness change, or analytical authority transfer.
+- PR4 live semantic evals are operator-invoked and intentionally excluded from CI; ordinary CI validates deterministic corpus/selector contracts without incurring model cost.
 - PR3 shadow planning never changes the legacy reviewer reply, `target_move`, readiness, recommendation behavior, finding authority, or Complete Review behavior; planner/realizer failure is internal telemetry only.
 - PR3 planning shadow runs only for sessions created with both reasoning validation and review planning set to `shadow`; normal Review Room responses strip planning shadow state and per-turn signals.
 - PR2 shadow validation never changes the legacy `reasoning_state`, readiness, recommendation enablement, reviewer reply, next-question selection, or finding lifecycle.

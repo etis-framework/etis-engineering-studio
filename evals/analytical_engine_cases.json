@@ -1,0 +1,5425 @@
+[
+  {
+    "id": "a1-excellent-governance",
+    "phase_id": "A1",
+    "review_mode": "board_review",
+    "tags": [
+      "excellent_evidence",
+      "strong_reasoning"
+    ],
+    "scenario": {
+      "title": "Governance baseline is explicit",
+      "statement": "Roles, backups, working agreements, and merge review are all explicit and mutually consistent."
+    },
+    "challenge": {
+      "id": "a1-excellent-governance-challenge",
+      "title": "Governance baseline is explicit",
+      "noticed": "Roles, backups, working agreements, and merge review are all explicit and mutually consistent.",
+      "evidence_refs": [
+        "PATH:docs/team/roles.md",
+        "PATH:docs/team/working-agreements.md"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Governance baseline is explicit",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/team/roles.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/team/roles.md: Roles, backups, working agreements, and merge review are all explicit and mutually consistent."
+        },
+        {
+          "path": "docs/team/working-agreements.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/team/working-agreements.md: Roles, backups, working agreements, and merge review are all explicit and mutually consistent."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/team/roles.md",
+          "title": "docs/team/roles.md"
+        },
+        {
+          "ref": "PATH:docs/team/working-agreements.md",
+          "title": "docs/team/working-agreements.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "We should keep the current merge rule because the backup owner can stop a merge when the primary is unavailable; the risk is delay, not unreviewed code.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {
+      "decision_explicit": "validated",
+      "evidence_boundary_visible": "validated",
+      "boundary_visible": "validated",
+      "ownership_visible": "validated"
+    },
+    "reasoning_probe": {
+      "proposal_updates": {
+        "consequence_visible": true,
+        "change_trigger_visible": true
+      },
+      "acceptable_decisions": {
+        "consequence_visible": [
+          "ACCEPT"
+        ],
+        "change_trigger_visible": [
+          "ACCEPT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "STRESS_TEST_POSITION",
+        "ESTABLISH_CHANGE_TRIGGER"
+      ],
+      "preferred_moves": [
+        "STRESS_TEST_POSITION"
+      ],
+      "acceptable_target_outcomes": [
+        "ENGINEERING_CONSEQUENCE_CLEAR",
+        "CHANGE_OR_CLOSURE_CONDITION_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "STRESS_TEST_POSITION",
+        "target_outcome": "ENGINEERING_CONSEQUENCE_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/team/roles.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a1-polished-weak-evidence",
+    "phase_id": "A1",
+    "review_mode": "board_review",
+    "tags": [
+      "weak_evidence_polished_prose",
+      "ai_prose_gameability"
+    ],
+    "scenario": {
+      "title": "Conflict handling claim lacks evidence",
+      "statement": "The working-agreements artifact is present but contains only generic collaboration language."
+    },
+    "challenge": {
+      "id": "a1-polished-weak-evidence-challenge",
+      "title": "Conflict handling claim lacks evidence",
+      "noticed": "The working-agreements artifact is present but contains only generic collaboration language.",
+      "evidence_refs": [
+        "PATH:docs/team/working-agreements.md"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Conflict handling claim lacks evidence",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/team/working-agreements.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/team/working-agreements.md: The working-agreements artifact is present but contains only generic collaboration language."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/team/working-agreements.md",
+          "title": "docs/team/working-agreements.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "Our comprehensive governance framework ensures optimal stakeholder alignment and conflict resolution.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "consequence_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "REJECT",
+          "PARTIAL"
+        ],
+        "consequence_visible": [
+          "REJECT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEST_EVIDENCE_BOUNDARY",
+        "REQUEST_MISSING_EVIDENCE"
+      ],
+      "preferred_moves": [
+        "TEST_EVIDENCE_BOUNDARY"
+      ],
+      "acceptable_target_outcomes": [
+        "EVIDENCE_BOUNDARY_CLEAR"
+      ],
+      "forbidden_moves": [
+        "SYNTHESIZE_OBJECTIVE"
+      ],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/team/working-agreements.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a1-blind-ai-agreement",
+    "phase_id": "A1",
+    "review_mode": "board_review",
+    "tags": [
+      "blind_ai_agreement"
+    ],
+    "scenario": {
+      "title": "AI-use policy requires human ownership",
+      "statement": "The AI policy says generated work must be reviewed and verified by a named engineer."
+    },
+    "challenge": {
+      "id": "a1-blind-ai-agreement-challenge",
+      "title": "AI-use policy requires human ownership",
+      "noticed": "The AI policy says generated work must be reviewed and verified by a named engineer.",
+      "evidence_refs": [
+        "PATH:docs/ai/ai-policy.md"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "AI-use policy requires human ownership",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/ai/ai-policy.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/ai/ai-policy.md: The AI policy says generated work must be reviewed and verified by a named engineer."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/ai/ai-policy.md",
+          "title": "docs/ai/ai-policy.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "Yes, I agree with you. Whatever the reviewer says is the right answer.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "decision_explicit": true
+      },
+      "acceptable_decisions": {
+        "decision_explicit": [
+          "REJECT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "MAKE_POSITION_EXPLICIT",
+        "TEACH_CONCEPT"
+      ],
+      "preferred_moves": [
+        "MAKE_POSITION_EXPLICIT"
+      ],
+      "acceptable_target_outcomes": [
+        "CURRENT_POSITION_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "MAKE_POSITION_EXPLICIT",
+        "target_outcome": "CURRENT_POSITION_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/ai/ai-policy.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a1-correct-student-challenge",
+    "phase_id": "A1",
+    "review_mode": "finding_review",
+    "tags": [
+      "correct_student_challenge",
+      "reviewer_fallibility"
+    ],
+    "scenario": {
+      "title": "Finding claims escalation ownership is missing",
+      "statement": "The reviewer says escalation ownership is absent, but the frozen working-agreements artifact names the backup lead as escalation owner when the primary is unavailable."
+    },
+    "challenge": {
+      "id": "a1-finding-escalation",
+      "title": "Finding claims escalation ownership is missing",
+      "noticed": "The reviewer says escalation ownership is absent.",
+      "evidence_refs": [
+        "PATH:docs/team/working-agreements.md"
+      ],
+      "finding": {
+        "id": "a1-finding-escalation",
+        "title": "Finding claims escalation ownership is missing",
+        "statement": "The reviewer says escalation ownership is absent.",
+        "evidence_refs": [
+          "PATH:docs/team/working-agreements.md"
+        ]
+      }
+    },
+    "focus": "",
+    "related_finding_ids": [
+      "a1-finding-escalation"
+    ],
+    "evidence_package": {
+      "challenge": {
+        "title": "Finding claims escalation ownership is missing",
+        "finding": {
+          "id": "a1-finding-escalation",
+          "title": "Finding claims escalation ownership is missing",
+          "statement": "The reviewer says escalation ownership is absent.",
+          "evidence_refs": [
+            "PATH:docs/team/working-agreements.md"
+          ]
+        }
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/team/working-agreements.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/team/working-agreements.md: The reviewer says escalation ownership is absent, but the frozen working-agreements artifact names the backup lead as escalation owner when the primary is unavailable."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/team/working-agreements.md",
+          "title": "docs/team/working-agreements.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "I disagree. Section 4 names the backup lead as escalation owner when the primary is unavailable.",
+      "intent": "evidence_dispute",
+      "decision": null,
+      "evidence_refs": [
+        "PATH:docs/team/working-agreements.md"
+      ]
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [
+        {
+          "finding_id": "a1-finding-escalation",
+          "path": "docs/team/working-agreements.md",
+          "status": "present"
+        }
+      ],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "evidence_dispute",
+        "teaching_needed": false
+      },
+      "current_findings": [
+        {
+          "id": "a1-finding-escalation",
+          "title": "Finding claims escalation ownership is missing",
+          "statement": "The reviewer says escalation ownership is absent.",
+          "evidence_refs": [
+            "PATH:docs/team/working-agreements.md"
+          ]
+        }
+      ],
+      "finding_states": [
+        {
+          "finding_id": "a1-finding-escalation",
+          "status": "evidence_disputed"
+        }
+      ]
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "ADDRESS_STUDENT_CHALLENGE",
+        "TEST_FINDING_SUPPORT"
+      ],
+      "preferred_moves": [
+        "ADDRESS_STUDENT_CHALLENGE"
+      ],
+      "acceptable_target_outcomes": [
+        "FINDING_EVIDENCE_TESTED",
+        "FINDING_CLAIM_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "ADDRESS_STUDENT_CHALLENGE",
+        "target_outcome": "FINDING_EVIDENCE_TESTED",
+        "evidence_refs": [
+          "PATH:docs/team/working-agreements.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "FINDING_EVIDENCE_TESTED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a1-legitimate-unknown",
+    "phase_id": "A1",
+    "review_mode": "focused_review",
+    "tags": [
+      "legitimate_unknown",
+      "evidence_gap"
+    ],
+    "scenario": {
+      "title": "External approval fallback is unclear",
+      "statement": "No frozen artifact establishes what happens if the designated approver is unavailable for an extended period."
+    },
+    "challenge": {
+      "id": "a1-legitimate-unknown-challenge",
+      "title": "External approval fallback is unclear",
+      "noticed": "No frozen artifact establishes what happens if the designated approver is unavailable for an extended period.",
+      "evidence_refs": [
+        "PATH:docs/team/roles.md"
+      ]
+    },
+    "focus": "What happens when the approver is unavailable?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "External approval fallback is unclear",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/team/roles.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/team/roles.md: No frozen artifact establishes what happens if the designated approver is unavailable for an extended period."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/team/roles.md",
+          "title": "docs/team/roles.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "I don't know yet. The roles file names the approver but not a timeout or fallback, so we need the team to decide that before we can claim the path is reliable.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "uncertainty_visible": true,
+        "change_trigger_visible": true
+      },
+      "acceptable_decisions": {
+        "uncertainty_visible": [
+          "ACCEPT"
+        ],
+        "change_trigger_visible": [
+          "PARTIAL",
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [
+        "Fallback after extended approver absence is not established."
+      ],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "SURFACE_UNCERTAINTY",
+        "REQUEST_MISSING_EVIDENCE"
+      ],
+      "preferred_moves": [
+        "SURFACE_UNCERTAINTY"
+      ],
+      "acceptable_target_outcomes": [
+        "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR",
+        "UNCERTAINTY_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "SURFACE_UNCERTAINTY",
+        "target_outcome": "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/team/roles.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a1-uneven-ai-understanding",
+    "phase_id": "A1",
+    "review_mode": "focused_review",
+    "tags": [
+      "uneven_team_understanding",
+      "ai_generated_work_without_understanding"
+    ],
+    "scenario": {
+      "title": "Student cannot explain AI verification rule",
+      "statement": "The policy is present, but the current student cannot explain why verification is required."
+    },
+    "challenge": {
+      "id": "a1-uneven-ai-understanding-challenge",
+      "title": "Student cannot explain AI verification rule",
+      "noticed": "The policy is present, but the current student cannot explain why verification is required.",
+      "evidence_refs": [
+        "PATH:docs/ai/ai-policy.md",
+        "PATH:docs/ai/ai-use-log.md"
+      ]
+    },
+    "focus": "How should this team verify AI-assisted work?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Student cannot explain AI verification rule",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/ai/ai-policy.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/ai/ai-policy.md: The policy is present, but the current student cannot explain why verification is required."
+        },
+        {
+          "path": "docs/ai/ai-use-log.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/ai/ai-use-log.md: The policy is present, but the current student cannot explain why verification is required."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/ai/ai-policy.md",
+          "title": "docs/ai/ai-policy.md"
+        },
+        {
+          "ref": "PATH:docs/ai/ai-use-log.md",
+          "title": "docs/ai/ai-use-log.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "My teammate wrote that part with AI. I know we have a policy but I do not really understand what I am supposed to verify.",
+      "intent": "stuck",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "ownership_visible": true
+      },
+      "acceptable_decisions": {
+        "ownership_visible": [
+          "REJECT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "stuck",
+        "teaching_needed": true
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEACH_CONCEPT",
+        "REQUEST_TEACH_BACK"
+      ],
+      "preferred_moves": [
+        "TEACH_CONCEPT"
+      ],
+      "acceptable_target_outcomes": [
+        "FOCUS_UNDERSTOOD",
+        "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR"
+      ],
+      "forbidden_moves": [
+        "STRESS_TEST_POSITION"
+      ],
+      "requires_teaching": true
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEACH_CONCEPT",
+        "target_outcome": "FOCUS_UNDERSTOOD",
+        "evidence_refs": [
+          "PATH:docs/ai/ai-policy.md"
+        ],
+        "teaching_required": true
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a1-contradictory-governance",
+    "phase_id": "A1",
+    "review_mode": "board_review",
+    "tags": [
+      "contradiction"
+    ],
+    "scenario": {
+      "title": "Roles and working agreements disagree",
+      "statement": "Roles names one merge approver while working agreements assign final authority to another person."
+    },
+    "challenge": {
+      "id": "a1-contradictory-governance-challenge",
+      "title": "Roles and working agreements disagree",
+      "noticed": "Roles names one merge approver while working agreements assign final authority to another person.",
+      "evidence_refs": [
+        "PATH:docs/team/roles.md",
+        "PATH:docs/team/working-agreements.md"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Roles and working agreements disagree",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/team/roles.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/team/roles.md: Roles names one merge approver while working agreements assign final authority to another person."
+        },
+        {
+          "path": "docs/team/working-agreements.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/team/working-agreements.md: Roles names one merge approver while working agreements assign final authority to another person."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/team/roles.md",
+          "title": "docs/team/roles.md"
+        },
+        {
+          "ref": "PATH:docs/team/working-agreements.md",
+          "title": "docs/team/working-agreements.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "Both files look fine by themselves, but they cannot both be the final authority. We need one rule and then update the stale artifact.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ],
+        "boundary_visible": [
+          "ACCEPT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "RECONCILE_CONTRADICTION",
+        "CLARIFY_ACTION_BOUNDARY"
+      ],
+      "preferred_moves": [
+        "RECONCILE_CONTRADICTION"
+      ],
+      "acceptable_target_outcomes": [
+        "EVIDENCE_BOUNDARY_CLEAR",
+        "ACTION_BOUNDARY_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "RECONCILE_CONTRADICTION",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/team/roles.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a2-strong-plan-weak-estimates",
+    "phase_id": "A2",
+    "review_mode": "focused_review",
+    "tags": [
+      "strong_docs_weak_analysis",
+      "weak_estimates"
+    ],
+    "scenario": {
+      "title": "Task plan is strong but estimate confidence is unsupported",
+      "statement": "Tasks, owners, and dependencies are explicit; estimates are single-point values with no assumptions or triggers."
+    },
+    "challenge": {
+      "id": "a2-strong-plan-weak-estimates-challenge",
+      "title": "Task plan is strong but estimate confidence is unsupported",
+      "noticed": "Tasks, owners, and dependencies are explicit; estimates are single-point values with no assumptions or triggers.",
+      "evidence_refs": [
+        "PATH:docs/planning/task-plan.md",
+        "PATH:docs/planning/estimates.md"
+      ]
+    },
+    "focus": "Can we defend the estimate confidence?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Task plan is strong but estimate confidence is unsupported",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/planning/task-plan.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/task-plan.md: Tasks, owners, and dependencies are explicit; estimates are single-point values with no assumptions or triggers."
+        },
+        {
+          "path": "docs/planning/estimates.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/estimates.md: Tasks, owners, and dependencies are explicit; estimates are single-point values with no assumptions or triggers."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/planning/task-plan.md",
+          "title": "docs/planning/task-plan.md"
+        },
+        {
+          "ref": "PATH:docs/planning/estimates.md",
+          "title": "docs/planning/estimates.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "The tasks are broken down well, but I cannot defend the dates because we did not record assumptions or ranges.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "uncertainty_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ],
+        "uncertainty_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEST_EVIDENCE_BOUNDARY",
+        "SURFACE_UNCERTAINTY"
+      ],
+      "preferred_moves": [
+        "TEST_EVIDENCE_BOUNDARY"
+      ],
+      "acceptable_target_outcomes": [
+        "CURRENT_EVIDENCE_ASSESSED",
+        "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:docs/planning/task-plan.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a2-verbose-vague-confidence",
+    "phase_id": "A2",
+    "review_mode": "board_review",
+    "tags": [
+      "verbose_vagueness"
+    ],
+    "scenario": {
+      "title": "Schedule confidence is vague",
+      "statement": "The plan lists dates but does not identify the dependency that would force re-estimation."
+    },
+    "challenge": {
+      "id": "a2-verbose-vague-confidence-challenge",
+      "title": "Schedule confidence is vague",
+      "noticed": "The plan lists dates but does not identify the dependency that would force re-estimation.",
+      "evidence_refs": [
+        "PATH:docs/planning/estimates.md",
+        "PATH:docs/planning/task-plan.md"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Schedule confidence is vague",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/planning/estimates.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/estimates.md: The plan lists dates but does not identify the dependency that would force re-estimation."
+        },
+        {
+          "path": "docs/planning/task-plan.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/task-plan.md: The plan lists dates but does not identify the dependency that would force re-estimation."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/planning/estimates.md",
+          "title": "docs/planning/estimates.md"
+        },
+        {
+          "ref": "PATH:docs/planning/task-plan.md",
+          "title": "docs/planning/task-plan.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "We feel pretty good because everyone is working hard and the tasks are mostly reasonable and we have meetings and should probably be okay unless something unexpected happens.",
+      "intent": "rambling",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "change_trigger_visible": true
+      },
+      "acceptable_decisions": {
+        "change_trigger_visible": [
+          "REJECT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "rambling",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "ESTABLISH_CHANGE_TRIGGER",
+        "CLARIFY_CONSEQUENCE"
+      ],
+      "preferred_moves": [
+        "ESTABLISH_CHANGE_TRIGGER"
+      ],
+      "acceptable_target_outcomes": [
+        "CHANGE_OR_CLOSURE_CONDITION_CLEAR",
+        "ENGINEERING_CONSEQUENCE_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "ESTABLISH_CHANGE_TRIGGER",
+        "target_outcome": "CHANGE_OR_CLOSURE_CONDITION_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/planning/estimates.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a2-reflexive-ai-rejection",
+    "phase_id": "A2",
+    "review_mode": "finding_review",
+    "tags": [
+      "reflexive_ai_rejection",
+      "reviewer_fallibility"
+    ],
+    "scenario": {
+      "title": "Finding flags dependency leverage",
+      "statement": "The reviewer identifies the external identity service as the highest schedule-leverage dependency."
+    },
+    "challenge": {
+      "id": "a2-dependency-finding",
+      "title": "Finding flags dependency leverage",
+      "noticed": "The reviewer identifies the external identity service as the highest schedule-leverage dependency.",
+      "evidence_refs": [
+        "PATH:docs/planning/task-plan.md",
+        "PATH:docs/planning/risk-register.md"
+      ],
+      "finding": {
+        "id": "a2-dependency-finding",
+        "title": "Finding flags dependency leverage",
+        "statement": "The reviewer identifies the external identity service as the highest schedule-leverage dependency.",
+        "evidence_refs": [
+          "PATH:docs/planning/task-plan.md",
+          "PATH:docs/planning/risk-register.md"
+        ]
+      }
+    },
+    "focus": "",
+    "related_finding_ids": [
+      "a2-dependency-finding"
+    ],
+    "evidence_package": {
+      "challenge": {
+        "title": "Finding flags dependency leverage",
+        "finding": {
+          "id": "a2-dependency-finding",
+          "title": "Finding flags dependency leverage",
+          "statement": "The reviewer identifies the external identity service as the highest schedule-leverage dependency.",
+          "evidence_refs": [
+            "PATH:docs/planning/task-plan.md",
+            "PATH:docs/planning/risk-register.md"
+          ]
+        }
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/planning/task-plan.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/task-plan.md: The reviewer identifies the external identity service as the highest schedule-leverage dependency."
+        },
+        {
+          "path": "docs/planning/risk-register.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/risk-register.md: The reviewer identifies the external identity service as the highest schedule-leverage dependency."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/planning/task-plan.md",
+          "title": "docs/planning/task-plan.md"
+        },
+        {
+          "ref": "PATH:docs/planning/risk-register.md",
+          "title": "docs/planning/risk-register.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "No. The AI is wrong because AI reviewers are usually wrong.",
+      "intent": "disagreement",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "REJECT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "disagreement",
+        "teaching_needed": false
+      },
+      "current_findings": [
+        {
+          "id": "a2-dependency-finding",
+          "title": "Finding flags dependency leverage",
+          "statement": "The reviewer identifies the external identity service as the highest schedule-leverage dependency.",
+          "evidence_refs": [
+            "PATH:docs/planning/task-plan.md",
+            "PATH:docs/planning/risk-register.md"
+          ]
+        }
+      ],
+      "finding_states": [
+        {
+          "finding_id": "a2-dependency-finding",
+          "status": "under_discussion"
+        }
+      ]
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "ADDRESS_STUDENT_CHALLENGE",
+        "TEST_FINDING_SUPPORT"
+      ],
+      "preferred_moves": [
+        "ADDRESS_STUDENT_CHALLENGE"
+      ],
+      "acceptable_target_outcomes": [
+        "FINDING_EVIDENCE_TESTED",
+        "FINDING_CLAIM_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "ADDRESS_STUDENT_CHALLENGE",
+        "target_outcome": "FINDING_EVIDENCE_TESTED",
+        "evidence_refs": [
+          "PATH:docs/planning/task-plan.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "FINDING_EVIDENCE_TESTED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a2-stale-risk-register",
+    "phase_id": "A2",
+    "review_mode": "board_review",
+    "tags": [
+      "stale_evidence",
+      "architecture_change"
+    ],
+    "scenario": {
+      "title": "Scope changed but risk register did not",
+      "statement": "The scope document removed a third-party integration, while the risk register still treats it as the top risk."
+    },
+    "challenge": {
+      "id": "a2-stale-risk-register-challenge",
+      "title": "Scope changed but risk register did not",
+      "noticed": "The scope document removed a third-party integration, while the risk register still treats it as the top risk.",
+      "evidence_refs": [
+        "PATH:docs/planning/scope.md",
+        "PATH:docs/planning/risk-register.md"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Scope changed but risk register did not",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/planning/scope.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/scope.md: The scope document removed a third-party integration, while the risk register still treats it as the top risk."
+        },
+        {
+          "path": "docs/planning/risk-register.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/risk-register.md: The scope document removed a third-party integration, while the risk register still treats it as the top risk."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/planning/scope.md",
+          "title": "docs/planning/scope.md"
+        },
+        {
+          "ref": "PATH:docs/planning/risk-register.md",
+          "title": "docs/planning/risk-register.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "The risk register is stale now. We cut that integration, so keeping it as our top risk would distort the plan.",
+      "intent": "self_correction",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "change_trigger_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ],
+        "change_trigger_visible": [
+          "ACCEPT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "self_correction",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "RECONCILE_CONTRADICTION",
+        "ESTABLISH_CHANGE_TRIGGER"
+      ],
+      "preferred_moves": [
+        "RECONCILE_CONTRADICTION"
+      ],
+      "acceptable_target_outcomes": [
+        "EVIDENCE_BOUNDARY_CLEAR",
+        "CHANGE_OR_CLOSURE_CONDITION_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "RECONCILE_CONTRADICTION",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/planning/scope.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a2-legitimate-dependency-unknown",
+    "phase_id": "A2",
+    "review_mode": "focused_review",
+    "tags": [
+      "legitimate_unknown",
+      "dependency_uncertainty"
+    ],
+    "scenario": {
+      "title": "Vendor turnaround is unknown",
+      "statement": "The team has no frozen evidence for the vendor approval lead time."
+    },
+    "challenge": {
+      "id": "a2-legitimate-dependency-unknown-challenge",
+      "title": "Vendor turnaround is unknown",
+      "noticed": "The team has no frozen evidence for the vendor approval lead time.",
+      "evidence_refs": [
+        "PATH:docs/planning/estimates.md"
+      ]
+    },
+    "focus": "How should vendor uncertainty affect the estimate?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Vendor turnaround is unknown",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/planning/estimates.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/estimates.md: The team has no frozen evidence for the vendor approval lead time."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/planning/estimates.md",
+          "title": "docs/planning/estimates.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "I don't know the vendor lead time. I can defend our internal estimate, but this dependency needs confirmation before we commit to the date.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "uncertainty_visible": true,
+        "boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "uncertainty_visible": [
+          "ACCEPT"
+        ],
+        "boundary_visible": [
+          "ACCEPT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [
+        "Vendor approval lead time is unknown."
+      ],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "SURFACE_UNCERTAINTY",
+        "REQUEST_MISSING_EVIDENCE"
+      ],
+      "preferred_moves": [
+        "SURFACE_UNCERTAINTY"
+      ],
+      "acceptable_target_outcomes": [
+        "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR",
+        "UNCERTAINTY_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "SURFACE_UNCERTAINTY",
+        "target_outcome": "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/planning/estimates.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a2-excellent-traceability",
+    "phase_id": "A2",
+    "review_mode": "board_review",
+    "tags": [
+      "excellent_evidence",
+      "stress_test"
+    ],
+    "scenario": {
+      "title": "Traceability and estimates are coherent",
+      "statement": "Requirements map to tasks, owners, estimate ranges, risks, and completion evidence."
+    },
+    "challenge": {
+      "id": "a2-excellent-traceability-challenge",
+      "title": "Traceability and estimates are coherent",
+      "noticed": "Requirements map to tasks, owners, estimate ranges, risks, and completion evidence.",
+      "evidence_refs": [
+        "PATH:docs/planning/traceability.md",
+        "PATH:docs/planning/estimates.md",
+        "PATH:docs/planning/risk-register.md"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Traceability and estimates are coherent",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/planning/traceability.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/traceability.md: Requirements map to tasks, owners, estimate ranges, risks, and completion evidence."
+        },
+        {
+          "path": "docs/planning/estimates.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/estimates.md: Requirements map to tasks, owners, estimate ranges, risks, and completion evidence."
+        },
+        {
+          "path": "docs/planning/risk-register.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/risk-register.md: Requirements map to tasks, owners, estimate ranges, risks, and completion evidence."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/planning/traceability.md",
+          "title": "docs/planning/traceability.md"
+        },
+        {
+          "ref": "PATH:docs/planning/estimates.md",
+          "title": "docs/planning/estimates.md"
+        },
+        {
+          "ref": "PATH:docs/planning/risk-register.md",
+          "title": "docs/planning/risk-register.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "The plan is defensible now, but I would re-estimate if the identity dependency slips more than two days because it blocks two downstream tasks.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {
+      "decision_explicit": "validated",
+      "evidence_boundary_visible": "validated",
+      "change_trigger_visible": "validated",
+      "ownership_visible": "validated"
+    },
+    "reasoning_probe": {
+      "proposal_updates": {
+        "consequence_visible": true,
+        "tradeoff_visible": true
+      },
+      "acceptable_decisions": {
+        "consequence_visible": [
+          "ACCEPT"
+        ],
+        "tradeoff_visible": [
+          "ACCEPT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "STRESS_TEST_POSITION",
+        "TEST_TRADEOFF"
+      ],
+      "preferred_moves": [
+        "STRESS_TEST_POSITION"
+      ],
+      "acceptable_target_outcomes": [
+        "ENGINEERING_CONSEQUENCE_CLEAR",
+        "TRADEOFF_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "STRESS_TEST_POSITION",
+        "target_outcome": "ENGINEERING_CONSEQUENCE_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/planning/traceability.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a2-uneven-estimate-understanding",
+    "phase_id": "A2",
+    "review_mode": "focused_review",
+    "tags": [
+      "uneven_team_understanding"
+    ],
+    "scenario": {
+      "title": "Estimate exists but student cannot explain it",
+      "statement": "The estimate file contains ranges and assumptions created by another teammate."
+    },
+    "challenge": {
+      "id": "a2-uneven-estimate-understanding-challenge",
+      "title": "Estimate exists but student cannot explain it",
+      "noticed": "The estimate file contains ranges and assumptions created by another teammate.",
+      "evidence_refs": [
+        "PATH:docs/planning/estimates.md"
+      ]
+    },
+    "focus": "Why is this estimate a range?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Estimate exists but student cannot explain it",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/planning/estimates.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/estimates.md: The estimate file contains ranges and assumptions created by another teammate."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/planning/estimates.md",
+          "title": "docs/planning/estimates.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "I know it says three to five days, but my teammate did the estimate and I do not know why that range is there.",
+      "intent": "stuck",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "REJECT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "stuck",
+        "teaching_needed": true
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEACH_CONCEPT",
+        "REQUEST_TEACH_BACK"
+      ],
+      "preferred_moves": [
+        "TEACH_CONCEPT"
+      ],
+      "acceptable_target_outcomes": [
+        "FOCUS_UNDERSTOOD",
+        "CURRENT_EVIDENCE_ASSESSED"
+      ],
+      "forbidden_moves": [
+        "SYNTHESIZE_OBJECTIVE"
+      ],
+      "requires_teaching": true
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEACH_CONCEPT",
+        "target_outcome": "FOCUS_UNDERSTOOD",
+        "evidence_refs": [
+          "PATH:docs/planning/estimates.md"
+        ],
+        "teaching_required": true
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a3-strong-code-weak-architecture",
+    "phase_id": "A3",
+    "review_mode": "focused_review",
+    "tags": [
+      "strong_code_weak_architecture"
+    ],
+    "scenario": {
+      "title": "Implementation exists but architecture boundary is not documented",
+      "statement": "Source shows components, but the frozen architecture package does not explain trust or dependency boundaries."
+    },
+    "challenge": {
+      "id": "a3-strong-code-weak-architecture-challenge",
+      "title": "Implementation exists but architecture boundary is not documented",
+      "noticed": "Source shows components, but the frozen architecture package does not explain trust or dependency boundaries.",
+      "evidence_refs": [
+        "PATH:src/",
+        "PATH:docs/architecture/architecture.md"
+      ]
+    },
+    "focus": "Can the architecture boundary be defended from current evidence?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Implementation exists but architecture boundary is not documented",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "src/",
+          "excerpt": "Synthetic frozen evidence synopsis for src/: Source shows components, but the frozen architecture package does not explain trust or dependency boundaries."
+        },
+        {
+          "path": "docs/architecture/architecture.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/architecture/architecture.md: Source shows components, but the frozen architecture package does not explain trust or dependency boundaries."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:src/",
+          "title": "src/"
+        },
+        {
+          "ref": "PATH:docs/architecture/architecture.md",
+          "title": "docs/architecture/architecture.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "The code works, but that does not tell a reviewer why the authentication boundary is safe or who owns it.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "consequence_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ],
+        "consequence_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEST_EVIDENCE_BOUNDARY",
+        "CLARIFY_CONSEQUENCE"
+      ],
+      "preferred_moves": [
+        "TEST_EVIDENCE_BOUNDARY"
+      ],
+      "acceptable_target_outcomes": [
+        "CURRENT_EVIDENCE_ASSESSED",
+        "IMPORTANT_IMPLICATION_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:src/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a3-no-future-implementation-demand",
+    "phase_id": "A3",
+    "review_mode": "board_review",
+    "tags": [
+      "phase_appropriateness",
+      "future_phase_guard"
+    ],
+    "scenario": {
+      "title": "Architecture decision is reviewable before implementation",
+      "statement": "The API contract and data context define the current architecture baseline; A4 implementation evidence does not yet exist."
+    },
+    "challenge": {
+      "id": "a3-no-future-implementation-demand-challenge",
+      "title": "Architecture decision is reviewable before implementation",
+      "noticed": "The API contract and data context define the current architecture baseline; A4 implementation evidence does not yet exist.",
+      "evidence_refs": [
+        "PATH:docs/architecture/api-contracts.md",
+        "PATH:docs/architecture/data-context.md"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Architecture decision is reviewable before implementation",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/architecture/api-contracts.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/architecture/api-contracts.md: The API contract and data context define the current architecture baseline; A4 implementation evidence does not yet exist."
+        },
+        {
+          "path": "docs/architecture/data-context.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/architecture/data-context.md: The API contract and data context define the current architecture baseline; A4 implementation evidence does not yet exist."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/architecture/api-contracts.md",
+          "title": "docs/architecture/api-contracts.md"
+        },
+        {
+          "ref": "PATH:docs/architecture/data-context.md",
+          "title": "docs/architecture/data-context.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "At A3 I can defend the boundary from the contracts. I cannot prove the future code will implement it yet.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "uncertainty_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ],
+        "uncertainty_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "STRESS_TEST_POSITION",
+        "SURFACE_UNCERTAINTY"
+      ],
+      "preferred_moves": [
+        "STRESS_TEST_POSITION"
+      ],
+      "acceptable_target_outcomes": [
+        "ENGINEERING_CONSEQUENCE_CLEAR",
+        "UNCERTAINTY_CLEAR"
+      ],
+      "forbidden_moves": [
+        "REQUEST_MISSING_EVIDENCE"
+      ],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "STRESS_TEST_POSITION",
+        "target_outcome": "ENGINEERING_CONSEQUENCE_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/architecture/api-contracts.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a3-correct-student-challenge",
+    "phase_id": "A3",
+    "review_mode": "finding_review",
+    "tags": [
+      "correct_student_challenge",
+      "reviewer_fallibility"
+    ],
+    "scenario": {
+      "title": "Finding says data visibility is unspecified",
+      "statement": "The reviewer claims sensitive-data visibility is missing, but the frozen data-context artifact limits the AI service to redacted fields and names the human approval point."
+    },
+    "challenge": {
+      "id": "a3-data-boundary-finding",
+      "title": "Finding says data visibility is unspecified",
+      "noticed": "The reviewer claims sensitive-data visibility is missing.",
+      "evidence_refs": [
+        "PATH:docs/architecture/data-context.md"
+      ],
+      "finding": {
+        "id": "a3-data-boundary-finding",
+        "title": "Finding says data visibility is unspecified",
+        "statement": "The reviewer claims sensitive-data visibility is missing.",
+        "evidence_refs": [
+          "PATH:docs/architecture/data-context.md"
+        ]
+      }
+    },
+    "focus": "",
+    "related_finding_ids": [
+      "a3-data-boundary-finding"
+    ],
+    "evidence_package": {
+      "challenge": {
+        "title": "Finding says data visibility is unspecified",
+        "finding": {
+          "id": "a3-data-boundary-finding",
+          "title": "Finding says data visibility is unspecified",
+          "statement": "The reviewer claims sensitive-data visibility is missing.",
+          "evidence_refs": [
+            "PATH:docs/architecture/data-context.md"
+          ]
+        }
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/architecture/data-context.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/architecture/data-context.md: The reviewer claims sensitive-data visibility is missing, but the frozen data-context artifact limits the AI service to redacted fields and names the human approval point."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/architecture/data-context.md",
+          "title": "docs/architecture/data-context.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "That finding is wrong. The data-context file explicitly limits the AI service to redacted fields and names the human approval point.",
+      "intent": "evidence_dispute",
+      "decision": null,
+      "evidence_refs": [
+        "PATH:docs/architecture/data-context.md"
+      ]
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ],
+        "boundary_visible": [
+          "ACCEPT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [
+        {
+          "finding_id": "a3-data-boundary-finding",
+          "path": "docs/architecture/data-context.md",
+          "status": "present"
+        }
+      ],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "evidence_dispute",
+        "teaching_needed": false
+      },
+      "current_findings": [
+        {
+          "id": "a3-data-boundary-finding",
+          "title": "Finding says data visibility is unspecified",
+          "statement": "The reviewer claims sensitive-data visibility is missing.",
+          "evidence_refs": [
+            "PATH:docs/architecture/data-context.md"
+          ]
+        }
+      ],
+      "finding_states": [
+        {
+          "finding_id": "a3-data-boundary-finding",
+          "status": "evidence_disputed"
+        }
+      ]
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "ADDRESS_STUDENT_CHALLENGE",
+        "TEST_FINDING_SUPPORT"
+      ],
+      "preferred_moves": [
+        "ADDRESS_STUDENT_CHALLENGE"
+      ],
+      "acceptable_target_outcomes": [
+        "FINDING_EVIDENCE_TESTED",
+        "FINDING_CLAIM_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "ADDRESS_STUDENT_CHALLENGE",
+        "target_outcome": "FINDING_EVIDENCE_TESTED",
+        "evidence_refs": [
+          "PATH:docs/architecture/data-context.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "FINDING_EVIDENCE_TESTED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a3-architecture-changed",
+    "phase_id": "A3",
+    "review_mode": "board_review",
+    "tags": [
+      "architecture_change",
+      "stale_evidence"
+    ],
+    "scenario": {
+      "title": "API boundary changed after diagram review",
+      "statement": "The API contract now routes approval through a service not shown in the diagram."
+    },
+    "challenge": {
+      "id": "a3-architecture-changed-challenge",
+      "title": "API boundary changed after diagram review",
+      "noticed": "The API contract now routes approval through a service not shown in the diagram.",
+      "evidence_refs": [
+        "PATH:docs/architecture/api-contracts.md",
+        "PATH:docs/architecture/architecture-diagram.png"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "API boundary changed after diagram review",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/architecture/api-contracts.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/architecture/api-contracts.md: The API contract now routes approval through a service not shown in the diagram."
+        },
+        {
+          "path": "docs/architecture/architecture-diagram.png",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/architecture/architecture-diagram.png: The API contract now routes approval through a service not shown in the diagram."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/architecture/api-contracts.md",
+          "title": "docs/architecture/api-contracts.md"
+        },
+        {
+          "ref": "PATH:docs/architecture/architecture-diagram.png",
+          "title": "docs/architecture/architecture-diagram.png"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "We changed the approval path after the diagram was made, so the diagram is stale and the old risk analysis may no longer apply.",
+      "intent": "self_correction",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "change_trigger_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ],
+        "change_trigger_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "self_correction",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "RECONCILE_CONTRADICTION",
+        "ESTABLISH_CHANGE_TRIGGER"
+      ],
+      "preferred_moves": [
+        "RECONCILE_CONTRADICTION"
+      ],
+      "acceptable_target_outcomes": [
+        "EVIDENCE_BOUNDARY_CLEAR",
+        "CHANGE_OR_CLOSURE_CONDITION_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "RECONCILE_CONTRADICTION",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/architecture/api-contracts.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a3-contradictory-contracts",
+    "phase_id": "A3",
+    "review_mode": "focused_review",
+    "tags": [
+      "contradiction"
+    ],
+    "scenario": {
+      "title": "Diagram and API contract disagree",
+      "statement": "The diagram shows direct client-to-database access while the API contract requires all writes through the service."
+    },
+    "challenge": {
+      "id": "a3-contradictory-contracts-challenge",
+      "title": "Diagram and API contract disagree",
+      "noticed": "The diagram shows direct client-to-database access while the API contract requires all writes through the service.",
+      "evidence_refs": [
+        "PATH:docs/architecture/architecture-diagram.png",
+        "PATH:docs/architecture/api-contracts.md"
+      ]
+    },
+    "focus": "Which architecture boundary is authoritative?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Diagram and API contract disagree",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/architecture/architecture-diagram.png",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/architecture/architecture-diagram.png: The diagram shows direct client-to-database access while the API contract requires all writes through the service."
+        },
+        {
+          "path": "docs/architecture/api-contracts.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/architecture/api-contracts.md: The diagram shows direct client-to-database access while the API contract requires all writes through the service."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/architecture/architecture-diagram.png",
+          "title": "docs/architecture/architecture-diagram.png"
+        },
+        {
+          "ref": "PATH:docs/architecture/api-contracts.md",
+          "title": "docs/architecture/api-contracts.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "I cannot tell which is authoritative. If the diagram is right, our trust boundary is different from what the API contract says.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "uncertainty_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ],
+        "uncertainty_visible": [
+          "ACCEPT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "RECONCILE_CONTRADICTION",
+        "TEST_EVIDENCE_BOUNDARY"
+      ],
+      "preferred_moves": [
+        "RECONCILE_CONTRADICTION"
+      ],
+      "acceptable_target_outcomes": [
+        "CURRENT_EVIDENCE_ASSESSED",
+        "IMPORTANT_IMPLICATION_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "RECONCILE_CONTRADICTION",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:docs/architecture/architecture-diagram.png"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a3-legitimate-external-failure-unknown",
+    "phase_id": "A3",
+    "review_mode": "focused_review",
+    "tags": [
+      "legitimate_unknown",
+      "failure_assumption"
+    ],
+    "scenario": {
+      "title": "External service failure behavior is unknown",
+      "statement": "The contract identifies the external service but not timeout or fallback behavior."
+    },
+    "challenge": {
+      "id": "a3-legitimate-external-failure-unknown-challenge",
+      "title": "External service failure behavior is unknown",
+      "noticed": "The contract identifies the external service but not timeout or fallback behavior.",
+      "evidence_refs": [
+        "PATH:docs/architecture/api-contracts.md"
+      ]
+    },
+    "focus": "What failure assumption could invalidate this design?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "External service failure behavior is unknown",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/architecture/api-contracts.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/architecture/api-contracts.md: The contract identifies the external service but not timeout or fallback behavior."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/architecture/api-contracts.md",
+          "title": "docs/architecture/api-contracts.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "I don't know what happens after a timeout because it is not specified. That matters because a retry could duplicate the action.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "uncertainty_visible": true,
+        "consequence_visible": true
+      },
+      "acceptable_decisions": {
+        "uncertainty_visible": [
+          "ACCEPT"
+        ],
+        "consequence_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [
+        "Timeout/fallback behavior is unspecified."
+      ],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "SURFACE_UNCERTAINTY",
+        "CLARIFY_CONSEQUENCE"
+      ],
+      "preferred_moves": [
+        "SURFACE_UNCERTAINTY"
+      ],
+      "acceptable_target_outcomes": [
+        "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR",
+        "IMPORTANT_IMPLICATION_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "SURFACE_UNCERTAINTY",
+        "target_outcome": "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/architecture/api-contracts.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a3-blind-security-agreement",
+    "phase_id": "A3",
+    "review_mode": "board_review",
+    "tags": [
+      "blind_ai_agreement"
+    ],
+    "scenario": {
+      "title": "Trust boundary needs independent defense",
+      "statement": "The current review focuses on a sensitive-data boundary."
+    },
+    "challenge": {
+      "id": "a3-blind-security-agreement-challenge",
+      "title": "Trust boundary needs independent defense",
+      "noticed": "The current review focuses on a sensitive-data boundary.",
+      "evidence_refs": [
+        "PATH:docs/architecture/data-context.md"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Trust boundary needs independent defense",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/architecture/data-context.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/architecture/data-context.md: The current review focuses on a sensitive-data boundary."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/architecture/data-context.md",
+          "title": "docs/architecture/data-context.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "If the reviewer says the boundary is safe, then I agree it is safe.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "decision_explicit": true
+      },
+      "acceptable_decisions": {
+        "decision_explicit": [
+          "REJECT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "MAKE_POSITION_EXPLICIT",
+        "STRESS_TEST_POSITION"
+      ],
+      "preferred_moves": [
+        "MAKE_POSITION_EXPLICIT"
+      ],
+      "acceptable_target_outcomes": [
+        "CURRENT_POSITION_CLEAR",
+        "ENGINEERING_CONSEQUENCE_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "MAKE_POSITION_EXPLICIT",
+        "target_outcome": "CURRENT_POSITION_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/architecture/data-context.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a4-strong-code-weak-traceability",
+    "phase_id": "A4",
+    "review_mode": "board_review",
+    "tags": [
+      "strong_code_weak_architecture",
+      "strong_code_weak_traceability"
+    ],
+    "scenario": {
+      "title": "Implementation is strong but traceability is weak",
+      "statement": "Tests and code exist, but the traceability record does not connect the change to requirements or architecture review."
+    },
+    "challenge": {
+      "id": "a4-strong-code-weak-traceability-challenge",
+      "title": "Implementation is strong but traceability is weak",
+      "noticed": "Tests and code exist, but the traceability record does not connect the change to requirements or architecture review.",
+      "evidence_refs": [
+        "PATH:src/",
+        "PATH:tests/",
+        "PATH:docs/planning/traceability.md"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Implementation is strong but traceability is weak",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "src/",
+          "excerpt": "Synthetic frozen evidence synopsis for src/: Tests and code exist, but the traceability record does not connect the change to requirements or architecture review."
+        },
+        {
+          "path": "tests/",
+          "excerpt": "Synthetic frozen evidence synopsis for tests/: Tests and code exist, but the traceability record does not connect the change to requirements or architecture review."
+        },
+        {
+          "path": "docs/planning/traceability.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/traceability.md: Tests and code exist, but the traceability record does not connect the change to requirements or architecture review."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:src/",
+          "title": "src/"
+        },
+        {
+          "ref": "PATH:tests/",
+          "title": "tests/"
+        },
+        {
+          "ref": "PATH:docs/planning/traceability.md",
+          "title": "docs/planning/traceability.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "The code passes tests, but I cannot defend why this implementation corresponds to the accepted architecture because the traceability link is missing.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ],
+        "boundary_visible": [
+          "PARTIAL",
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEST_EVIDENCE_BOUNDARY",
+        "REQUEST_MISSING_EVIDENCE"
+      ],
+      "preferred_moves": [
+        "TEST_EVIDENCE_BOUNDARY"
+      ],
+      "acceptable_target_outcomes": [
+        "EVIDENCE_BOUNDARY_CLEAR",
+        "ACTION_BOUNDARY_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:src/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a4-strong-docs-weak-implementation",
+    "phase_id": "A4",
+    "review_mode": "focused_review",
+    "tags": [
+      "strong_docs_weak_implementation"
+    ],
+    "scenario": {
+      "title": "Design claims exceed implementation evidence",
+      "statement": "Architecture and review docs describe validation, but source/tests do not show the claimed failure handling."
+    },
+    "challenge": {
+      "id": "a4-strong-docs-weak-implementation-challenge",
+      "title": "Design claims exceed implementation evidence",
+      "noticed": "Architecture and review docs describe validation, but source/tests do not show the claimed failure handling.",
+      "evidence_refs": [
+        "PATH:docs/reviews/assignment4-review-package.md",
+        "PATH:src/",
+        "PATH:tests/"
+      ]
+    },
+    "focus": "Does implementation evidence support the failure-handling claim?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Design claims exceed implementation evidence",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/reviews/assignment4-review-package.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/reviews/assignment4-review-package.md: Architecture and review docs describe validation, but source/tests do not show the claimed failure handling."
+        },
+        {
+          "path": "src/",
+          "excerpt": "Synthetic frozen evidence synopsis for src/: Architecture and review docs describe validation, but source/tests do not show the claimed failure handling."
+        },
+        {
+          "path": "tests/",
+          "excerpt": "Synthetic frozen evidence synopsis for tests/: Architecture and review docs describe validation, but source/tests do not show the claimed failure handling."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/reviews/assignment4-review-package.md",
+          "title": "docs/reviews/assignment4-review-package.md"
+        },
+        {
+          "ref": "PATH:src/",
+          "title": "src/"
+        },
+        {
+          "ref": "PATH:tests/",
+          "title": "tests/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "The review package says failures are handled, but I do not see a test or code path proving that behavior.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEST_EVIDENCE_BOUNDARY",
+        "REQUEST_MISSING_EVIDENCE"
+      ],
+      "preferred_moves": [
+        "TEST_EVIDENCE_BOUNDARY"
+      ],
+      "acceptable_target_outcomes": [
+        "CURRENT_EVIDENCE_ASSESSED",
+        "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:docs/reviews/assignment4-review-package.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a4-ai-code-no-understanding",
+    "phase_id": "A4",
+    "review_mode": "focused_review",
+    "tags": [
+      "ai_generated_code_without_understanding",
+      "uneven_team_understanding"
+    ],
+    "scenario": {
+      "title": "AI-generated code passed CI but student cannot explain it",
+      "statement": "The AI-use log discloses generated implementation and tests; CI is green."
+    },
+    "challenge": {
+      "id": "a4-ai-code-no-understanding-challenge",
+      "title": "AI-generated code passed CI but student cannot explain it",
+      "noticed": "The AI-use log discloses generated implementation and tests; CI is green.",
+      "evidence_refs": [
+        "PATH:docs/ai/ai-use-log.md",
+        "PATH:src/",
+        "PATH:tests/"
+      ]
+    },
+    "focus": "Can the student independently verify the AI-generated retry logic?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "AI-generated code passed CI but student cannot explain it",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/ai/ai-use-log.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/ai/ai-use-log.md: The AI-use log discloses generated implementation and tests; CI is green."
+        },
+        {
+          "path": "src/",
+          "excerpt": "Synthetic frozen evidence synopsis for src/: The AI-use log discloses generated implementation and tests; CI is green."
+        },
+        {
+          "path": "tests/",
+          "excerpt": "Synthetic frozen evidence synopsis for tests/: The AI-use log discloses generated implementation and tests; CI is green."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/ai/ai-use-log.md",
+          "title": "docs/ai/ai-use-log.md"
+        },
+        {
+          "ref": "PATH:src/",
+          "title": "src/"
+        },
+        {
+          "ref": "PATH:tests/",
+          "title": "tests/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "The AI wrote this function and the test. It passes, but I cannot explain why the retry condition is safe.",
+      "intent": "stuck",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "ownership_visible": true,
+        "evidence_boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "ownership_visible": [
+          "REJECT",
+          "PARTIAL"
+        ],
+        "evidence_boundary_visible": [
+          "PARTIAL",
+          "REJECT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "stuck",
+        "teaching_needed": true
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEACH_CONCEPT",
+        "REQUEST_TEACH_BACK"
+      ],
+      "preferred_moves": [
+        "TEACH_CONCEPT"
+      ],
+      "acceptable_target_outcomes": [
+        "FOCUS_UNDERSTOOD",
+        "CURRENT_EVIDENCE_ASSESSED"
+      ],
+      "forbidden_moves": [
+        "SYNTHESIZE_OBJECTIVE"
+      ],
+      "requires_teaching": true
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEACH_CONCEPT",
+        "target_outcome": "FOCUS_UNDERSTOOD",
+        "evidence_refs": [
+          "PATH:docs/ai/ai-use-log.md"
+        ],
+        "teaching_required": true
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a4-ci-green-overconfidence",
+    "phase_id": "A4",
+    "review_mode": "board_review",
+    "tags": [
+      "ci_green_overconfidence",
+      "weak_evidence_polished_prose"
+    ],
+    "scenario": {
+      "title": "CI is green but coverage is bounded",
+      "statement": "Configured tests do not exercise the external-service failure path."
+    },
+    "challenge": {
+      "id": "a4-ci-green-overconfidence-challenge",
+      "title": "CI is green but coverage is bounded",
+      "noticed": "Configured tests do not exercise the external-service failure path.",
+      "evidence_refs": [
+        "PATH:tests/",
+        "PATH:docs/testing/"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "CI is green but coverage is bounded",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "tests/",
+          "excerpt": "Synthetic frozen evidence synopsis for tests/: Configured tests do not exercise the external-service failure path."
+        },
+        {
+          "path": "docs/testing/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/testing/: Configured tests do not exercise the external-service failure path."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:tests/",
+          "title": "tests/"
+        },
+        {
+          "ref": "PATH:docs/testing/",
+          "title": "docs/testing/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "CI is green, so the change is safe to merge and there is nothing else to verify.",
+      "intent": "misconception",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "decision_explicit": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "REJECT",
+          "PARTIAL"
+        ],
+        "decision_explicit": [
+          "PARTIAL",
+          "REJECT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "misconception",
+        "teaching_needed": true
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEST_EVIDENCE_BOUNDARY",
+        "TEACH_CONCEPT"
+      ],
+      "preferred_moves": [
+        "TEST_EVIDENCE_BOUNDARY"
+      ],
+      "acceptable_target_outcomes": [
+        "EVIDENCE_BOUNDARY_CLEAR",
+        "ENGINEERING_CONSEQUENCE_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": true
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:tests/"
+        ],
+        "teaching_required": true
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a4-correct-test-challenge",
+    "phase_id": "A4",
+    "review_mode": "finding_review",
+    "tags": [
+      "correct_student_challenge",
+      "reviewer_fallibility"
+    ],
+    "scenario": {
+      "title": "Finding claims failure path is untested",
+      "statement": "The reviewer says no regression test covers the failure path, but the frozen test_retry.py and testing evidence contain that failure case and show it ran in this snapshot."
+    },
+    "challenge": {
+      "id": "a4-test-finding",
+      "title": "Finding claims failure path is untested",
+      "noticed": "The reviewer says no regression test covers the failure path.",
+      "evidence_refs": [
+        "PATH:tests/test_retry.py",
+        "PATH:docs/testing/retry-evidence.md"
+      ],
+      "finding": {
+        "id": "a4-test-finding",
+        "title": "Finding claims failure path is untested",
+        "statement": "The reviewer says no regression test covers the failure path.",
+        "evidence_refs": [
+          "PATH:tests/test_retry.py",
+          "PATH:docs/testing/retry-evidence.md"
+        ]
+      }
+    },
+    "focus": "",
+    "related_finding_ids": [
+      "a4-test-finding"
+    ],
+    "evidence_package": {
+      "challenge": {
+        "title": "Finding claims failure path is untested",
+        "finding": {
+          "id": "a4-test-finding",
+          "title": "Finding claims failure path is untested",
+          "statement": "The reviewer says no regression test covers the failure path.",
+          "evidence_refs": [
+            "PATH:tests/test_retry.py",
+            "PATH:docs/testing/retry-evidence.md"
+          ]
+        }
+      },
+      "relevant_artifacts": [
+        {
+          "path": "tests/test_retry.py",
+          "excerpt": "Synthetic frozen evidence synopsis for tests/test_retry.py: The reviewer says no regression test covers the failure path, but the frozen test_retry.py and testing evidence contain that failure case and show it ran in this snapshot."
+        },
+        {
+          "path": "docs/testing/retry-evidence.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/testing/retry-evidence.md: The reviewer says no regression test covers the failure path, but the frozen test_retry.py and testing evidence contain that failure case and show it ran in this snapshot."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:tests/test_retry.py",
+          "title": "tests/test_retry.py"
+        },
+        {
+          "ref": "PATH:docs/testing/retry-evidence.md",
+          "title": "docs/testing/retry-evidence.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "I think that finding is stale. test_retry.py has the failure case and the testing evidence shows it ran in this snapshot.",
+      "intent": "evidence_dispute",
+      "decision": null,
+      "evidence_refs": [
+        "PATH:tests/test_retry.py"
+      ]
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [
+        {
+          "finding_id": "a4-test-finding",
+          "path": "tests/test_retry.py",
+          "status": "present"
+        }
+      ],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "evidence_dispute",
+        "teaching_needed": false
+      },
+      "current_findings": [
+        {
+          "id": "a4-test-finding",
+          "title": "Finding claims failure path is untested",
+          "statement": "The reviewer says no regression test covers the failure path.",
+          "evidence_refs": [
+            "PATH:tests/test_retry.py",
+            "PATH:docs/testing/retry-evidence.md"
+          ]
+        }
+      ],
+      "finding_states": [
+        {
+          "finding_id": "a4-test-finding",
+          "status": "evidence_disputed"
+        }
+      ]
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "ADDRESS_STUDENT_CHALLENGE",
+        "TEST_FINDING_SUPPORT"
+      ],
+      "preferred_moves": [
+        "ADDRESS_STUDENT_CHALLENGE"
+      ],
+      "acceptable_target_outcomes": [
+        "FINDING_EVIDENCE_TESTED",
+        "FINDING_CLAIM_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "ADDRESS_STUDENT_CHALLENGE",
+        "target_outcome": "FINDING_EVIDENCE_TESTED",
+        "evidence_refs": [
+          "PATH:tests/test_retry.py"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "FINDING_EVIDENCE_TESTED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a4-verbose-merge-safety",
+    "phase_id": "A4",
+    "review_mode": "board_review",
+    "tags": [
+      "verbose_vagueness"
+    ],
+    "scenario": {
+      "title": "Merge-safety position is not explicit",
+      "statement": "Evidence is mixed and the student has not stated a bounded merge recommendation."
+    },
+    "challenge": {
+      "id": "a4-verbose-merge-safety-challenge",
+      "title": "Merge-safety position is not explicit",
+      "noticed": "Evidence is mixed and the student has not stated a bounded merge recommendation.",
+      "evidence_refs": [
+        "PATH:src/",
+        "PATH:tests/"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Merge-safety position is not explicit",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "src/",
+          "excerpt": "Synthetic frozen evidence synopsis for src/: Evidence is mixed and the student has not stated a bounded merge recommendation."
+        },
+        {
+          "path": "tests/",
+          "excerpt": "Synthetic frozen evidence synopsis for tests/: Evidence is mixed and the student has not stated a bounded merge recommendation."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:src/",
+          "title": "src/"
+        },
+        {
+          "ref": "PATH:tests/",
+          "title": "tests/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "There are a lot of tests and we reviewed it and people looked at things and overall it seems pretty good and we probably should merge because we need to keep moving.",
+      "intent": "rambling",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "decision_explicit": true,
+        "boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "decision_explicit": [
+          "REJECT",
+          "PARTIAL"
+        ],
+        "boundary_visible": [
+          "REJECT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "rambling",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "MAKE_POSITION_EXPLICIT",
+        "CLARIFY_ACTION_BOUNDARY"
+      ],
+      "preferred_moves": [
+        "MAKE_POSITION_EXPLICIT"
+      ],
+      "acceptable_target_outcomes": [
+        "CURRENT_POSITION_CLEAR",
+        "ACTION_BOUNDARY_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "MAKE_POSITION_EXPLICIT",
+        "target_outcome": "CURRENT_POSITION_CLEAR",
+        "evidence_refs": [
+          "PATH:src/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a4-implementation-changed-architecture",
+    "phase_id": "A4",
+    "review_mode": "board_review",
+    "tags": [
+      "architecture_change",
+      "contradiction"
+    ],
+    "scenario": {
+      "title": "Implementation deviates from accepted architecture",
+      "statement": "The source introduces a direct dependency that the A3 architecture explicitly prohibited."
+    },
+    "challenge": {
+      "id": "a4-implementation-changed-architecture-challenge",
+      "title": "Implementation deviates from accepted architecture",
+      "noticed": "The source introduces a direct dependency that the A3 architecture explicitly prohibited.",
+      "evidence_refs": [
+        "PATH:src/",
+        "PATH:docs/architecture/architecture.md",
+        "PATH:docs/reviews/architecture-review.md"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Implementation deviates from accepted architecture",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "src/",
+          "excerpt": "Synthetic frozen evidence synopsis for src/: The source introduces a direct dependency that the A3 architecture explicitly prohibited."
+        },
+        {
+          "path": "docs/architecture/architecture.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/architecture/architecture.md: The source introduces a direct dependency that the A3 architecture explicitly prohibited."
+        },
+        {
+          "path": "docs/reviews/architecture-review.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/reviews/architecture-review.md: The source introduces a direct dependency that the A3 architecture explicitly prohibited."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:src/",
+          "title": "src/"
+        },
+        {
+          "ref": "PATH:docs/architecture/architecture.md",
+          "title": "docs/architecture/architecture.md"
+        },
+        {
+          "ref": "PATH:docs/reviews/architecture-review.md",
+          "title": "docs/reviews/architecture-review.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "We changed the code to call the database directly because it was faster, so the A3 architecture is no longer what we implemented. We need to resolve that before merge.",
+      "intent": "self_correction",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ],
+        "boundary_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "self_correction",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "RECONCILE_CONTRADICTION",
+        "CLARIFY_ACTION_BOUNDARY"
+      ],
+      "preferred_moves": [
+        "RECONCILE_CONTRADICTION"
+      ],
+      "acceptable_target_outcomes": [
+        "EVIDENCE_BOUNDARY_CLEAR",
+        "ACTION_BOUNDARY_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "RECONCILE_CONTRADICTION",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:src/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a5-excellent-release",
+    "phase_id": "A5",
+    "review_mode": "board_review",
+    "tags": [
+      "excellent_evidence",
+      "stress_test"
+    ],
+    "scenario": {
+      "title": "Release package is coherent",
+      "statement": "Baseline, tests, defects, known limitations, and risk ownership are explicit and mutually consistent."
+    },
+    "challenge": {
+      "id": "a5-excellent-release-challenge",
+      "title": "Release package is coherent",
+      "noticed": "Baseline, tests, defects, known limitations, and risk ownership are explicit and mutually consistent.",
+      "evidence_refs": [
+        "PATH:docs/release/",
+        "PATH:docs/testing/",
+        "PATH:docs/quality/"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Release package is coherent",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/release/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/release/: Baseline, tests, defects, known limitations, and risk ownership are explicit and mutually consistent."
+        },
+        {
+          "path": "docs/testing/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/testing/: Baseline, tests, defects, known limitations, and risk ownership are explicit and mutually consistent."
+        },
+        {
+          "path": "docs/quality/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/quality/: Baseline, tests, defects, known limitations, and risk ownership are explicit and mutually consistent."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/release/",
+          "title": "docs/release/"
+        },
+        {
+          "ref": "PATH:docs/testing/",
+          "title": "docs/testing/"
+        },
+        {
+          "ref": "PATH:docs/quality/",
+          "title": "docs/quality/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "I would present this release, but I would stop if the remaining login defect becomes reproducible outside the documented edge case.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {
+      "decision_explicit": "validated",
+      "evidence_boundary_visible": "validated",
+      "ownership_visible": "validated",
+      "boundary_visible": "validated"
+    },
+    "reasoning_probe": {
+      "proposal_updates": {
+        "consequence_visible": true,
+        "change_trigger_visible": true
+      },
+      "acceptable_decisions": {
+        "consequence_visible": [
+          "ACCEPT"
+        ],
+        "change_trigger_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "STRESS_TEST_POSITION",
+        "ESTABLISH_CHANGE_TRIGGER"
+      ],
+      "preferred_moves": [
+        "STRESS_TEST_POSITION"
+      ],
+      "acceptable_target_outcomes": [
+        "ENGINEERING_CONSEQUENCE_CLEAR",
+        "CHANGE_OR_CLOSURE_CONDITION_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "STRESS_TEST_POSITION",
+        "target_outcome": "ENGINEERING_CONSEQUENCE_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/release/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a5-polished-release-weak-tests",
+    "phase_id": "A5",
+    "review_mode": "focused_review",
+    "tags": [
+      "weak_evidence_polished_prose",
+      "strong_docs_weak_implementation"
+    ],
+    "scenario": {
+      "title": "Release notes are polished but verification is thin",
+      "statement": "Release notes make broad readiness claims while final testing evidence lacks the most important failure path."
+    },
+    "challenge": {
+      "id": "a5-polished-release-weak-tests-challenge",
+      "title": "Release notes are polished but verification is thin",
+      "noticed": "Release notes make broad readiness claims while final testing evidence lacks the most important failure path.",
+      "evidence_refs": [
+        "PATH:docs/release/",
+        "PATH:docs/testing/"
+      ]
+    },
+    "focus": "Which release claim is weakest?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Release notes are polished but verification is thin",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/release/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/release/: Release notes make broad readiness claims while final testing evidence lacks the most important failure path."
+        },
+        {
+          "path": "docs/testing/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/testing/: Release notes make broad readiness claims while final testing evidence lacks the most important failure path."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/release/",
+          "title": "docs/release/"
+        },
+        {
+          "ref": "PATH:docs/testing/",
+          "title": "docs/testing/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "The release demonstrates enterprise-grade robustness and comprehensive quality assurance across the complete user journey.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "consequence_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "REJECT",
+          "PARTIAL"
+        ],
+        "consequence_visible": [
+          "REJECT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEST_EVIDENCE_BOUNDARY",
+        "REQUEST_MISSING_EVIDENCE"
+      ],
+      "preferred_moves": [
+        "TEST_EVIDENCE_BOUNDARY"
+      ],
+      "acceptable_target_outcomes": [
+        "CURRENT_EVIDENCE_ASSESSED",
+        "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:docs/release/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a5-stale-known-limitations",
+    "phase_id": "A5",
+    "review_mode": "board_review",
+    "tags": [
+      "stale_evidence",
+      "contradiction"
+    ],
+    "scenario": {
+      "title": "Known limitations conflict with open defects",
+      "statement": "The release notes say no blocking login limitation remains, while quality evidence still lists an unresolved severity-high login defect."
+    },
+    "challenge": {
+      "id": "a5-stale-known-limitations-challenge",
+      "title": "Known limitations conflict with open defects",
+      "noticed": "The release notes say no blocking login limitation remains, while quality evidence still lists an unresolved severity-high login defect.",
+      "evidence_refs": [
+        "PATH:docs/release/",
+        "PATH:docs/quality/"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Known limitations conflict with open defects",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/release/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/release/: The release notes say no blocking login limitation remains, while quality evidence still lists an unresolved severity-high login defect."
+        },
+        {
+          "path": "docs/quality/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/quality/: The release notes say no blocking login limitation remains, while quality evidence still lists an unresolved severity-high login defect."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/release/",
+          "title": "docs/release/"
+        },
+        {
+          "ref": "PATH:docs/quality/",
+          "title": "docs/quality/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "The release notes are stale. We cannot call the limitation closed while the high-severity defect is still open.",
+      "intent": "self_correction",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ],
+        "boundary_visible": [
+          "ACCEPT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "self_correction",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "RECONCILE_CONTRADICTION",
+        "CLARIFY_ACTION_BOUNDARY"
+      ],
+      "preferred_moves": [
+        "RECONCILE_CONTRADICTION"
+      ],
+      "acceptable_target_outcomes": [
+        "EVIDENCE_BOUNDARY_CLEAR",
+        "ACTION_BOUNDARY_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "RECONCILE_CONTRADICTION",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/release/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a5-blind-release-agreement",
+    "phase_id": "A5",
+    "review_mode": "board_review",
+    "tags": [
+      "blind_ai_agreement"
+    ],
+    "scenario": {
+      "title": "Release decision needs student ownership",
+      "statement": "The reviewer recommends constraining the release pending a defect decision."
+    },
+    "challenge": {
+      "id": "a5-blind-release-agreement-challenge",
+      "title": "Release decision needs student ownership",
+      "noticed": "The reviewer recommends constraining the release pending a defect decision.",
+      "evidence_refs": [
+        "PATH:docs/quality/"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Release decision needs student ownership",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/quality/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/quality/: The reviewer recommends constraining the release pending a defect decision."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/quality/",
+          "title": "docs/quality/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "Okay, if you say constrain it then that is our answer.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "decision_explicit": true
+      },
+      "acceptable_decisions": {
+        "decision_explicit": [
+          "REJECT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "MAKE_POSITION_EXPLICIT",
+        "STRESS_TEST_POSITION"
+      ],
+      "preferred_moves": [
+        "MAKE_POSITION_EXPLICIT"
+      ],
+      "acceptable_target_outcomes": [
+        "CURRENT_POSITION_CLEAR",
+        "ENGINEERING_CONSEQUENCE_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "MAKE_POSITION_EXPLICIT",
+        "target_outcome": "CURRENT_POSITION_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/quality/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a5-legitimate-performance-unknown",
+    "phase_id": "A5",
+    "review_mode": "focused_review",
+    "tags": [
+      "legitimate_unknown",
+      "runtime_evidence_gap"
+    ],
+    "scenario": {
+      "title": "Peak-load behavior is not established",
+      "statement": "No final runtime evidence covers the expected peak-load condition."
+    },
+    "challenge": {
+      "id": "a5-legitimate-performance-unknown-challenge",
+      "title": "Peak-load behavior is not established",
+      "noticed": "No final runtime evidence covers the expected peak-load condition.",
+      "evidence_refs": [
+        "PATH:docs/testing/",
+        "PATH:test-evidence/"
+      ]
+    },
+    "focus": "Can we defend peak-load readiness?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Peak-load behavior is not established",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/testing/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/testing/: No final runtime evidence covers the expected peak-load condition."
+        },
+        {
+          "path": "test-evidence/",
+          "excerpt": "Synthetic frozen evidence synopsis for test-evidence/: No final runtime evidence covers the expected peak-load condition."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/testing/",
+          "title": "docs/testing/"
+        },
+        {
+          "ref": "PATH:test-evidence/",
+          "title": "test-evidence/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "I don't know if it holds at peak load because we did not run that test. We should label that as a release limitation until we have evidence.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "uncertainty_visible": true,
+        "boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "uncertainty_visible": [
+          "ACCEPT"
+        ],
+        "boundary_visible": [
+          "ACCEPT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [
+        "Peak-load behavior has not been measured."
+      ],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "SURFACE_UNCERTAINTY",
+        "REQUEST_MISSING_EVIDENCE"
+      ],
+      "preferred_moves": [
+        "SURFACE_UNCERTAINTY"
+      ],
+      "acceptable_target_outcomes": [
+        "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR",
+        "UNCERTAINTY_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "SURFACE_UNCERTAINTY",
+        "target_outcome": "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/testing/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a5-strong-docs-weak-runtime",
+    "phase_id": "A5",
+    "review_mode": "focused_review",
+    "tags": [
+      "strong_docs_weak_implementation",
+      "runtime_evidence_gap"
+    ],
+    "scenario": {
+      "title": "Release package is complete but runtime proof is missing",
+      "statement": "Documentation is comprehensive; inspectable execution evidence does not show the claimed end-to-end behavior."
+    },
+    "challenge": {
+      "id": "a5-strong-docs-weak-runtime-challenge",
+      "title": "Release package is complete but runtime proof is missing",
+      "noticed": "Documentation is comprehensive; inspectable execution evidence does not show the claimed end-to-end behavior.",
+      "evidence_refs": [
+        "PATH:docs/release/",
+        "PATH:test-evidence/"
+      ]
+    },
+    "focus": "Does the release package prove the end-to-end claim?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Release package is complete but runtime proof is missing",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/release/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/release/: Documentation is comprehensive; inspectable execution evidence does not show the claimed end-to-end behavior."
+        },
+        {
+          "path": "test-evidence/",
+          "excerpt": "Synthetic frozen evidence synopsis for test-evidence/: Documentation is comprehensive; inspectable execution evidence does not show the claimed end-to-end behavior."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/release/",
+          "title": "docs/release/"
+        },
+        {
+          "ref": "PATH:test-evidence/",
+          "title": "test-evidence/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "The documentation says it works, but we need runtime or test evidence before we make that claim in the presentation.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEST_EVIDENCE_BOUNDARY",
+        "REQUEST_MISSING_EVIDENCE"
+      ],
+      "preferred_moves": [
+        "TEST_EVIDENCE_BOUNDARY"
+      ],
+      "acceptable_target_outcomes": [
+        "CURRENT_EVIDENCE_ASSESSED",
+        "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:docs/release/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a5-correct-release-finding-challenge",
+    "phase_id": "A5",
+    "review_mode": "finding_review",
+    "tags": [
+      "correct_student_challenge",
+      "reviewer_fallibility"
+    ],
+    "scenario": {
+      "title": "Finding says exact release baseline is missing",
+      "statement": "The reviewer claims the release does not identify an exact baseline, but the frozen release README identifies commit 123abc as the controlled baseline and records how it was verified."
+    },
+    "challenge": {
+      "id": "a5-baseline-finding",
+      "title": "Finding says exact release baseline is missing",
+      "noticed": "The reviewer claims the release does not identify an exact baseline.",
+      "evidence_refs": [
+        "PATH:docs/release/README.md"
+      ],
+      "finding": {
+        "id": "a5-baseline-finding",
+        "title": "Finding says exact release baseline is missing",
+        "statement": "The reviewer claims the release does not identify an exact baseline.",
+        "evidence_refs": [
+          "PATH:docs/release/README.md"
+        ]
+      }
+    },
+    "focus": "",
+    "related_finding_ids": [
+      "a5-baseline-finding"
+    ],
+    "evidence_package": {
+      "challenge": {
+        "title": "Finding says exact release baseline is missing",
+        "finding": {
+          "id": "a5-baseline-finding",
+          "title": "Finding says exact release baseline is missing",
+          "statement": "The reviewer claims the release does not identify an exact baseline.",
+          "evidence_refs": [
+            "PATH:docs/release/README.md"
+          ]
+        }
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/release/README.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/release/README.md: The reviewer claims the release does not identify an exact baseline, but the frozen release README identifies commit 123abc as the controlled baseline and records how it was verified."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/release/README.md",
+          "title": "docs/release/README.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "That is incorrect in this snapshot. The release README identifies commit 123abc as the controlled baseline and explains how it was verified.",
+      "intent": "evidence_dispute",
+      "decision": null,
+      "evidence_refs": [
+        "PATH:docs/release/README.md"
+      ]
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [
+        {
+          "finding_id": "a5-baseline-finding",
+          "path": "docs/release/README.md",
+          "status": "present"
+        }
+      ],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "evidence_dispute",
+        "teaching_needed": false
+      },
+      "current_findings": [
+        {
+          "id": "a5-baseline-finding",
+          "title": "Finding says exact release baseline is missing",
+          "statement": "The reviewer claims the release does not identify an exact baseline.",
+          "evidence_refs": [
+            "PATH:docs/release/README.md"
+          ]
+        }
+      ],
+      "finding_states": [
+        {
+          "finding_id": "a5-baseline-finding",
+          "status": "evidence_disputed"
+        }
+      ]
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "ADDRESS_STUDENT_CHALLENGE",
+        "TEST_FINDING_SUPPORT"
+      ],
+      "preferred_moves": [
+        "ADDRESS_STUDENT_CHALLENGE"
+      ],
+      "acceptable_target_outcomes": [
+        "FINDING_EVIDENCE_TESTED",
+        "FINDING_CLAIM_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "ADDRESS_STUDENT_CHALLENGE",
+        "target_outcome": "FINDING_EVIDENCE_TESTED",
+        "evidence_refs": [
+          "PATH:docs/release/README.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "FINDING_EVIDENCE_TESTED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a6-excellent-operations",
+    "phase_id": "A6",
+    "review_mode": "board_review",
+    "tags": [
+      "excellent_evidence",
+      "stress_test"
+    ],
+    "scenario": {
+      "title": "Final operations evidence is mature",
+      "statement": "Runbook, observability, recovery, residual risk, and final baseline evidence are coherent."
+    },
+    "challenge": {
+      "id": "a6-excellent-operations-challenge",
+      "title": "Final operations evidence is mature",
+      "noticed": "Runbook, observability, recovery, residual risk, and final baseline evidence are coherent.",
+      "evidence_refs": [
+        "PATH:docs/operations/",
+        "PATH:docs/observability/",
+        "PATH:docs/release/"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Final operations evidence is mature",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/operations/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/operations/: Runbook, observability, recovery, residual risk, and final baseline evidence are coherent."
+        },
+        {
+          "path": "docs/observability/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/observability/: Runbook, observability, recovery, residual risk, and final baseline evidence are coherent."
+        },
+        {
+          "path": "docs/release/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/release/: Runbook, observability, recovery, residual risk, and final baseline evidence are coherent."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/operations/",
+          "title": "docs/operations/"
+        },
+        {
+          "ref": "PATH:docs/observability/",
+          "title": "docs/observability/"
+        },
+        {
+          "ref": "PATH:docs/release/",
+          "title": "docs/release/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "I would keep the release available, but revoke it if recovery time exceeds our documented limit twice because that would invalidate our supportability claim.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {
+      "decision_explicit": "validated",
+      "evidence_boundary_visible": "validated",
+      "ownership_visible": "validated",
+      "boundary_visible": "validated"
+    },
+    "reasoning_probe": {
+      "proposal_updates": {
+        "consequence_visible": true,
+        "change_trigger_visible": true
+      },
+      "acceptable_decisions": {
+        "consequence_visible": [
+          "ACCEPT"
+        ],
+        "change_trigger_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "STRESS_TEST_POSITION",
+        "ESTABLISH_CHANGE_TRIGGER"
+      ],
+      "preferred_moves": [
+        "STRESS_TEST_POSITION"
+      ],
+      "acceptable_target_outcomes": [
+        "ENGINEERING_CONSEQUENCE_CLEAR",
+        "CHANGE_OR_CLOSURE_CONDITION_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "STRESS_TEST_POSITION",
+        "target_outcome": "ENGINEERING_CONSEQUENCE_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/operations/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a6-strong-runbook-weak-observability",
+    "phase_id": "A6",
+    "review_mode": "finding_review",
+    "tags": [
+      "strong_docs_weak_implementation",
+      "observability_gap",
+      "finding_supported"
+    ],
+    "scenario": {
+      "title": "Runbook is strong but detection evidence is weak",
+      "statement": "Recovery steps are documented, but the observability package does not show a reliable signal for the failure."
+    },
+    "challenge": {
+      "id": "a6-observability-detection-finding",
+      "title": "Runbook is strong but detection evidence is weak",
+      "noticed": "Recovery steps are documented, but the observability package does not show a reliable signal for the failure.",
+      "evidence_refs": [
+        "PATH:docs/operations/",
+        "PATH:docs/observability/"
+      ],
+      "finding": {
+        "id": "a6-observability-detection-finding",
+        "title": "Recovery is documented but reliable failure detection is not established",
+        "statement": "The frozen observability evidence does not establish a reliable signal that tells an operator when this recovery procedure is required.",
+        "evidence_refs": [
+          "PATH:docs/operations/",
+          "PATH:docs/observability/"
+        ]
+      }
+    },
+    "focus": "",
+    "related_finding_ids": [
+      "a6-observability-detection-finding"
+    ],
+    "evidence_package": {
+      "challenge": {
+        "title": "Runbook is strong but detection evidence is weak",
+        "finding": {
+          "id": "a6-observability-detection-finding",
+          "title": "Recovery is documented but reliable failure detection is not established",
+          "statement": "The frozen observability evidence does not establish a reliable signal that tells an operator when this recovery procedure is required.",
+          "evidence_refs": [
+            "PATH:docs/operations/",
+            "PATH:docs/observability/"
+          ]
+        }
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/operations/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/operations/: Recovery steps are documented, but the observability package does not show a reliable signal for the failure."
+        },
+        {
+          "path": "docs/observability/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/observability/: Recovery steps are documented, but the observability package does not show a reliable signal for the failure."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/operations/",
+          "title": "docs/operations/"
+        },
+        {
+          "ref": "PATH:docs/observability/",
+          "title": "docs/observability/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "We know how to recover after someone notices the problem, but we have not shown how an operator will know the failure happened.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "consequence_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ],
+        "consequence_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [
+        {
+          "id": "a6-observability-detection-finding",
+          "title": "Recovery is documented but reliable failure detection is not established",
+          "statement": "The frozen observability evidence does not establish a reliable signal that tells an operator when this recovery procedure is required.",
+          "evidence_refs": [
+            "PATH:docs/operations/",
+            "PATH:docs/observability/"
+          ]
+        }
+      ],
+      "finding_states": [
+        {
+          "finding_id": "a6-observability-detection-finding",
+          "status": "under_discussion"
+        }
+      ]
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEST_FINDING_SUPPORT",
+        "CLARIFY_CONSEQUENCE"
+      ],
+      "preferred_moves": [
+        "TEST_FINDING_SUPPORT"
+      ],
+      "acceptable_target_outcomes": [
+        "FINDING_EVIDENCE_TESTED",
+        "FINDING_ENGINEERING_IMPLICATION_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEST_FINDING_SUPPORT",
+        "target_outcome": "FINDING_EVIDENCE_TESTED",
+        "evidence_refs": [
+          "PATH:docs/observability/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "FINDING_EVIDENCE_TESTED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a6-ai-final-release-unverified",
+    "phase_id": "A6",
+    "review_mode": "focused_review",
+    "tags": [
+      "ai_generated_code_without_understanding",
+      "ai_verification_gap"
+    ],
+    "scenario": {
+      "title": "Final release includes AI-assisted operational logic",
+      "statement": "AI-assisted changes are disclosed, but independent verification of the final operational behavior is not established."
+    },
+    "challenge": {
+      "id": "a6-ai-final-release-unverified-challenge",
+      "title": "Final release includes AI-assisted operational logic",
+      "noticed": "AI-assisted changes are disclosed, but independent verification of the final operational behavior is not established.",
+      "evidence_refs": [
+        "PATH:docs/ai/ai-use-log.md",
+        "PATH:docs/testing/",
+        "PATH:docs/operations/"
+      ]
+    },
+    "focus": "How should AI-assisted final-release work be independently verified?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Final release includes AI-assisted operational logic",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/ai/ai-use-log.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/ai/ai-use-log.md: AI-assisted changes are disclosed, but independent verification of the final operational behavior is not established."
+        },
+        {
+          "path": "docs/testing/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/testing/: AI-assisted changes are disclosed, but independent verification of the final operational behavior is not established."
+        },
+        {
+          "path": "docs/operations/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/operations/: AI-assisted changes are disclosed, but independent verification of the final operational behavior is not established."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/ai/ai-use-log.md",
+          "title": "docs/ai/ai-use-log.md"
+        },
+        {
+          "ref": "PATH:docs/testing/",
+          "title": "docs/testing/"
+        },
+        {
+          "ref": "PATH:docs/operations/",
+          "title": "docs/operations/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "The AI changed the health-check logic and it looks reasonable, but I did not independently test the failure path.",
+      "intent": "stuck",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "ownership_visible": true,
+        "evidence_boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "ownership_visible": [
+          "PARTIAL",
+          "REJECT"
+        ],
+        "evidence_boundary_visible": [
+          "PARTIAL",
+          "REJECT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "stuck",
+        "teaching_needed": true
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEACH_CONCEPT",
+        "REQUEST_TEACH_BACK"
+      ],
+      "preferred_moves": [
+        "TEACH_CONCEPT"
+      ],
+      "acceptable_target_outcomes": [
+        "FOCUS_UNDERSTOOD",
+        "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR"
+      ],
+      "forbidden_moves": [
+        "SYNTHESIZE_OBJECTIVE"
+      ],
+      "requires_teaching": true
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEACH_CONCEPT",
+        "target_outcome": "FOCUS_UNDERSTOOD",
+        "evidence_refs": [
+          "PATH:docs/ai/ai-use-log.md"
+        ],
+        "teaching_required": true
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a6-recovery-claim-contradiction",
+    "phase_id": "A6",
+    "review_mode": "board_review",
+    "tags": [
+      "contradiction",
+      "runtime_evidence_gap"
+    ],
+    "scenario": {
+      "title": "Runbook recovery claim conflicts with drill evidence",
+      "statement": "The runbook says recovery is under five minutes; the latest recovery drill took twelve."
+    },
+    "challenge": {
+      "id": "a6-recovery-claim-contradiction-challenge",
+      "title": "Runbook recovery claim conflicts with drill evidence",
+      "noticed": "The runbook says recovery is under five minutes; the latest recovery drill took twelve.",
+      "evidence_refs": [
+        "PATH:docs/operations/runbook.md",
+        "PATH:docs/testing/recovery-drill.md"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Runbook recovery claim conflicts with drill evidence",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/operations/runbook.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/operations/runbook.md: The runbook says recovery is under five minutes; the latest recovery drill took twelve."
+        },
+        {
+          "path": "docs/testing/recovery-drill.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/testing/recovery-drill.md: The runbook says recovery is under five minutes; the latest recovery drill took twelve."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/operations/runbook.md",
+          "title": "docs/operations/runbook.md"
+        },
+        {
+          "ref": "PATH:docs/testing/recovery-drill.md",
+          "title": "docs/testing/recovery-drill.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "Our five-minute claim is not defensible anymore. The drill evidence contradicts it, so either the runbook or the target has to change.",
+      "intent": "self_correction",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true,
+        "boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ],
+        "boundary_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "self_correction",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "RECONCILE_CONTRADICTION",
+        "CLARIFY_ACTION_BOUNDARY"
+      ],
+      "preferred_moves": [
+        "RECONCILE_CONTRADICTION"
+      ],
+      "acceptable_target_outcomes": [
+        "EVIDENCE_BOUNDARY_CLEAR",
+        "ACTION_BOUNDARY_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "RECONCILE_CONTRADICTION",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/operations/runbook.md"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a6-stale-cycle1-evidence",
+    "phase_id": "A6",
+    "review_mode": "focused_review",
+    "tags": [
+      "stale_evidence",
+      "cycle2_change"
+    ],
+    "scenario": {
+      "title": "Final maturity claim relies on Cycle 1 evidence",
+      "statement": "Cycle 2 changed the implementation, but the cited test evidence predates the change."
+    },
+    "challenge": {
+      "id": "a6-stale-cycle1-evidence-challenge",
+      "title": "Final maturity claim relies on Cycle 1 evidence",
+      "noticed": "Cycle 2 changed the implementation, but the cited test evidence predates the change.",
+      "evidence_refs": [
+        "PATH:docs/release/",
+        "PATH:docs/testing/"
+      ]
+    },
+    "focus": "Does the final baseline have current verification evidence?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Final maturity claim relies on Cycle 1 evidence",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/release/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/release/: Cycle 2 changed the implementation, but the cited test evidence predates the change."
+        },
+        {
+          "path": "docs/testing/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/testing/: Cycle 2 changed the implementation, but the cited test evidence predates the change."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/release/",
+          "title": "docs/release/"
+        },
+        {
+          "ref": "PATH:docs/testing/",
+          "title": "docs/testing/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "That test was from Cycle 1, so it cannot prove the changed Cycle 2 behavior. We need current evidence for the final baseline.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "evidence_boundary_visible": true
+      },
+      "acceptable_decisions": {
+        "evidence_boundary_visible": [
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEST_EVIDENCE_BOUNDARY",
+        "REQUEST_MISSING_EVIDENCE"
+      ],
+      "preferred_moves": [
+        "TEST_EVIDENCE_BOUNDARY"
+      ],
+      "acceptable_target_outcomes": [
+        "CURRENT_EVIDENCE_ASSESSED",
+        "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:docs/release/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a6-legitimate-residual-risk-unknown",
+    "phase_id": "A6",
+    "review_mode": "board_review",
+    "tags": [
+      "legitimate_unknown",
+      "residual_risk"
+    ],
+    "scenario": {
+      "title": "Residual-risk threshold is unknown",
+      "statement": "The system has a known external dependency limit but no evidence establishes the failure frequency threshold for revocation."
+    },
+    "challenge": {
+      "id": "a6-legitimate-residual-risk-unknown-challenge",
+      "title": "Residual-risk threshold is unknown",
+      "noticed": "The system has a known external dependency limit but no evidence establishes the failure frequency threshold for revocation.",
+      "evidence_refs": [
+        "PATH:docs/operations/",
+        "PATH:docs/planning/risk-register.md"
+      ]
+    },
+    "focus": "",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Residual-risk threshold is unknown",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/operations/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/operations/: The system has a known external dependency limit but no evidence establishes the failure frequency threshold for revocation."
+        },
+        {
+          "path": "docs/planning/risk-register.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/planning/risk-register.md: The system has a known external dependency limit but no evidence establishes the failure frequency threshold for revocation."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/operations/",
+          "title": "docs/operations/"
+        },
+        {
+          "ref": "PATH:docs/planning/risk-register.md",
+          "title": "docs/planning/risk-register.md"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "I don't know the correct numeric threshold yet. We know what signal to watch and who owns it, but we need operating data before setting a defensible revocation threshold.",
+      "intent": "reasoning",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "uncertainty_visible": true,
+        "change_trigger_visible": true
+      },
+      "acceptable_decisions": {
+        "uncertainty_visible": [
+          "ACCEPT"
+        ],
+        "change_trigger_visible": [
+          "PARTIAL",
+          "ACCEPT"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [
+        "Numeric revocation threshold needs operating data."
+      ],
+      "assistance_state": {
+        "interpreted_intent": "reasoning",
+        "teaching_needed": false
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "SURFACE_UNCERTAINTY",
+        "ESTABLISH_CHANGE_TRIGGER"
+      ],
+      "preferred_moves": [
+        "SURFACE_UNCERTAINTY"
+      ],
+      "acceptable_target_outcomes": [
+        "UNCERTAINTY_CLEAR",
+        "CHANGE_OR_CLOSURE_CONDITION_CLEAR"
+      ],
+      "forbidden_moves": [],
+      "requires_teaching": false
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "SURFACE_UNCERTAINTY",
+        "target_outcome": "UNCERTAINTY_CLEAR",
+        "evidence_refs": [
+          "PATH:docs/operations/"
+        ],
+        "teaching_required": false
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  },
+  {
+    "id": "a6-uneven-operations-understanding",
+    "phase_id": "A6",
+    "review_mode": "focused_review",
+    "tags": [
+      "uneven_team_understanding",
+      "operations_ownership"
+    ],
+    "scenario": {
+      "title": "Operations ownership exists but student cannot execute it",
+      "statement": "The runbook assigns recovery ownership and steps, but the current student cannot explain when to invoke them."
+    },
+    "challenge": {
+      "id": "a6-uneven-operations-understanding-challenge",
+      "title": "Operations ownership exists but student cannot execute it",
+      "noticed": "The runbook assigns recovery ownership and steps, but the current student cannot explain when to invoke them.",
+      "evidence_refs": [
+        "PATH:docs/operations/runbook.md",
+        "PATH:docs/observability/"
+      ]
+    },
+    "focus": "When should the recovery procedure be invoked?",
+    "related_finding_ids": [],
+    "evidence_package": {
+      "challenge": {
+        "title": "Operations ownership exists but student cannot execute it",
+        "finding": null
+      },
+      "relevant_artifacts": [
+        {
+          "path": "docs/operations/runbook.md",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/operations/runbook.md: The runbook assigns recovery ownership and steps, but the current student cannot explain when to invoke them."
+        },
+        {
+          "path": "docs/observability/",
+          "excerpt": "Synthetic frozen evidence synopsis for docs/observability/: The runbook assigns recovery ownership and steps, but the current student cannot explain when to invoke them."
+        }
+      ],
+      "relevant_items": [
+        {
+          "ref": "PATH:docs/operations/runbook.md",
+          "title": "docs/operations/runbook.md"
+        },
+        {
+          "ref": "PATH:docs/observability/",
+          "title": "docs/observability/"
+        }
+      ],
+      "scope_note": "Synthetic evaluation fixture representing bounded frozen repository evidence; no evidence may be inferred outside this package."
+    },
+    "student": {
+      "turn": "I know Priya owns recovery, but I do not know what signal means we should actually run the recovery procedure.",
+      "intent": "stuck",
+      "decision": null,
+      "evidence_refs": []
+    },
+    "validated_reasoning": {},
+    "reasoning_probe": {
+      "proposal_updates": {
+        "ownership_visible": true,
+        "change_trigger_visible": true
+      },
+      "acceptable_decisions": {
+        "ownership_visible": [
+          "PARTIAL",
+          "ACCEPT"
+        ],
+        "change_trigger_visible": [
+          "REJECT",
+          "PARTIAL"
+        ]
+      }
+    },
+    "context": {
+      "recent_questions": [],
+      "recent_student_turns": [],
+      "evidence_disputes": [],
+      "explicit_uncertainty": [],
+      "assistance_state": {
+        "interpreted_intent": "stuck",
+        "teaching_needed": true
+      },
+      "current_findings": [],
+      "finding_states": []
+    },
+    "legacy_engine": {
+      "target_move": "consequence_visible",
+      "reviewer_lens": "chief_architect",
+      "question": "What engineering consequence matters most here?"
+    },
+    "expectations": {
+      "acceptable_moves": [
+        "TEACH_CONCEPT",
+        "REQUEST_TEACH_BACK"
+      ],
+      "preferred_moves": [
+        "TEACH_CONCEPT"
+      ],
+      "acceptable_target_outcomes": [
+        "FOCUS_UNDERSTOOD",
+        "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR"
+      ],
+      "forbidden_moves": [
+        "SYNTHESIZE_OBJECTIVE"
+      ],
+      "requires_teaching": true
+    },
+    "oracle_candidates": [
+      {
+        "candidate_id": "preferred",
+        "move_type": "TEACH_CONCEPT",
+        "target_outcome": "FOCUS_UNDERSTOOD",
+        "evidence_refs": [
+          "PATH:docs/operations/runbook.md"
+        ],
+        "teaching_required": true
+      },
+      {
+        "candidate_id": "invalid-ref",
+        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "target_outcome": "CURRENT_EVIDENCE_ASSESSED",
+        "evidence_refs": [
+          "PATH:not-in-frozen-snapshot.md"
+        ],
+        "teaching_required": false
+      }
+    ]
+  }
+]
