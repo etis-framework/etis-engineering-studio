@@ -348,6 +348,71 @@ def test_blind_packet_hides_oracle_labels_and_includes_decision_context(tmp_path
     assert {key[0]["A"], key[0]["B"]} == {"current", "shadow"}
 
 
+
+def test_planning_context_mirrors_production_semantic_assistance_state():
+    case = next(row for row in load_cases() if row["id"] == "a1-correct-student-challenge")
+    context = build_planning_context(
+        case,
+        current_engine={
+            "interpreted_intent": "evidence_dispute",
+            "teach_back": False,
+            "kind": "conversation",
+            "target_move": "consequence_visible",
+            "reviewer_lens": "evidence_auditor",
+        },
+    )
+    assert context.assistance_state == {
+        "interpreted_intent": "evidence_dispute",
+        "teaching_needed": False,
+        "legacy_target": "consequence_visible",
+    }
+    assert context.active_reviewer_lens == "evidence_auditor"
+
+
+def test_planning_context_fixture_falls_back_to_curated_student_intent():
+    case = next(row for row in load_cases() if row["id"] == "a1-correct-student-challenge")
+    context = build_planning_context(case)
+    assert context.assistance_state["interpreted_intent"] == "evidence_dispute"
+
+
+def test_hidden_grading_detector_does_not_flag_enterprise_grade_language():
+    from scripts.run_analytical_engine_evals import _detect_hard_failures
+
+    case = next(row for row in load_cases() if row["id"] == "a5-polished-release-weak-tests")
+    result = {
+        "planning": {
+            "signal": {
+                "shadow_planner": {
+                    "selected_move_type": "CLARIFY_CONSEQUENCE",
+                    "proposed_question": (
+                        "What engineering consequence does this gap have for the claim of "
+                        "enterprise-grade robustness?"
+                    ),
+                    "evidence_refs": [],
+                }
+            }
+        }
+    }
+    assert "HIDDEN_GRADING_BEHAVIOR" not in _detect_hard_failures(case, result)
+
+
+def test_hidden_grading_detector_still_flags_actual_grading_language():
+    from scripts.run_analytical_engine_evals import _detect_hard_failures
+
+    case = dict(load_cases()[0])
+    result = {
+        "planning": {
+            "signal": {
+                "shadow_planner": {
+                    "selected_move_type": "CLARIFY_CONSEQUENCE",
+                    "proposed_question": "What should you say here to get full credit on the rubric score?",
+                    "evidence_refs": [],
+                }
+            }
+        }
+    }
+    assert "HIDDEN_GRADING_BEHAVIOR" in _detect_hard_failures(case, result)
+
 def test_live_hard_failure_scan_uses_full_selector_evidence_authority():
     from scripts.run_analytical_engine_evals import _detect_hard_failures
 
