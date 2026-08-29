@@ -201,10 +201,30 @@ def test_pr2_configuration_fails_closed_for_validated_reasoning_mode():
         Settings(_env_file=None, etis_reasoning_validation_mode="validated")
 
 
-def test_pr1_configuration_fails_closed_for_future_planning_mode():
+def test_pr3_configuration_allows_shadow_planning_only_with_shadow_reasoning():
+    import pytest
+
+    from apps.api.app.config import Settings
+
+    settings = Settings(
+        _env_file=None,
+        etis_reasoning_validation_mode="shadow",
+        etis_review_planning_mode="shadow",
+    )
+    assert settings.etis_review_planning_mode == "shadow"
+
+    with pytest.raises(ValueError, match="requires ETIS_REASONING_VALIDATION_MODE=shadow"):
+        Settings(_env_file=None, etis_review_planning_mode="shadow")
+
+
+def test_pr3_configuration_fails_closed_for_selected_planning_mode():
     import pytest
 
     from apps.api.app.config import Settings
 
     with pytest.raises(ValueError, match="ETIS_REVIEW_PLANNING_MODE"):
-        Settings(_env_file=None, etis_review_planning_mode="shadow")
+        Settings(
+            _env_file=None,
+            etis_reasoning_validation_mode="shadow",
+            etis_review_planning_mode="selected",
+        )

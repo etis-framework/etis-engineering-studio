@@ -75,6 +75,40 @@ class FakeSemanticProvider:
     def critique_reviewer_turn(self, system_prompt, user_prompt):
         return {"acceptable": True, "issues": [], "revised_reply": "", "provider": "fake-semantic", "model": "test-model"}
 
+
+    def plan_review_turn(self, system_prompt, user_prompt):
+        return {
+            "candidates": [
+                {
+                    "candidate_id": "shadow-consequence",
+                    "move_type": "CLARIFY_CONSEQUENCE",
+                    "target_outcome": "ENGINEERING_CONSEQUENCE_CLEAR",
+                    "evidence_refs": [],
+                    "preferred_reviewer_lens": "chief_architect",
+                    "teaching_required": False,
+                    "reason_codes": ["HIGH_ENGINEERING_CONSEQUENCE"],
+                },
+                {
+                    "candidate_id": "shadow-position",
+                    "move_type": "MAKE_POSITION_EXPLICIT",
+                    "target_outcome": "CURRENT_POSITION_CLEAR",
+                    "evidence_refs": [],
+                    "preferred_reviewer_lens": "chief_architect",
+                    "teaching_required": False,
+                    "reason_codes": ["ADVANCES_OBJECTIVE"],
+                },
+            ],
+            "provider": "fake-planner",
+            "model": "planner-model",
+        }
+
+    def realize_review_move(self, system_prompt, user_prompt):
+        return {
+            "lead_in": "Your current reasoning identifies a consequence worth stress-testing.",
+            "question": "If that consequence occurs, what engineering decision should change first?",
+            "provider": "fake-planner",
+            "model": "planner-model",
+        }
     def validate_reasoning_turn(self, system_prompt, user_prompt):
         payload = json.loads(user_prompt)
         evaluations = []
@@ -116,6 +150,8 @@ def test_health():
         assert r.json()['version'] == '0.16.1'
         assert r.json()['reasoning_validation_mode'] in {'legacy', 'shadow'}
         assert 'reasoning_validator_model' in r.json()
+        assert r.json()['review_planning_mode'] in {'legacy', 'shadow'}
+        assert 'review_planner_model' in r.json()
 
 
 def test_course_endpoint():
@@ -332,3 +368,103 @@ def test_legacy_reasoning_mode_never_invokes_shadow_validator():
     finally:
         reviews_router.engine.ai = old_provider
         reviews_router.engine.settings.etis_reasoning_validation_mode = old_mode
+
+
+def test_shadow_review_planning_records_comparison_without_changing_live_question():
+    use_fake_semantic()
+    old_reasoning = reviews_router.engine.settings.etis_reasoning_validation_mode
+    old_planning = reviews_router.engine.settings.etis_review_planning_mode
+    reviews_router.engine.settings.etis_reasoning_validation_mode = "shadow"
+    reviews_router.engine.settings.etis_review_planning_mode = "shadow"
+    try:
+        _, started = _start_a1()
+        sid = started["session_id"]
+        # Session modes are locked at review start; deployment defaults may change later.
+        reviews_router.engine.settings.etis_reasoning_validation_mode = "legacy"
+        reviews_router.engine.settings.etis_review_planning_mode = "legacy"
+
+        response = client.post(
+            f"/api/v1/reviews/{sid}/respond",
+            json={
+                "response": "finger pointing?",
+                "evidence_refs": [],
+                "decision": None,
+                "intent": "discuss",
+                "client_turn_id": "planning-shadow-turn-1",
+            },
+        )
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        # The production-selected semantic response remains exactly the legacy reply.
+        assert "plausible consequence" in payload["follow_up"]["text"].lower()
+        assert payload["follow_up"]["target_move"] == "evidence_boundary_visible"
+        assert "review_planning_shadow" not in payload
+
+        review = client.get(f"/api/v1/reviews/{sid}").json()
+        assert review["state"]["review_control"]["planning_mode"] == "shadow"
+        assert "planning_shadow" not in review["state"]["review_control"]
+        assert all("review_planning_shadow" not in turn["signals"] for turn in review["turns"])
+
+        with SessionLocal() as db:
+            session = db.get(ReviewSession, sid)
+            persisted_state = json.loads(session.challenge_state_json)
+            planning = persisted_state["review_control"]["planning_shadow"]
+            assert planning["last_plan"]["status"] == "completed"
+            assert planning["last_plan"]["current_engine"]["target_move"] == "evidence_boundary_visible"
+            assert planning["last_plan"]["shadow_planner"]["selected_move_type"] == "CLARIFY_CONSEQUENCE"
+            assert planning["last_plan"]["shadow_planner"]["proposed_question"].startswith("If that consequence")
+            student_turn = (
+                db.query(ReviewTurn)
+                .filter_by(session_id=sid, client_turn_id="planning-shadow-turn-1")
+                .one()
+            )
+            signals = json.loads(student_turn.signals_json)
+            assert signals["review_planning_shadow"]["status"] == "completed"
+
+        # Shadow planning must not replace the legacy target or recommendation state.
+        with SessionLocal() as db:
+            session = db.get(ReviewSession, sid)
+            persisted_state = json.loads(session.challenge_state_json)
+            assert persisted_state["coaching_target"] == "evidence_boundary_visible"
+            assert persisted_state["reasoning_state"]["consequence_visible"] is True
+    finally:
+        reviews_router.engine.settings.etis_reasoning_validation_mode = old_reasoning
+        reviews_router.engine.settings.etis_review_planning_mode = old_planning
+
+
+def test_legacy_planning_session_never_invokes_shadow_planner_after_default_changes():
+    class LegacyPlanningProvider(FakeSemanticProvider):
+        def plan_review_turn(self, system_prompt, user_prompt):
+            raise AssertionError("shadow planner must not run for a legacy planning session")
+
+        def realize_review_move(self, system_prompt, user_prompt):
+            raise AssertionError("shadow move realizer must not run for a legacy planning session")
+
+    old_provider = reviews_router.engine.ai
+    old_reasoning = reviews_router.engine.settings.etis_reasoning_validation_mode
+    old_planning = reviews_router.engine.settings.etis_review_planning_mode
+    reviews_router.engine.ai = LegacyPlanningProvider()
+    reviews_router.engine.settings.etis_reasoning_validation_mode = "shadow"
+    reviews_router.engine.settings.etis_review_planning_mode = "legacy"
+    try:
+        _, started = _start_a1()
+        sid = started["session_id"]
+        reviews_router.engine.settings.etis_review_planning_mode = "shadow"
+        response = client.post(
+            f"/api/v1/reviews/{sid}/respond",
+            json={
+                "response": "finger pointing?",
+                "evidence_refs": [],
+                "decision": None,
+                "intent": "discuss",
+                "client_turn_id": "legacy-planning-no-shadow",
+            },
+        )
+        assert response.status_code == 200, response.text
+        review = client.get(f"/api/v1/reviews/{sid}").json()
+        assert review["state"]["review_control"]["planning_mode"] == "legacy"
+        assert "planning_shadow" not in review["state"]["review_control"]
+    finally:
+        reviews_router.engine.ai = old_provider
+        reviews_router.engine.settings.etis_reasoning_validation_mode = old_reasoning
+        reviews_router.engine.settings.etis_review_planning_mode = old_planning

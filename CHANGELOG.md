@@ -4,6 +4,13 @@
 
 ### Added
 
+- Adds PR3 shadow Review Planner / Next-Question Selector for sessions explicitly started with planning mode `shadow`, while the legacy semantic question remains student-visible and authoritative.
+- Separates PR3 candidate generation from question realization: the planner proposes bounded engineering moves, the application-owned selector locks one move, and a second structured realizer phrases only that selected move.
+- Persists internal current-vs-shadow planning telemetry including selected objective outcome, structured selection/rejection reason codes, proposed shadow question, target agreement, and question similarity without exposing shadow data through normal Review Room APIs.
+- Adds fail-closed PR3 guards for unauthorized evidence, already-established outcomes, needed teaching, premature closure, future-phase questions, repeated questions, generic trivia, artifact theater, and invalid shadow realization.
+- Records planner and selected-move-realizer usage separately under `review_planning_shadow` and `review_move_realization_shadow`.
+- Adds production deployment support for explicit `legacy` or `shadow` review planning; planning `shadow` requires reasoning validation `shadow`, and both modes are session-locked.
+- Adds dedicated PR3 planner/selector, provider-routing, API-isolation, session-locking, and Azure deployment regression coverage.
 - Adds PR2 independent reasoning-transition validation in `shadow` mode, producing structured ACCEPT / PARTIAL / REJECT judgments without changing the legacy student-visible reasoning state or readiness.
 - Persists compact shadow reasoning state under the existing versioned `review_control` block and stores per-turn validation results in `ReviewTurn.signals_json` without a database migration.
 - Records shadow-validator model usage, latency, and cost through the existing AI usage ledger under the `reasoning_validation_shadow` purpose.
@@ -19,6 +26,8 @@
 
 ### Compatibility
 
+- PR3 shadow planning never changes the legacy reviewer reply, `target_move`, readiness, recommendation behavior, finding authority, or Complete Review behavior; planner/realizer failure is internal telemetry only.
+- PR3 planning shadow runs only for sessions created with both reasoning validation and review planning set to `shadow`; normal Review Room responses strip planning shadow state and per-turn signals.
 - PR2 shadow validation never changes the legacy `reasoning_state`, readiness, recommendation enablement, reviewer reply, next-question selection, or finding lifecycle.
 - Shadow validation runs only for sessions created with reasoning mode `shadow`; legacy sessions make no validator calls, and active sessions never change analytical mode mid-review.
 - Synthetic Coach turns cannot earn shadow reasoning credit. Validator failure is recorded as shadow telemetry and does not fail the student's legacy review turn.

@@ -11,6 +11,14 @@ on:
         options:
           - legacy
           - shadow
+      review_planning_mode:
+        description: Review planning mode for newly started reviews
+        required: true
+        default: legacy
+        type: choice
+        options:
+          - legacy
+          - shadow
 
 permissions:
   contents: read
@@ -109,6 +117,7 @@ jobs:
             -e GITHUB_OAUTH_REDIRECT_URI=https://studio.example.edu/auth/github/callback \
             -e OPENAI_API_KEY=sk-proj-ci-placeholder \
             -e ETIS_REASONING_VALIDATION_MODE=shadow \
+            -e ETIS_REVIEW_PLANNING_MODE=shadow \
             etis-engineering-studio:release-gate
 
           for attempt in $(seq 1 30); do
@@ -148,6 +157,7 @@ jobs:
       AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
       ETIS_WEB_ORIGIN: ${{ vars.ETIS_WEB_ORIGIN }}
       ETIS_REASONING_VALIDATION_MODE: ${{ inputs.reasoning_validation_mode }}
+      ETIS_REVIEW_PLANNING_MODE: ${{ inputs.review_planning_mode }}
       ETIS_BOOTSTRAP_OWNER_EMAIL: ${{ vars.ETIS_BOOTSTRAP_OWNER_EMAIL }}
       ETIS_CUSTOM_DOMAIN_NAME: ${{ vars.ETIS_CUSTOM_DOMAIN_NAME }}
       ETIS_MANAGED_CERTIFICATE_NAME: ${{ vars.ETIS_MANAGED_CERTIFICATE_NAME }}
@@ -414,6 +424,7 @@ jobs:
               githubOauthClientId="${ETIS_GITHUB_OAUTH_CLIENT_ID}" \
               githubOauthRedirectUri="${GITHUB_OAUTH_REDIRECT_URI}" \
               reasoningValidationMode="${ETIS_REASONING_VALIDATION_MODE}" \
+              reviewPlanningMode="${ETIS_REVIEW_PLANNING_MODE}" \
             --only-show-errors \
             --output none
 

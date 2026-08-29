@@ -28,9 +28,10 @@ The compact package includes the chosen challenge, relevant FACT observations, a
 - Repository semantic interpretation: `OPENAI_REPOSITORY_MODEL` (default `gpt-5.6-luna`).
 - Selective conversation-quality critic: `OPENAI_CRITIC_MODEL` (default `gpt-5.6-luna`).
 - Independent PR2 shadow reasoning validator: `OPENAI_REASONING_VALIDATOR_MODEL` when configured, otherwise the critic model and then the primary conversation model.
-- Deterministic extraction, provenance, phase rules, and authorization never require an LLM.
+- PR3 shadow Review Planner and selected-move realizer: `OPENAI_REVIEW_PLANNER_MODEL` when configured, otherwise the critic model and then the primary conversation model. Candidate selection between those two calls is application-owned and deterministic.
+- Deterministic extraction, provenance, phase rules, authorization, and PR3 candidate selection never require an LLM.
 
-The reviewer model is intentionally the highest-quality path because conversational trust and coaching quality are product-critical. Bounded background interpretation is routed for cost efficiency. PR2 reasoning validation is a second structured pass only on analytically material shadow-enabled turns; legacy sessions make no validator call, and no-call skips avoid unnecessary cost when no new transition or correction requires validation.
+The reviewer model is intentionally the highest-quality path because conversational trust and coaching quality are product-critical. Bounded background interpretation is routed for cost efficiency. PR2 reasoning validation is a second structured pass only on analytically material shadow-enabled turns; legacy sessions make no validator call, and no-call skips avoid unnecessary cost when no new transition or correction requires validation. PR3 planning shadow adds one bounded candidate-generation call plus one selected-move realization call only for sessions explicitly started with planning `shadow`. Synthetic Coach turns skip planning entirely, legacy planning sessions make no planner/realizer call, and planner/realizer usage is metered separately so shadow quality can be evaluated against incremental latency and cost before any student-visible enablement.
 
 ## Usage accounting
 

@@ -118,3 +118,13 @@ Gate 17 is closed and Post-Provisioning Production Acceptance is GO. Future prod
 4. targeted live acceptance of the changed boundary.
 
 No infrastructure requirement should be weakened merely to simplify local development or deployment.
+
+
+### v0.17 shadow review-planning rollout
+
+The manual `Deploy Azure` workflow also includes an explicit `review_planning_mode` choice for newly started review sessions:
+
+- `legacy` (default) — the current semantic engine remains the only question-selection path;
+- `shadow` — after PR2 shadow reasoning validation, the Studio generates candidate next moves, deterministically selects one, and realizes one internal comparison question while the legacy question remains student-visible.
+
+Planning `shadow` requires reasoning validation `shadow`; incompatible configuration fails closed. Both modes are persisted into each new review session, so changing a later deployment default never changes analytical authority inside an active conversation. `OPENAI_REVIEW_PLANNER_MODEL` may override the shadow planner/realizer model; otherwise the critic model is used before falling back to the primary conversation model.

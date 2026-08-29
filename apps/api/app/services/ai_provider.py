@@ -6,6 +6,7 @@ import hashlib
 import httpx
 from ..config import get_settings
 from .ai_telemetry import usage_from_response
+from .review_planning import CandidateMoveType, ObjectiveOutcome, SelectionReasonCode
 
 
 CONVERSATION_SCHEMA = {
@@ -73,6 +74,79 @@ CONVERSATION_SCHEMA = {
         "needs_direct_teaching", "response_mode", "next_target", "reply", "guidance_ids",
         "handoff_lens", "teach_back"
     ],
+    "additionalProperties": False,
+}
+
+
+
+REVIEW_PLANNER_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "candidates": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "candidate_id": {"type": "string"},
+                    "move_type": {
+                        "type": "string",
+                        "enum": [item.value for item in CandidateMoveType],
+                    },
+                    "target_outcome": {
+                        "type": "string",
+                        "enum": [item.value for item in ObjectiveOutcome],
+                    },
+                    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+                    "preferred_reviewer_lens": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "evidence_auditor",
+                                    "chief_architect",
+                                    "delivery",
+                                    "red_team",
+                                ],
+                            },
+                            {"type": "null"},
+                        ]
+                    },
+                    "teaching_required": {"type": "boolean"},
+                    "reason_codes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [item.value for item in SelectionReasonCode],
+                        },
+                    },
+                },
+                "required": [
+                    "candidate_id",
+                    "move_type",
+                    "target_outcome",
+                    "evidence_refs",
+                    "preferred_reviewer_lens",
+                    "teaching_required",
+                    "reason_codes",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["candidates"],
+    "additionalProperties": False,
+}
+
+
+REVIEW_MOVE_REALIZATION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "lead_in": {"type": "string"},
+        "question": {"type": "string"},
+    },
+    "required": ["lead_in", "question"],
     "additionalProperties": False,
 }
 
@@ -243,6 +317,12 @@ class AIProvider:
         raise NotImplementedError
 
     def validate_reasoning_turn(self, system_prompt: str, user_prompt: str) -> dict:
+        raise NotImplementedError
+
+    def plan_review_turn(self, system_prompt: str, user_prompt: str) -> dict:
+        raise NotImplementedError
+
+    def realize_review_move(self, system_prompt: str, user_prompt: str) -> dict:
         raise NotImplementedError
 
 
@@ -421,4 +501,20 @@ class OpenAIResponsesProvider(AIProvider):
             system_prompt, user_prompt, REASONING_VALIDATION_SCHEMA, "etis_reasoning_validation",
             model=model, purpose="reasoning_validation_shadow",
             reasoning_effort=self.s.etis_reasoning_validator_ai_reasoning_effort
+        )
+
+    def plan_review_turn(self, system_prompt: str, user_prompt: str) -> dict:
+        model = self.s.openai_review_planner_model or self.s.openai_critic_model or self.s.openai_model
+        return self._post_structured(
+            system_prompt, user_prompt, REVIEW_PLANNER_SCHEMA, "etis_review_planner",
+            model=model, purpose="review_planning_shadow",
+            reasoning_effort=self.s.etis_review_planner_ai_reasoning_effort
+        )
+
+    def realize_review_move(self, system_prompt: str, user_prompt: str) -> dict:
+        model = self.s.openai_review_planner_model or self.s.openai_critic_model or self.s.openai_model
+        return self._post_structured(
+            system_prompt, user_prompt, REVIEW_MOVE_REALIZATION_SCHEMA, "etis_review_move_realizer",
+            model=model, purpose="review_move_realization_shadow",
+            reasoning_effort=self.s.etis_review_planner_ai_reasoning_effort
         )

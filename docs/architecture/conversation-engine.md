@@ -87,3 +87,16 @@ The conversational reviewer still proposes legacy `reasoning_updates`, and the l
 A separate validator model evaluates the newest **student** reasoning against the Review Objective and bounded frozen evidence. The current generated reviewer reply is excluded from that validation input. This prevents reviewer prose, rescue-mode teaching, or critic rewrites from becoming evidence that the student demonstrated a reasoning move.
 
 The shadow validator is advisory telemetry only in PR2. ACCEPT/PARTIAL/REJECT state is persisted separately under `review_control.reasoning_shadow`; validator failure cannot fail the student's turn. Synthetic Coach turns are recorded as skipped and never receive shadow reasoning credit. Normal Review Room API responses strip shadow state/signals so students do not see or optimize against experimental validator judgments.
+
+
+## PR3 shadow-planning boundary
+
+PR3 does not let the conversational reviewer choose its own shadow successor. After the live semantic turn proposes legacy reasoning and the PR2 validator updates shadow reasoning, the application reconstructs a bounded Planning Context and runs a separate shadow control path:
+
+```text
+semantic planner -> candidate engineering moves -> deterministic selector -> selected-move realizer
+```
+
+The planner proposes moves only; it does not draft the final question. The selector locks one move using Review Objective, evidence authority, validated reasoning, assistance, disagreement, novelty, phase, and closure constraints. A separate realizer may then phrase only that selected move. Neither planner nor realizer receives the current engine's newly generated reply, so the shadow question remains an independent comparison.
+
+The current semantic reviewer remains fully student-authoritative in PR3. Shadow planning cannot alter `reasoning_state`, readiness, recommendation enablement, active reviewer, `target_move`, response text, finding lifecycle, or Complete Review behavior. Invalid/failing shadow planning is telemetry only. Normal Review Room reads remove `review_control.planning_shadow` and `review_planning_shadow` turn signals, so students cannot see or optimize against the experimental selector.
