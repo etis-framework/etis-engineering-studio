@@ -551,3 +551,11 @@ def test_blind_human_acceptance_can_pass_only_with_complete_42_case_two_rater_se
     assert result["preferences"]["shadow_rate"] == 1.0
     assert result["hard_failure_counts"]["shadow"] == 0
     assert result["acceptance"]["pass"] is True
+
+
+def test_reasoning_oracle_matches_dimension_semantics_for_calibration_cases():
+    cases = {case["id"]: case for case in load_cases()}
+
+    assert cases["a2-excellent-traceability"]["reasoning_probe"]["acceptable_decisions"]["tradeoff_visible"] == ["REJECT"]
+    assert cases["a4-ai-code-no-understanding"]["reasoning_probe"]["acceptable_decisions"]["evidence_boundary_visible"] == ["ACCEPT"]
+    assert cases["a6-ai-final-release-unverified"]["reasoning_probe"]["acceptable_decisions"]["evidence_boundary_visible"] == ["ACCEPT"]

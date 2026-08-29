@@ -148,6 +148,17 @@ Each case contains:
 
 The reasoning probe and planner context are deliberately separable. A validator failure should not make it impossible to diagnose planner quality, and a planner failure should not obscure whether the validator correctly interpreted student reasoning.
 
+## Reasoning-oracle semantics
+
+Reasoning-oracle decisions follow the frozen reasoning-dimension meanings rather than rewarding or penalizing a student merely for sounding confident, uncertain, or explicit. In particular:
+
+- `evidence_boundary_visible` asks whether the student distinguishes what current evidence does and does not establish; a statement such as “the test passes, but I cannot defend why the retry is safe” can therefore merit `ACCEPT` even when the student still lacks understanding or ownership.
+- `ownership_visible` asks who owns corrective action and verification; admitting “I cannot explain it” exposes an accountability gap but does not by itself establish ownership.
+- `change_trigger_visible` asks what observable condition/evidence changes or closes the current condition; a concrete dependency slip or architecture change may establish a trigger even when it is not a tradeoff.
+- `tradeoff_visible` requires a benefit/value preserved alongside a risk, cost, or downside accepted. A threshold that merely triggers re-estimation is not automatically a tradeoff.
+
+The independent validator is expected to reject a conversational reviewer’s proposed dimension when the student expressed a different valid dimension. The evaluator must not mark that rejection as a validator failure merely because the conversational proposal was misclassified.
+
 ## Deterministic selector oracle
 
 Every case contains a small oracle candidate set.
