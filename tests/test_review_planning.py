@@ -185,13 +185,20 @@ def test_pr1_configuration_defaults_to_legacy_modes():
     assert settings.etis_review_planning_mode == "legacy"
 
 
-def test_pr1_configuration_fails_closed_for_future_reasoning_mode():
+def test_pr2_configuration_allows_shadow_reasoning_mode():
+    from apps.api.app.config import Settings
+
+    settings = Settings(_env_file=None, etis_reasoning_validation_mode="shadow")
+    assert settings.etis_reasoning_validation_mode == "shadow"
+
+
+def test_pr2_configuration_fails_closed_for_validated_reasoning_mode():
     import pytest
 
     from apps.api.app.config import Settings
 
     with pytest.raises(ValueError, match="ETIS_REASONING_VALIDATION_MODE"):
-        Settings(_env_file=None, etis_reasoning_validation_mode="shadow")
+        Settings(_env_file=None, etis_reasoning_validation_mode="validated")
 
 
 def test_pr1_configuration_fails_closed_for_future_planning_mode():

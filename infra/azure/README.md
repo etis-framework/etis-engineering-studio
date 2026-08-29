@@ -37,6 +37,16 @@ Secret values must never be committed.
 
 Creates the Container Apps migration job that runs the immutable application image and `alembic upgrade head` inside the private network.
 
+
+### v0.17 reasoning-validation rollout
+
+The manual `Deploy Azure` workflow includes an explicit `reasoning_validation_mode` choice for newly started review sessions:
+
+- `legacy` (default) — no shadow validator calls;
+- `shadow` — independent reasoning validation runs on analytically material turns while the legacy engine remains student-authoritative.
+
+The workflow passes the selected value into `app.bicep`, which persists `ETIS_REASONING_VALIDATION_MODE` in the Container App. The validator model is configured as `OPENAI_REASONING_VALIDATOR_MODEL` and defaults to `gpt-5.6-luna`. Existing active review sessions retain their session-locked analytical mode even when a later deployment changes the default for new sessions.
+
 ### `app.bicep`
 
 Defines the production Container App:

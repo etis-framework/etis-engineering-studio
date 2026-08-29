@@ -966,6 +966,7 @@ The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the stu
             memory["stall_count"] = int(memory.get("stall_count", 0)) + 1
 
         intent_name = parsed.get("student_intent") or "other"
+        proposal_intent_name = intent_name
         direct_signal = bool(
             parsed.get("stuck") or parsed.get("frustrated") or parsed.get("needs_direct_teaching")
             or intent_name in {"stuck", "answer_seeking", "frustration"}
@@ -1039,6 +1040,8 @@ The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the stu
             "teach_back": memory["teach_back_pending"],
             "conversation_memory": memory,
             "usage_events": usage_events,
+            "_reasoning_proposals": updates,
+            "_reasoning_proposal_intent": proposal_intent_name,
         }, merged, evaluation
 
     def converse(

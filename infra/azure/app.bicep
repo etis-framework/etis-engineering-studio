@@ -75,6 +75,16 @@ param openAiRepositoryModel string = 'gpt-5.6-luna'
 @description('OpenAI model for selective conversation-quality criticism.')
 param openAiCriticModel string = 'gpt-5.6-luna'
 
+@description('OpenAI model for independent shadow reasoning-state validation.')
+param openAiReasoningValidatorModel string = 'gpt-5.6-luna'
+
+@allowed([
+  'legacy'
+  'shadow'
+])
+@description('Reasoning-state authority mode. Shadow validates independently but never changes student-visible legacy behavior.')
+param reasoningValidationMode string = 'legacy'
+
 @description('Optional initial Course Owner email. Empty disables bootstrap ownership.')
 param bootstrapOwnerEmail string = ''
 
@@ -338,6 +348,14 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = {
             {
               name: 'OPENAI_CRITIC_MODEL'
               value: openAiCriticModel
+            }
+            {
+              name: 'OPENAI_REASONING_VALIDATOR_MODEL'
+              value: openAiReasoningValidatorModel
+            }
+            {
+              name: 'ETIS_REASONING_VALIDATION_MODE'
+              value: reasoningValidationMode
             }
           ]
 

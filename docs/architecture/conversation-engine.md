@@ -7,14 +7,14 @@
 
 The Engineering Studio models an apprenticeship review: a junior engineer works through a real engineering judgment with senior reviewers. In the v0.16.1 engine, semantic interpretation proposes reasoning-state updates, the application merges those updates into legacy session state, and deterministic readiness logic evaluates the resulting state. The conversational layer decides how a senior engineer should continue the discussion without sounding like a rubric or state machine.
 
-## v0.17 PR1 analytical boundary
+## v0.17 analytical boundary
 
-PR1 introduces a first-class Review Objective and planning contracts without changing the legacy conversation engine's student-visible behavior. The new control-plane structures are persisted for new review sessions but do not select questions, validate reasoning, change readiness, or alter reviewer responses in PR1.
+PR1 introduced a first-class Review Objective and planning contracts without changing the legacy conversation engine's student-visible behavior. PR2 now validates semantic reasoning-transition proposals independently in shadow mode, but the shadow result still does not select questions, change legacy readiness, alter recommendation enablement, or modify reviewer responses.
 
 This establishes a deliberate future separation:
 
 - the **semantic interpreter** determines what the student appears to mean and may later propose reasoning transitions;
-- a **reasoning validator** will later decide whether proposed transitions are accepted, partial, or rejected;
+- a **reasoning validator** independently classifies proposed transitions as ACCEPT, PARTIAL, or REJECT in PR2 shadow mode;
 - a **Review Planner / Next-Question Selector** will later choose the highest-value analytical move;
 - the **reviewer persona** realizes the selected move conversationally;
 - the **critic** remains a downstream conversation-quality boundary rather than an analytical-authority boundary.
@@ -79,3 +79,11 @@ A1 and A2 permit substantial coaching. Repeated nudges become progressively more
 4. highly explicit structure with blanks the student must complete.
 
 Later phases reduce this scaffolding so students progressively move from **teach me how to defend** toward **treat me like an engineer**.
+
+## PR2 shadow-validation boundary
+
+The conversational reviewer still proposes legacy `reasoning_updates`, and the legacy OR merge still drives the student's current readiness. For shadow-enabled sessions, those proposed updates are copied to an internal-only handoff and removed before the reviewer response is persisted or returned.
+
+A separate validator model evaluates the newest **student** reasoning against the Review Objective and bounded frozen evidence. The current generated reviewer reply is excluded from that validation input. This prevents reviewer prose, rescue-mode teaching, or critic rewrites from becoming evidence that the student demonstrated a reasoning move.
+
+The shadow validator is advisory telemetry only in PR2. ACCEPT/PARTIAL/REJECT state is persisted separately under `review_control.reasoning_shadow`; validator failure cannot fail the student's turn. Synthetic Coach turns are recorded as skipped and never receive shadow reasoning credit. Normal Review Room API responses strip shadow state/signals so students do not see or optimize against experimental validator judgments.
