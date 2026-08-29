@@ -189,3 +189,29 @@ def test_opening_is_personalized_and_one_question_at_a_time():
     assert opening.count('?') == 1
     assert any(term in opening_lower for term in ('evidence','workflow','control','claim','consequence'))
     assert 'who owns the next action' not in opening_lower
+
+
+def test_review_start_retry_reuses_same_persisted_review_objective():
+    seed = client.post('/api/v1/dev/seed').json()
+    body = {
+        "team_id": seed["team_id"],
+        "phase_id": "A1",
+        "user_id": seed["user_id"],
+        "client_request_id": "pr1-objective-retry-001",
+    }
+
+    first = client.post('/api/v1/reviews/start', json=body)
+    second = client.post('/api/v1/reviews/start', json=body)
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    assert first.json()['session_id'] == second.json()['session_id']
+    assert second.json()['duplicate'] is True
+
+    detail = client.get(f"/api/v1/reviews/{first.json()['session_id']}")
+    assert detail.status_code == 200, detail.text
+    objective = detail.json()['state']['review_control']['objective']
+    assert objective['objective_id']
+
+    detail_again = client.get(f"/api/v1/reviews/{second.json()['session_id']}")
+    objective_again = detail_again.json()['state']['review_control']['objective']
+    assert objective_again['objective_id'] == objective['objective_id']

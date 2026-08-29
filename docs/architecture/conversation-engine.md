@@ -1,11 +1,25 @@
 # Engineering Studio Conversation Engine
 
-> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+> **Status:** Legacy conversation behavior from the production-accepted v0.16.1 baseline, with the v0.17 PR1 analytical-control-plane boundary documented below.
 
 
 ## Purpose
 
-The Engineering Studio models an apprenticeship review: a junior engineer works through a real engineering judgment with senior reviewers. The deterministic control plane tracks which reasoning obligations must eventually become visible; the conversational layer decides how a senior engineer should discuss the next obligation without sounding like a rubric or state machine.
+The Engineering Studio models an apprenticeship review: a junior engineer works through a real engineering judgment with senior reviewers. In the v0.16.1 engine, semantic interpretation proposes reasoning-state updates, the application merges those updates into legacy session state, and deterministic readiness logic evaluates the resulting state. The conversational layer decides how a senior engineer should continue the discussion without sounding like a rubric or state machine.
+
+## v0.17 PR1 analytical boundary
+
+PR1 introduces a first-class Review Objective and planning contracts without changing the legacy conversation engine's student-visible behavior. The new control-plane structures are persisted for new review sessions but do not select questions, validate reasoning, change readiness, or alter reviewer responses in PR1.
+
+This establishes a deliberate future separation:
+
+- the **semantic interpreter** determines what the student appears to mean and may later propose reasoning transitions;
+- a **reasoning validator** will later decide whether proposed transitions are accepted, partial, or rejected;
+- a **Review Planner / Next-Question Selector** will later choose the highest-value analytical move;
+- the **reviewer persona** realizes the selected move conversationally;
+- the **critic** remains a downstream conversation-quality boundary rather than an analytical-authority boundary.
+
+The full contract is defined in `docs/architecture/ANALYTICAL_CONTROL_PLANE_V017.md`.
 
 ## Conversation principles
 
@@ -35,7 +49,7 @@ Each review session preserves:
 - coaching depth;
 - recorded recommendation, if any.
 
-This memory is separate from the phase contract. The phase contract says *what must eventually be defensible*. Conversation memory says *what the student and reviewers have already established together*.
+This memory is separate from the phase contract. The phase contract describes gate expectations; conversation memory records the legacy engine's accumulated conversational state. Under the v0.17 architecture, neither one alone defines the purpose or completion of a particular review. The session's first-class Review Objective provides that missing analytical boundary. Prior-session reasoning remains context rather than proof of a current claim.
 
 ## Interaction acts
 

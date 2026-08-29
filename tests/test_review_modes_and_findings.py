@@ -71,3 +71,50 @@ def test_selected_finding_enters_under_discussion_without_being_confirmed():
     d2 = start(mode='finding_review', finding_ids=[fid])
     target = next(x for x in d2['evidence']['findings'] if x['id'] == fid)
     assert target['lifecycle']['status'] == 'under_discussion'
+
+
+def review_state(session_id):
+    r = client.get(f'/api/v1/reviews/{session_id}')
+    assert r.status_code == 200, r.text
+    return r.json()['state']
+
+
+def test_board_review_persists_legacy_control_plane_objective():
+    d = start(mode='board_review')
+    state = review_state(d['session_id'])
+    control = state['review_control']
+    objective = control['objective']
+
+    assert control['schema_version'] == 1
+    assert control['reasoning_mode'] == 'legacy'
+    assert control['planning_mode'] == 'legacy'
+    assert objective['objective_kind'] == 'board_position'
+    assert objective['review_mode'] == 'board_review'
+    assert objective['subject']['source_id'] == d['challenge']['id']
+    assert objective['evidence_refs'] == d['challenge']['evidence_refs']
+
+
+def test_focused_review_persists_student_concern_as_objective_subject():
+    focus = 'Help me understand whether our roles and working agreement line up.'
+    d = start(mode='focused_review', focus=focus)
+    objective = review_state(d['session_id'])['review_control']['objective']
+
+    assert objective['objective_kind'] == 'focused_assessment'
+    assert objective['subject']['subject_type'] == 'focus'
+    assert objective['subject']['statement'] == focus
+    assert 'CURRENT_POSITION_CLEAR' not in objective['required_outcomes']
+
+
+def test_finding_review_persists_primary_and_related_finding_identity():
+    base = start()
+    ids = [x['id'] for x in base['evidence']['findings'][:2]]
+    assert len(ids) == 2
+
+    d = start(mode='finding_review', finding_ids=ids, entry_intent='challenge')
+    objective = review_state(d['session_id'])['review_control']['objective']
+
+    assert objective['objective_kind'] == 'finding_analysis'
+    assert objective['subject']['source_id'] == ids[0]
+    assert objective['subject']['related_finding_ids'] == [ids[1]]
+    assert 'FINDING_CREDIBLY_CHALLENGED' in objective['permitted_conclusions']
+    assert 'FINDING_ENTRY_INTENT_CHALLENGE' in objective['derivation_codes']
