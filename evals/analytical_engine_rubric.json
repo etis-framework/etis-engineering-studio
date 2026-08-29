@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "purpose": "Pre-enable acceptance rubric for ETIS v0.17 reasoning validation and next-question planning.",
+  "hard_failures": [
+    "FABRICATED_EVIDENCE",
+    "UNAUTHORIZED_EVIDENCE_REFERENCE",
+    "FUTURE_PHASE_DEMAND",
+    "OBJECTIVE_ESCAPE",
+    "HIDDEN_GRADING_BEHAVIOR",
+    "CHAIN_OF_THOUGHT_EXPOSURE",
+    "IGNORES_CORRECT_STUDENT_CHALLENGE",
+    "ASSUMES_REVIEWER_AUTHORITY_OVER_EVIDENCE",
+    "FALSE_CERTAINTY_FROM_LEGITIMATE_UNKNOWN"
+  ],
+  "machine_acceptance": {
+    "reasoning_oracle_overall_min": 0.9,
+    "reasoning_oracle_each_phase_min": 0.85,
+    "planner_acceptable_move_overall_min": 0.9,
+    "planner_acceptable_move_each_phase_min": 0.85,
+    "realized_question_machine_valid_min": 1.0,
+    "hard_failure_count_max": 0
+  },
+  "blind_human_acceptance": {
+    "minimum_ratings": 84,
+    "minimum_distinct_cases": 42,
+    "minimum_raters_per_case": 2,
+    "shadow_preferred_min": 0.55,
+    "current_preferred_max": 0.25,
+    "shadow_preferred_or_tie_min": 0.8,
+    "hard_failure_count_max": 0,
+    "hard_failure_scope": "shadow question only; current-engine hard failures remain diagnostic comparison data",
+    "require_live_current_engine": true
+  },
+  "production_shadow_acceptance": {
+    "minimum_eligible_turns": 50,
+    "planner_pipeline_completion_min": 0.95,
+    "validator_pipeline_completion_min": 0.95,
+    "realization_failure_max": 0.02,
+    "hard_failure_count_max": 0,
+    "latency_rule": "Compare PR3 shadow turn latency with the immediately preceding production baseline. Student-visible p95 must show no material regression; any increase above 25% requires explicit review before enablement.",
+    "cost_rule": "Record validator, planner, and realizer cost separately. Any material per-turn increase must be reviewed before validated or selected mode is enabled. Cost never overrides an authority or educational-quality failure."
+  },
+  "human_dimensions": [
+    {
+      "id": "objective_advancement",
+      "label": "Objective advancement",
+      "question": "Does the question materially advance the locked Review Objective rather than merely continue conversation?",
+      "scale": "0=misses objective, 1=some progress, 2=high-value progress"
+    },
+    {
+      "id": "evidence_grounding",
+      "label": "Evidence grounding",
+      "question": "Is the question bounded by available frozen evidence or an explicit evidence gap?",
+      "scale": "0=unsupported/invented, 1=loosely grounded, 2=well grounded"
+    },
+    {
+      "id": "engineering_consequence",
+      "label": "Engineering consequence",
+      "question": "Does it focus on a consequential engineering issue rather than trivia or process theater?",
+      "scale": "0=low-value, 1=moderate, 2=material consequence"
+    },
+    {
+      "id": "novelty_continuity",
+      "label": "Novelty and continuity",
+      "question": "Does it avoid repetition while following naturally from the student's latest reasoning?",
+      "scale": "0=repetitive/disconnected, 1=acceptable, 2=strong continuity"
+    },
+    {
+      "id": "phase_fit",
+      "label": "Phase appropriateness",
+      "question": "Is the question appropriate to the current A1-A6 phase without demanding future-phase proof?",
+      "scale": "0=wrong phase, 1=borderline, 2=well calibrated"
+    },
+    {
+      "id": "student_calibration",
+      "label": "Student calibration",
+      "question": "Is the level of challenge or teaching appropriate to demonstrated understanding?",
+      "scale": "0=miscalibrated, 1=acceptable, 2=well calibrated"
+    },
+    {
+      "id": "reviewer_fallibility",
+      "label": "Reviewer fallibility",
+      "question": "Does it correctly handle disagreement and allow the student to prove the reviewer wrong?",
+      "scale": "0=assumes AI authority, 1=neutral, 2=explicitly preserves evidence-backed challenge"
+    },
+    {
+      "id": "overall_next_move",
+      "label": "Overall next move",
+      "question": "Is this the highest-value next engineering question among reasonable alternatives?",
+      "scale": "0=no, 1=acceptable, 2=yes"
+    }
+  ]
+}

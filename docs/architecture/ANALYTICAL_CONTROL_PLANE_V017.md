@@ -1,6 +1,6 @@
 # ETIS Engineering Studio v0.17 Analytical Control Plane
 
-> **Status:** PR3 shadow Review Planner / Next-Question Selector implemented on the PR1 planning spine and PR2 reasoning-validation shadow. Legacy reasoning and the legacy student-visible question remain authoritative while both validated reasoning and next-question quality are measured in shadow.
+> **Status:** PR4 analytical evaluation and war-game infrastructure implemented on the PR1 planning spine, PR2 reasoning-validation shadow, and PR3 shadow Review Planner / Next-Question Selector. Legacy reasoning and the legacy student-visible question remain authoritative while the new components are evaluated before any authority transfer.
 
 ## Purpose
 
@@ -12,7 +12,7 @@ The central analytical question for v0.17 is:
 
 > Given the current phase/gate, locked review purpose, Review Objective, frozen repository evidence, current finding or focus, validated student reasoning, prior questions and answers, disagreement and corrections, uncertainty, engineering consequence, and student understanding, what is the single highest-value next engineering move?
 
-PR1 established the control-plane contracts. PR2 added independent reasoning validation in shadow mode. PR3 now adds deliberate shadow planning and application-owned next-move selection, followed by a separate move-realization pass. None of these shadow components replace current question-selection, legacy reasoning, readiness, recommendation, or completion behavior.
+PR1 established the control-plane contracts. PR2 added independent reasoning validation in shadow mode. PR3 added deliberate shadow planning and application-owned next-move selection, followed by a separate move-realization pass. PR4 adds the A1-A6 evaluation system required to determine whether those shadow components are actually safer and higher quality before any authority transfer. None of these components replace current question-selection, legacy reasoning, readiness, recommendation, or completion behavior in PR4.
 
 ## PR1 compatibility boundary
 
@@ -220,6 +220,14 @@ PR3 planning uses `OPENAI_REVIEW_PLANNER_MODEL` when configured, otherwise the c
 
 Production rollout remains explicit. `ETIS_REVIEW_PLANNING_MODE=shadow` is permitted only with `ETIS_REASONING_VALIDATION_MODE=shadow`, and both modes are session-locked when a review starts.
 
+## PR4 analytical evaluation / war games
+
+PR4 does not modify the production decision path. It adds a committed evaluation system around the PR2/PR3 shadow components. The corpus in `evals/analytical_engine_cases.json` contains 42 cases, exactly seven for each A1-A6 phase, with Board, Focused, and Finding Review represented in every phase. Required cases include polished prose without evidence, blind AI agreement, reflexive rejection, correct reviewer challenge, strong code with weak architecture, strong documentation with weak implementation, AI-assisted work without understanding, contradictions, stale evidence, legitimate uncertainty, and uneven team understanding.
+
+CI validates corpus structure, phase/mode coverage, enum integrity, deterministic selector-oracle behavior, teaching calibration, Finding Review fallibility, and legitimate-uncertainty contracts without making model calls. Optional live tooling runs the independent reasoning validator and the planner/selector/realizer against the same cases and scores their structured outputs against expert-acceptable sets rather than exact text.
+
+`evals/analytical_engine_rubric.json` defines zero-tolerance hard failures plus machine, blinded-human, and production-shadow thresholds. `scripts/run_analytical_engine_evals.py` runs the live current semantic engine by default for offline A/B comparison, then generates randomized packets with opaque review IDs and no behavior/oracle labels. `scripts/score_analytical_blind_review.py` maps completed A/B ratings, per-option dimension scores, and hard failures back to current/shadow only after review and enforces at least two completed ratings per case. No hidden chain-of-thought is requested or retained. Detailed PR4 operating guidance is in `docs/architecture/ANALYTICAL_EVALUATION_AND_WARGAMES_V017.md`.
+
 ## Planning Context
 
 `PlanningContext` is a reconstructed runtime object rather than a second persisted conversation store.
@@ -326,8 +334,8 @@ The intended sequence is deliberately incremental:
 1. **PR1 — Planning spine:** structures, Review Objective, compatibility modes, no analytical behavior change.
 2. **PR2 — Reasoning validation shadow:** compare legacy reasoning credit with ACCEPT/PARTIAL/REJECT validation.
 3. **PR3 — Shadow planner/selector:** generate candidate moves and one shadow-selected question while the legacy question remains student-visible.
-4. **PR4 — Evaluation expansion:** A1-A6 question-quality corpus, adversarial student behaviors, reviewer-error cases, and current-vs-shadow evaluation.
-5. **PR5 — Validated reasoning enablement:** allow validated reasoning to become authoritative in a controlled acceptance environment while planning remains shadow.
+4. **PR4 — Evaluation expansion:** implemented 42 balanced A1-A6 analytical war games, deterministic selector oracles, live reasoning/planner eval tooling, blinded current-vs-shadow comparison, and explicit pre-enable thresholds.
+5. **PR5 — Validated reasoning enablement:** allow validated reasoning to become authoritative in a controlled acceptance environment while planning remains shadow, but only after PR4 acceptance evidence is reviewed.
 6. **PR6 — Selector enablement:** allow the proven selector to choose the student-visible analytical move under controlled rollout.
 7. **Later:** objective-aware completion/recommendation semantics, lightweight evidence relationships if justified, and validated instructor synthesis.
 
