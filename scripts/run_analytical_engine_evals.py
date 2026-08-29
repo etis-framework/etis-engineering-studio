@@ -107,6 +107,9 @@ def main() -> int:
                 "reply": str(current_view.get("question") or ""),
                 "target_move": str(current_view.get("target_move") or ""),
                 "reviewer_lens": str(current_view.get("reviewer_lens") or ""),
+                "interpreted_intent": str((case.get("student") or {}).get("intent") or "other"),
+                "teach_back": False,
+                "kind": "conversation",
                 "usage_events": [],
             }
         else:
@@ -115,6 +118,9 @@ def main() -> int:
                 "question": result["current"]["question"],
                 "target_move": result["current"]["target_move"],
                 "reviewer_lens": result["current"]["reviewer_lens"],
+                "interpreted_intent": result["current"].get("interpreted_intent"),
+                "teach_back": result["current"].get("teach_back", False),
+                "kind": result["current"].get("kind"),
             })
         result["legacy_question"] = result["current"]["question"]
         print("  current:", result["current"]["source"], result["current"]["target_move"] or "no-target")
@@ -206,6 +212,9 @@ def _run_current_case(engine: ChallengeEngine, case: Mapping[str, Any]) -> dict[
         "reply": reply,
         "target_move": str(reviewer.get("target_move") or ""),
         "reviewer_lens": str(reviewer.get("lens") or ""),
+        "interpreted_intent": str(reviewer.get("interpreted_intent") or "other"),
+        "teach_back": bool(reviewer.get("teach_back", False)),
+        "kind": str(reviewer.get("kind") or "conversation"),
         "usage_events": list(reviewer.get("usage_events") or ()),
     }
 
@@ -250,7 +259,7 @@ def _run_planning_case(
     planner: ReviewPlanner, case: Mapping[str, Any], current_engine: Mapping[str, Any]
 ) -> dict[str, Any]:
     outcome = planner.plan_turn(
-        context=build_planning_context(case),
+        context=build_planning_context(case, current_engine=current_engine),
         shadow_state=blank_planning_shadow(),
         current_engine=dict(current_engine),
         turn_sequence=1,
@@ -279,7 +288,7 @@ def _detect_hard_failures(case: Mapping[str, Any], result: Mapping[str, Any]) ->
     if _mentions_future_phase(question, str(case.get("phase_id") or "")):
         failures.append("FUTURE_PHASE_DEMAND")
     lower = question.lower()
-    if any(term in lower for term in ("full credit", "grade", "points", "rubric score")):
+    if _mentions_hidden_grading(lower):
         failures.append("HIDDEN_GRADING_BEHAVIOR")
     if any(term in lower for term in ("chain of thought", "system prompt", "hidden reasoning")):
         failures.append("CHAIN_OF_THOUGHT_EXPOSURE")
@@ -290,6 +299,14 @@ def _detect_hard_failures(case: Mapping[str, Any], result: Mapping[str, Any]) ->
     if "legitimate_unknown" in set(case.get("tags") or ()) and move in {"SYNTHESIZE_OBJECTIVE"}:
         failures.append("FALSE_CERTAINTY_FROM_LEGITIMATE_UNKNOWN")
     return sorted(set(failures))
+
+
+def _mentions_hidden_grading(text: str) -> bool:
+    if re.search(r"\b(?:full credit|rubric score|points?)\b", text):
+        return True
+    # Avoid false positives for ordinary engineering adjectives such as
+    # "enterprise-grade" while still catching direct grading language.
+    return bool(re.search(r"(?<![-\w])grad(?:e|ed|es|ing)(?![-\w])", text))
 
 
 def _mentions_future_phase(text: str, phase: str) -> bool:

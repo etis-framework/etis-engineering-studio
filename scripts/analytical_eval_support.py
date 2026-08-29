@@ -137,11 +137,36 @@ def build_shadow_reasoning(case: Mapping[str, Any]) -> dict[str, Any]:
     return shadow
 
 
-def build_planning_context(case: Mapping[str, Any]) -> PlanningContext:
+def build_planning_context(
+    case: Mapping[str, Any],
+    current_engine: Mapping[str, Any] | None = None,
+) -> PlanningContext:
     objective = build_objective(case)
     student = dict(case.get("student") or {})
     context = dict(case.get("context") or {})
     evidence_package = dict(case.get("evidence_package") or {})
+    current = dict(current_engine or {})
+    assistance_state = dict(context.get("assistance_state") or {})
+    assistance_state.update(
+        {
+            "interpreted_intent": str(
+                current.get("interpreted_intent")
+                or assistance_state.get("interpreted_intent")
+                or student.get("intent")
+                or "other"
+            ),
+            "teaching_needed": bool(
+                current.get("teach_back")
+                or current.get("kind") == "teaching"
+                or assistance_state.get("teaching_needed")
+            ),
+            "legacy_target": str(
+                current.get("target_move")
+                or assistance_state.get("legacy_target")
+                or ""
+            ),
+        }
+    )
     return PlanningContext(
         session_id=None,
         phase_id=str(case.get("phase_id") or "A1"),
@@ -171,8 +196,12 @@ def build_planning_context(case: Mapping[str, Any]) -> PlanningContext:
         current_position=str(student.get("decision") or ""),
         committed_position=None,
         coaching_level=1,
-        assistance_state=dict(context.get("assistance_state") or {}),
-        active_reviewer_lens=str((case.get("legacy_engine") or {}).get("reviewer_lens") or "chief_architect"),
+        assistance_state=assistance_state,
+        active_reviewer_lens=str(
+            current.get("reviewer_lens")
+            or (case.get("legacy_engine") or {}).get("reviewer_lens")
+            or "chief_architect"
+        ),
     )
 
 
