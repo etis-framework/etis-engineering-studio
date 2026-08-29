@@ -37,6 +37,10 @@ A reviewer should:
 
 `evals/analytical_engine_rubric.json` defines machine, blinded-human, and production-shadow acceptance gates. Optional live model evaluation is performed by `scripts/run_analytical_engine_evals.py`; by default it runs the actual current semantic conversation engine on the same synthetic case before comparing it with shadow planning. Blinded A/B packets are scored with `scripts/score_analytical_blind_review.py`. Live evals remain outside CI because they incur model cost and semantic variability.
 
+### Analytical planner machine-vs-human scoring
+
+The PR4 machine gate treats a selector-valid move that reaches a case-accepted Review Objective outcome as machine-acceptable even when it differs from the case author's explicit move list. Explicit and preferred move matches remain separate diagnostics. Blinded human review determines whether one reasonable move is actually higher-value than another.
+
 ## Evaluation philosophy
 
 Exact-text assertions are inappropriate for a semantic conversation system. Evaluate trajectory and behavior instead: did the reviewer understand the intent, recognize valid reasoning, avoid repetition, teach at the right time, stay grounded in evidence, and move the student toward defensible engineering judgment?

@@ -156,6 +156,14 @@ The oracle does **not** assert that the semantic planner must generate exact can
 
 This protects the application-owned authority layer independently from model variability.
 
+## Machine planning acceptance semantics
+
+Machine planning acceptance is intentionally broader than the human preference oracle. The live PR3 selector has already enforced move-to-target compatibility, Review Objective scope, frozen-evidence authority, assistance constraints, and closure guards before a move can reach the evaluation report. The machine gate therefore treats a completed, non-forbidden selected move as acceptable when it targets one of the case's acceptable objective outcomes and its realized question is valid.
+
+`acceptable_moves` and `preferred_moves` remain diagnostic oracle fields. Their match rates are reported separately so the evaluation can show whether the planner converges on the corpus authors' anticipated move vocabulary, but a reasonable alternative move for the same acceptable outcome is not a machine failure. The blinded human review remains the authority for deciding whether one reasonable next move is higher-value than another.
+
+This prevents a narrow handwritten move list from creating false negatives while preserving zero tolerance for hard authority failures, unacceptable objective targets, forbidden moves, or invalid realized questions.
+
 ## Hard failures
 
 Some outcomes are not matters of preference. Any occurrence is a hard failure for student-visible enablement:

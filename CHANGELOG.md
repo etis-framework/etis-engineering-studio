@@ -4,6 +4,8 @@
 
 ### Added
 
+- Calibrates PR4 machine planning scoring so selector-valid alternative moves can satisfy the machine gate when they advance an accepted objective outcome; explicit and preferred move matches remain diagnostic inputs to blinded human comparison.
+
 - Adds PR4 analytical evaluation infrastructure without changing production review behavior: a 42-case A1-A6 war-game corpus with exactly seven cases per phase and Board, Focused, and Finding Review represented in every phase.
 - Adds explicit expert oracles for independent reasoning validation and next-question planning, covering polished prose without evidence, blind AI agreement, reflexive AI rejection, correct student challenges, strong-code/weak-architecture, strong-docs/weak-implementation, AI-assisted work without understanding, contradictions, stale evidence, legitimate uncertainty, and uneven team understanding.
 - Adds deterministic CI coverage for corpus balance, enum contracts, selector authority, unauthorized-evidence rejection, teaching calibration, Finding Review reviewer fallibility, and legitimate-uncertainty handling.
