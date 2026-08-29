@@ -1,6 +1,6 @@
 # ETIS Engineering Studio v0.17 Analytical Control Plane
 
-> **Status:** PR2 reasoning-validation shadow implemented on the PR1 planning spine. The legacy conversation engine remains student-authoritative while independent reasoning validation is measured in shadow.
+> **Status:** PR3 shadow Review Planner / Next-Question Selector implemented on the PR1 planning spine and PR2 reasoning-validation shadow. Legacy reasoning and the legacy student-visible question remain authoritative while both validated reasoning and next-question quality are measured in shadow.
 
 ## Purpose
 
@@ -12,7 +12,7 @@ The central analytical question for v0.17 is:
 
 > Given the current phase/gate, locked review purpose, Review Objective, frozen repository evidence, current finding or focus, validated student reasoning, prior questions and answers, disagreement and corrections, uncertainty, engineering consequence, and student understanding, what is the single highest-value next engineering move?
 
-PR1 established the contracts needed to answer that question later. PR2 adds an independent reasoning validator in shadow mode. It does not replace current question-selection, legacy reasoning, readiness, recommendation, or completion behavior.
+PR1 established the control-plane contracts. PR2 added independent reasoning validation in shadow mode. PR3 now adds deliberate shadow planning and application-owned next-move selection, followed by a separate move-realization pass. None of these shadow components replace current question-selection, legacy reasoning, readiness, recommendation, or completion behavior.
 
 ## PR1 compatibility boundary
 
@@ -152,25 +152,23 @@ The planned mode vocabulary is:
 - `shadow`
 - `selected`
 
-PR2 supports `legacy` and `shadow` for reasoning validation while review planning remains `legacy` only. Unsupported `validated` reasoning or future planning modes still fail closed. The selected reasoning mode is locked when the review begins.
+PR3 supports `legacy` and `shadow` for both reasoning validation and review planning. Planning `shadow` requires reasoning `shadow`; unsupported `validated` reasoning or `selected` planning still fail closed. Both configured modes are locked when the review begins.
 
 ## Reasoning authority
 
-The v0.16.1 `reasoning_state` remains unchanged in PR1 and is explicitly treated as **legacy semantic-derived reasoning state**.
+The v0.16.1 `reasoning_state` remains the **legacy semantic-derived reasoning state** and continues to drive student-visible readiness in PR3. It is not renamed or recharacterized as validated reasoning.
 
-PR1 does not rename that state and does not pretend it has already been validated.
-
-A later PR will separate:
+PR2 established the parallel shadow authority path:
 
 ```text
 semantic interpretation
   -> proposed reasoning transition
-  -> reasoning validator
+  -> independent reasoning validator
   -> ACCEPT / PARTIAL / REJECT
-  -> validated reasoning state
+  -> shadow validated reasoning state
 ```
 
-Validated reasoning must support revision, contradiction, reopening, and supersession. It must not reproduce the current permanent OR-only semantics under a different name.
+The shadow representation supports revision, contradiction, reopening, and supersession rather than reproducing the legacy permanent OR-only semantics. It remains non-authoritative for the student experience until a later controlled enablement PR.
 
 Prior-session reasoning remains context rather than proof of a current claim.
 
@@ -198,11 +196,35 @@ The validator uses `OPENAI_REASONING_VALIDATOR_MODEL` when configured, otherwise
 
 Production deployment remains opt-in. The manual Azure deployment workflow defaults to `legacy` and offers an explicit `shadow` choice for newly started reviews. Existing active reviews retain their session-locked mode.
 
+## PR3 shadow planning / selection
+
+PR3 adds a second disconnected analytical branch after the current semantic turn. The live engine still produces the student-visible reply and target exactly as before. In parallel, PR3 reconstructs a bounded `PlanningContext` from the locked Review Objective, frozen evidence package, current finding/focus, persisted finding corrections and evidence disputes, validated shadow reasoning, recent transcript, current student position, uncertainty, assistance state, and reviewer lens.
+
+The shadow path is intentionally split into three authorities:
+
+```text
+Planning Context
+  -> semantic Review Planner proposes 2-4 Candidate Next Moves
+  -> application-owned Next-Question Selector rejects/ranks candidates
+  -> semantic move realizer phrases only the locked selected move
+  -> current-vs-shadow comparison telemetry
+```
+
+The planner is not allowed to draft the student-facing question. The selector is deterministic after candidate generation. The realizer receives only the selected move; it cannot switch objective outcomes or re-plan. Neither shadow model call receives the current engine's newly generated question, which prevents the shadow comparison from simply copying production output.
+
+The selector rejects candidates that are outside the Review Objective, cite unauthorized frozen evidence, target an already validated outcome, bypass needed teaching, or attempt premature closure. Student disagreement/evidence-dispute moves receive explicit priority when appropriate. After selection, the realized question is rejected if it repeats a recent reviewer question, demands a future phase, explicitly cites unauthorized evidence, degenerates into generic trivia, or becomes artifact theater. Invalid realization is recorded as failed shadow telemetry and never affects the student turn.
+
+Shadow planning state is stored under `review_control.planning_shadow`; detailed per-turn comparison data is stored in `ReviewTurn.signals_json`. Normal Review Room responses strip both planning and reasoning shadow state/signals. The student sees no shadow question, score, selector reason code, or experimental outcome.
+
+PR3 planning uses `OPENAI_REVIEW_PLANNER_MODEL` when configured, otherwise the critic model and then primary conversation model. Planner candidate generation and selected-move realization are separately metered as `review_planning_shadow` and `review_move_realization_shadow`. Legacy planning sessions make neither call.
+
+Production rollout remains explicit. `ETIS_REVIEW_PLANNING_MODE=shadow` is permitted only with `ETIS_REASONING_VALIDATION_MODE=shadow`, and both modes are session-locked when a review starts.
+
 ## Planning Context
 
 `PlanningContext` is a reconstructed runtime object rather than a second persisted conversation store.
 
-It is designed to contain the bounded authoritative inputs a future planner needs:
+It contains the bounded authoritative inputs the PR3 shadow planner needs:
 
 - session and current phase;
 - locked review mode;
@@ -226,7 +248,7 @@ The planner must reconstruct this context from authoritative persisted records r
 
 ## Candidate Next Move
 
-The future planner produces structured engineering moves, not final student-facing prose.
+The PR3 planner produces structured engineering moves, not final student-facing prose.
 
 Initial move types include:
 
@@ -253,9 +275,9 @@ The vocabulary is not a universal order or hidden rubric.
 
 ## Next-Question Selector
 
-A later selector receives candidate moves and chooses one best move.
+The PR3 application-owned selector receives candidate moves and chooses one best move before any shadow question is phrased.
 
-The selector is expected to prefer moves that:
+The selector prefers moves that:
 
 - advance the Review Objective;
 - target an important unresolved outcome;
@@ -270,7 +292,7 @@ The selector is expected to prefer moves that:
 
 Candidates must be rejected before ranking when they demand future-phase evidence, rely on nonexistent evidence, repeat resolved questions, ask generic trivia, create artifact theater, ignore a valid correction, assume the reviewer is necessarily correct, or otherwise conflict with the locked review purpose.
 
-The selector will persist structured reason codes rather than hidden model chain-of-thought.
+The selector persists structured reason codes rather than hidden model chain-of-thought.
 
 ## Reviewer persona boundary
 

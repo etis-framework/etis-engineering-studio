@@ -78,12 +78,22 @@ param openAiCriticModel string = 'gpt-5.6-luna'
 @description('OpenAI model for independent shadow reasoning-state validation.')
 param openAiReasoningValidatorModel string = 'gpt-5.6-luna'
 
+@description('OpenAI model for shadow review planning.')
+param openAiReviewPlannerModel string = 'gpt-5.6-luna'
+
 @allowed([
   'legacy'
   'shadow'
 ])
 @description('Reasoning-state authority mode. Shadow validates independently but never changes student-visible legacy behavior.')
 param reasoningValidationMode string = 'legacy'
+
+@allowed([
+  'legacy'
+  'shadow'
+])
+@description('Review-planning mode. Shadow proposes and selects comparison questions but never changes the student-visible legacy question.')
+param reviewPlanningMode string = 'legacy'
 
 @description('Optional initial Course Owner email. Empty disables bootstrap ownership.')
 param bootstrapOwnerEmail string = ''
@@ -354,8 +364,16 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = {
               value: openAiReasoningValidatorModel
             }
             {
+              name: 'OPENAI_REVIEW_PLANNER_MODEL'
+              value: openAiReviewPlannerModel
+            }
+            {
               name: 'ETIS_REASONING_VALIDATION_MODE'
               value: reasoningValidationMode
+            }
+            {
+              name: 'ETIS_REVIEW_PLANNING_MODE'
+              value: reviewPlanningMode
             }
           ]
 

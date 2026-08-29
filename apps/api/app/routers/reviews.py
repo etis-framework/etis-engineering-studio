@@ -13,15 +13,20 @@ from ..schemas import ReviewStartRequest, ReviewResponseRequest, ReviewClarifyRe
 from ..services.challenge_engine import ChallengeEngine, Challenge, reviewer_profile, default_memory
 from ..services.review_orchestrator import ReviewOrchestrator
 from ..services.review_planning import (
+    PlanningContext,
     ReasoningValidationMode,
+    ReviewPlanningMode,
+    ReviewMode,
     build_review_objective,
     initialize_review_control,
     review_control_modes,
+    review_objective_from_dict,
 )
 from ..services.evidence import snapshot_from_dict
 from ..services.evidence_package import EvidencePackageBuilder
 from ..services.usage_store import record_usage_events
 from ..services.reasoning_validation import ReasoningValidator, blank_reasoning_shadow
+from ..services.review_planner import ReviewPlanner, blank_planning_shadow
 from ..services.course_admin import phase_access
 from ..services.auth import (
     STAFF_ROLES,
@@ -55,6 +60,67 @@ def _decorate_finding_states(evidence:dict, states:dict[str,dict]):
         for finding in evidence.get(key,[]):
             finding['lifecycle']=states.get(finding.get('id'),{"status":"open"})
     return evidence
+
+
+def _planner_finding_projection(value: dict) -> dict:
+    return {
+        key: value.get(key)
+        for key in (
+            "id",
+            "category",
+            "title",
+            "statement",
+            "significance",
+            "severity",
+            "confidence",
+            "provenance",
+            "evidence_refs",
+            "suggested_lens",
+            "phase_relevance",
+            "educational_value",
+        )
+        if value.get(key) is not None
+    }
+
+
+def _planner_current_findings(
+    db: Session,
+    *,
+    snapshot_id: int | None,
+    objective,
+    primary_finding: dict | None,
+) -> tuple[dict, ...]:
+    ordered_ids: list[str] = []
+    if isinstance(primary_finding, dict) and primary_finding.get("id"):
+        ordered_ids.append(str(primary_finding["id"]))
+    if objective.review_mode is ReviewMode.FINDING_REVIEW:
+        for finding_id in (objective.subject.source_id, *objective.subject.related_finding_ids):
+            finding_id = str(finding_id or "").strip()
+            if finding_id and finding_id not in ordered_ids:
+                ordered_ids.append(finding_id)
+    ordered_ids = ordered_ids[:3]
+    if not ordered_ids:
+        return ()
+
+    by_id: dict[str, dict] = {}
+    if isinstance(primary_finding, dict) and primary_finding.get("id"):
+        by_id[str(primary_finding["id"])] = _planner_finding_projection(primary_finding)
+
+    if snapshot_id and len(by_id) < len(ordered_ids):
+        snapshot = db.get(EvidenceSnapshot, int(snapshot_id))
+        if snapshot:
+            try:
+                summary = json.loads(snapshot.summary_json or "{}")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                summary = {}
+            for finding in summary.get("findings", []) if isinstance(summary, dict) else []:
+                if not isinstance(finding, dict):
+                    continue
+                finding_id = str(finding.get("id") or "")
+                if finding_id in ordered_ids and finding_id not in by_id:
+                    by_id[finding_id] = _planner_finding_projection(finding)
+
+    return tuple(by_id[finding_id] for finding_id in ordered_ids if finding_id in by_id)
 engine = ChallengeEngine()
 orchestrator = ReviewOrchestrator(challenge_engine=engine)
 evidence_package_builder = EvidencePackageBuilder()
@@ -415,6 +481,152 @@ def _run_reasoning_shadow(
     return outcome.signal
 
 
+def _run_planning_shadow(
+    db: Session,
+    *,
+    session: ReviewSession,
+    state: dict,
+    student_text: str,
+    decision: str | None,
+    proposal_intent: str,
+    evidence_refs: list[str] | tuple[str, ...],
+    conversation_history: list[dict],
+    turn_sequence: int,
+    client_turn_id: str | None,
+    operation: str,
+    legacy_merged: dict,
+    current_engine_reply: dict,
+) -> dict | None:
+    reasoning_mode, planning_mode = review_control_modes(state)
+    if planning_mode is not ReviewPlanningMode.SHADOW:
+        return None
+    if reasoning_mode is not ReasoningValidationMode.SHADOW:
+        # Configuration rejects this combination for new sessions. This extra
+        # session-level guard preserves fail-closed behavior for malformed state.
+        return None
+
+    control = state.setdefault("review_control", {})
+    objective_value = control.get("objective")
+    if not isinstance(objective_value, dict):
+        return None
+    try:
+        objective = review_objective_from_dict(objective_value)
+    except (TypeError, ValueError, KeyError):
+        return None
+
+    package = dict(state.get("compact_evidence_package") or {})
+    challenge = dict(state.get("challenge") or {})
+    finding = (package.get("challenge") or {}).get("finding")
+    snapshot_id = state.get("evidence_snapshot_id")
+    current_findings = _planner_current_findings(
+        db,
+        snapshot_id=int(snapshot_id) if snapshot_id else None,
+        objective=objective,
+        primary_finding=dict(finding) if isinstance(finding, dict) else None,
+    )
+    relevant_finding_ids = {
+        str(item.get("id")) for item in current_findings if item.get("id")
+    }
+    finding_states = ()
+    if snapshot_id and relevant_finding_ids:
+        finding_states = tuple(
+            {"finding_id": finding_id, **value}
+            for finding_id, value in _finding_states(db, int(snapshot_id)).items()
+            if finding_id in relevant_finding_ids
+        )
+
+    recent_questions = tuple(
+        str(turn.get("content") or "")
+        for turn in conversation_history
+        if turn.get("actor") == "reviewer" and str(turn.get("content") or "").strip()
+    )
+    recent_student_turns = tuple(
+        str(turn.get("content") or "")
+        for turn in conversation_history
+        if turn.get("actor") == "student" and str(turn.get("content") or "").strip()
+    )
+    shadow_reasoning = control.get("reasoning_shadow")
+    explicit_uncertainty: tuple[str, ...] = ()
+    if isinstance(shadow_reasoning, dict):
+        uncertainty = (shadow_reasoning.get("dimensions") or {}).get("uncertainty_visible")
+        if isinstance(uncertainty, dict) and uncertainty.get("status") in {"partial", "validated"}:
+            summary = str(uncertainty.get("summary") or "").strip()
+            if summary:
+                explicit_uncertainty = (summary,)
+
+    context = PlanningContext(
+        session_id=session.id,
+        phase_id=session.phase_id,
+        review_mode=objective.review_mode,
+        reasoning_mode=reasoning_mode,
+        planning_mode=planning_mode,
+        objective=objective,
+        snapshot_id=int(snapshot_id) if snapshot_id else None,
+        commit_sha=str(package.get("commit_sha") or ""),
+        evidence_package=package,
+        objective_evidence_refs=objective.evidence_refs,
+        current_challenge=challenge,
+        current_findings=current_findings,
+        finding_states=finding_states,
+        focus=str(state.get("review_focus") or ""),
+        legacy_reasoning_state=dict(legacy_merged or {}),
+        validated_reasoning_state=shadow_reasoning if isinstance(shadow_reasoning, dict) else None,
+        reasoning_authority="shadow_validated_context_legacy_student_authority",
+        recent_questions=recent_questions,
+        recent_student_turns=recent_student_turns,
+        latest_student_turn=student_text,
+        latest_student_evidence_refs=tuple(evidence_refs),
+        conversation_memory=dict(state.get("conversation_memory") or {}),
+        reviewer_corrections=tuple(
+            item for item in finding_states if str(item.get("status") or "") == "corrected"
+        ),
+        evidence_disputes=tuple(state.get("evidence_disputes") or ()),
+        explicit_uncertainty=explicit_uncertainty,
+        current_position=str(decision or student_text or ""),
+        committed_position=state.get("committed_position"),
+        coaching_level=int(state.get("coaching_level", 0)),
+        assistance_state={
+            "interpreted_intent": proposal_intent or current_engine_reply.get("interpreted_intent"),
+            "teaching_needed": bool(
+                current_engine_reply.get("teach_back")
+                or current_engine_reply.get("kind") == "teaching"
+            ),
+            "legacy_target": current_engine_reply.get("target_move"),
+        },
+        active_reviewer_lens=str(current_engine_reply.get("lens") or state.get("active_reviewer", {}).get("lens") or ""),
+    )
+
+    shadow_state = control.get("planning_shadow") or blank_planning_shadow()
+    outcome = ReviewPlanner(ai=engine.ai).plan_turn(
+        context=context,
+        shadow_state=shadow_state,
+        current_engine={
+            "target_move": current_engine_reply.get("target_move"),
+            "reviewer_lens": current_engine_reply.get("lens"),
+            "question": current_engine_reply.get("text"),
+        },
+        turn_sequence=turn_sequence,
+        client_turn_id=client_turn_id,
+        operation=operation,
+    )
+    control["planning_shadow"] = outcome.shadow_state
+    if outcome.usage_events:
+        record_usage_events(
+            db,
+            list(outcome.usage_events),
+            team_id=session.team_id,
+            user_id=session.user_id,
+            session_id=session.id,
+            phase_id=session.phase_id,
+            metadata={
+                "source": "review_planning_shadow",
+                "turn_sequence": turn_sequence,
+                "operation": operation,
+            },
+        )
+    return outcome.signal
+
+
 def _save_memory(state: dict, reply: dict):
     memory = reply.get("conversation_memory")
     if memory:
@@ -436,6 +648,7 @@ def _public_review_state(state: dict) -> dict:
 def _public_turn_signals(signals: dict) -> dict:
     public = dict(signals or {})
     public.pop("reasoning_validation_shadow", None)
+    public.pop("review_planning_shadow", None)
     return public
 
 
@@ -1050,6 +1263,8 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
     )
     if review_control["reasoning_mode"] == ReasoningValidationMode.SHADOW.value:
         review_control["reasoning_shadow"] = blank_reasoning_shadow()
+    if review_control["planning_mode"] == ReviewPlanningMode.SHADOW.value:
+        review_control["planning_shadow"] = blank_planning_shadow()
     state = {
         "challenge": challenge.to_dict(),
         "compact_evidence_package": compact_package,
@@ -1263,6 +1478,21 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
             legacy_prior=prior,
             legacy_merged=merged,
         )
+        planning_signal = _run_planning_shadow(
+            db,
+            session=session,
+            state=state,
+            student_text=req.question,
+            decision=None,
+            proposal_intent=proposal_intent,
+            evidence_refs=[],
+            conversation_history=history_payload,
+            turn_sequence=sequence,
+            client_turn_id=req.client_turn_id,
+            operation="clarify",
+            legacy_merged=merged,
+            current_engine_reply=reply,
+        )
         turn_signals = {
             "kind": "student_conversation", "selected_intent": "clarify",
             "idempotency_operation": "clarify",
@@ -1273,6 +1503,8 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
         }
         if shadow_signal is not None:
             turn_signals["reasoning_validation_shadow"] = shadow_signal
+        if planning_signal is not None:
+            turn_signals["review_planning_shadow"] = planning_signal
         db.add(ReviewTurn(
             session_id=session_id, sequence=sequence, client_turn_id=req.client_turn_id,
             actor="student", lens="conversation", content=req.question,
@@ -1387,6 +1619,21 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
             legacy_prior=prior,
             legacy_merged=merged,
         )
+        planning_signal = _run_planning_shadow(
+            db,
+            session=session,
+            state=state,
+            student_text=text,
+            decision=req.decision,
+            proposal_intent=proposal_intent,
+            evidence_refs=[],
+            conversation_history=history_payload,
+            turn_sequence=sequence,
+            client_turn_id=req.client_turn_id,
+            operation="coach",
+            legacy_merged=merged,
+            current_engine_reply=reply,
+        )
         turn_signals = {
             "kind": "student_coach_request",
             "selected_intent": "coach",
@@ -1399,6 +1646,8 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
         }
         if shadow_signal is not None:
             turn_signals["reasoning_validation_shadow"] = shadow_signal
+        if planning_signal is not None:
+            turn_signals["review_planning_shadow"] = planning_signal
         db.add(ReviewTurn(
             session_id=session_id, sequence=sequence, client_turn_id=req.client_turn_id,
             actor="student", lens="conversation", content=text, evidence_refs_json="[]",
@@ -1520,6 +1769,21 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
             legacy_prior=prior,
             legacy_merged=merged,
         )
+        planning_signal = _run_planning_shadow(
+            db,
+            session=session,
+            state=state,
+            student_text=req.response,
+            decision=req.decision,
+            proposal_intent=proposal_intent,
+            evidence_refs=list(req.evidence_refs),
+            conversation_history=history_payload,
+            turn_sequence=sequence,
+            client_turn_id=req.client_turn_id,
+            operation="respond",
+            legacy_merged=merged,
+            current_engine_reply=follow_up,
+        )
         turn_signals = {
             **evaluation, "decision": req.decision, "selected_intent": req.intent,
             "idempotency_operation": "respond",
@@ -1533,6 +1797,8 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
         }
         if shadow_signal is not None:
             turn_signals["reasoning_validation_shadow"] = shadow_signal
+        if planning_signal is not None:
+            turn_signals["review_planning_shadow"] = planning_signal
 
         db.add(ReviewTurn(
             session_id=session_id, sequence=sequence, client_turn_id=req.client_turn_id,

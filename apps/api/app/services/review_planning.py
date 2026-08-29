@@ -432,6 +432,33 @@ def build_review_objective(
     )
 
 
+def review_objective_from_dict(value: Mapping[str, Any]) -> ReviewObjective:
+    subject_value = dict(value.get("subject") or {})
+    subject = ObjectiveSubject(
+        subject_type=SubjectType(subject_value.get("subject_type", SubjectType.CHALLENGE.value)),
+        source_id=str(subject_value.get("source_id") or "review-challenge"),
+        title=str(subject_value.get("title") or "Engineering Review"),
+        statement=str(subject_value.get("statement") or ""),
+        related_finding_ids=_dedupe_strings(subject_value.get("related_finding_ids") or ()),
+    )
+    return ReviewObjective(
+        schema_version=int(value.get("schema_version") or REVIEW_OBJECTIVE_SCHEMA_VERSION),
+        objective_id=str(value.get("objective_id") or ""),
+        objective_kind=ReviewObjectiveKind(value.get("objective_kind", ReviewObjectiveKind.BOARD_POSITION.value)),
+        review_mode=ReviewMode(value.get("review_mode", ReviewMode.BOARD_REVIEW.value)),
+        phase_id=str(value.get("phase_id") or ""),
+        purpose=str(value.get("purpose") or ""),
+        subject=subject,
+        evidence_refs=_dedupe_strings(value.get("evidence_refs") or ()),
+        required_outcomes=tuple(ObjectiveOutcome(item) for item in (value.get("required_outcomes") or ())),
+        optional_outcomes=tuple(ObjectiveOutcome(item) for item in (value.get("optional_outcomes") or ())),
+        permitted_conclusions=tuple(ObjectiveConclusion(item) for item in (value.get("permitted_conclusions") or ())),
+        allows_unresolved=bool(value.get("allows_unresolved", False)),
+        derivation_codes=_dedupe_strings(value.get("derivation_codes") or ()),
+    )
+
+
+
 def initialize_review_control(
     objective: ReviewObjective,
     *,

@@ -230,6 +230,12 @@ def health():
             or settings.openai_critic_model
             or settings.openai_model
         ) if semantic_ready else None,
+        "review_planning_mode": settings.etis_review_planning_mode,
+        "review_planner_model": (
+            settings.openai_review_planner_model
+            or settings.openai_critic_model
+            or settings.openai_model
+        ) if semantic_ready else None,
         "conversation_critic_mode": settings.etis_conversation_critic_mode,
         "prompt_cache_enabled": settings.etis_prompt_cache_enabled,
         "environment": settings.etis_env,
