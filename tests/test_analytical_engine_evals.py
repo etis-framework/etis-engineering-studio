@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import copy
 from collections import Counter
+
+import pytest
 
 from apps.api.app.services.next_question_selector import NextQuestionSelector
 from apps.api.app.services.review_planning import CandidateRejectionCode
@@ -559,3 +562,144 @@ def test_reasoning_oracle_matches_dimension_semantics_for_calibration_cases():
     assert cases["a2-excellent-traceability"]["reasoning_probe"]["acceptable_decisions"]["tradeoff_visible"] == ["REJECT"]
     assert cases["a4-ai-code-no-understanding"]["reasoning_probe"]["acceptable_decisions"]["evidence_boundary_visible"] == ["ACCEPT"]
     assert cases["a6-ai-final-release-unverified"]["reasoning_probe"]["acceptable_decisions"]["evidence_boundary_visible"] == ["ACCEPT"]
+
+
+
+def _sample_acquisition_for_replay():
+    from scripts.run_analytical_engine_evals import _seal_payload
+
+    case = copy.deepcopy(load_cases()[0])
+    observed_reasoning = []
+    for dimension, acceptable in case["reasoning_probe"]["acceptable_decisions"].items():
+        observed_reasoning.append({
+            "dimension": dimension,
+            "decision": acceptable[0],
+            "reason_codes": ["TEST_CAPTURE"],
+            "evidence_refs": [],
+            "summary": "captured reasoning decision",
+        })
+    target = case["expectations"]["acceptable_target_outcomes"][0]
+    move = case["expectations"]["acceptable_moves"][0]
+    record = {
+        "case_id": case["id"],
+        "phase_id": case["phase_id"],
+        "review_mode": case["review_mode"],
+        "tags": list(case.get("tags") or ()),
+        "case_snapshot": case,
+        "current": {
+            "source": "live_current_engine",
+            "question": "What should the team defend next?",
+            "reply": "What should the team defend next?",
+            "target_move": "decision_explicit",
+            "reviewer_lens": "chief_architect",
+            "interpreted_intent": "reasoning",
+            "teach_back": False,
+            "kind": "conversation",
+            "usage_events": [{"purpose": "review_conversation", "model": "model-current"}],
+        },
+        "legacy_question": "What should the team defend next?",
+        "reasoning": {
+            "signal": {"evaluations": observed_reasoning},
+            "usage_events": [{"purpose": "reasoning_validation_shadow", "model": "model-validator"}],
+        },
+        "planning": {
+            "signal": {
+                "status": "completed",
+                "shadow_planner": {
+                    "selected_move_type": move,
+                    "target_outcome": target,
+                    "proposed_question": "What evidence makes that engineering position defensible?",
+                    "evidence_refs": [],
+                },
+            },
+            "usage_events": [{"purpose": "review_planning_shadow", "model": "model-planner"}],
+        },
+    }
+    return _seal_payload({
+        "schema_version": 1,
+        "kind": "analytical_eval_acquisition",
+        "acquisition_id": "AE-TEST-0001",
+        "provenance": {
+            "git_commit_sha": "deadbeef",
+            "corpus_sha256": "corpus-hash",
+            "models_by_purpose": {
+                "review_conversation": ["model-current"],
+                "reasoning_validation_shadow": ["model-validator"],
+                "review_planning_shadow": ["model-planner"],
+            },
+        },
+        "cases": [record],
+    })
+
+
+def test_captured_acquisition_replay_is_deterministic_and_has_no_model_dependency():
+    from scripts.run_analytical_engine_evals import _score_acquisition
+
+    acquisition = _sample_acquisition_for_replay()
+    first = _score_acquisition(acquisition, oracle_source="captured")
+    second = _score_acquisition(acquisition, oracle_source="captured")
+
+    assert first == second
+    assert first["provenance"]["scored_from_acquisition_id"] == "AE-TEST-0001"
+    assert first["provenance"]["oracle_source"] == "captured"
+    assert first["summary"]["case_count"] == 1
+
+
+def test_replay_can_rescore_same_capture_against_changed_current_oracle():
+    from scripts.run_analytical_engine_evals import _score_acquisition
+
+    acquisition = _sample_acquisition_for_replay()
+    captured = _score_acquisition(acquisition, oracle_source="captured")
+    case = copy.deepcopy(acquisition["cases"][0]["case_snapshot"])
+    dimension = next(iter(case["reasoning_probe"]["acceptable_decisions"]))
+    observed = next(
+        item["decision"]
+        for item in acquisition["cases"][0]["reasoning"]["signal"]["evaluations"]
+        if item["dimension"] == dimension
+    )
+    alternatives = [value for value in ("ACCEPT", "PARTIAL", "REJECT") if value != observed]
+    case["reasoning_probe"]["acceptable_decisions"][dimension] = [alternatives[0]]
+
+    rescored = _score_acquisition(
+        acquisition,
+        oracle_source="current",
+        current_oracle_cases={case["id"]: case},
+        current_oracle_sha256="new-corpus-hash",
+        current_oracle_git_sha="new-oracle-commit",
+    )
+
+    assert captured["results"][0]["reasoning"]["score"]["pass"] is True
+    assert rescored["results"][0]["reasoning"]["score"]["pass"] is False
+    assert rescored["provenance"]["acquisition_content_sha256"] == acquisition["content_sha256"]
+    assert rescored["provenance"]["scoring_corpus_sha256"] == "new-corpus-hash"
+
+
+def test_acquisition_hash_rejects_tampering():
+    from scripts.run_analytical_engine_evals import _score_acquisition
+
+    acquisition = _sample_acquisition_for_replay()
+    acquisition["cases"][0]["current"]["target_move"] = "tampered"
+    with pytest.raises(ValueError, match="content hash mismatch"):
+        _score_acquisition(acquisition, oracle_source="captured")
+
+
+def test_stability_report_separates_raw_stage_variance_from_scoring_variance():
+    from scripts.run_analytical_engine_evals import _score_acquisition, _seal_payload, _stability_report
+
+    first = _sample_acquisition_for_replay()
+    second = copy.deepcopy(first)
+    second.pop("content_sha256", None)
+    second["acquisition_id"] = "AE-TEST-0002"
+    second["cases"][0]["current"]["target_move"] = "ownership_visible"
+    second["cases"][0]["planning"]["signal"]["shadow_planner"]["selected_move_type"] = "CLARIFY_CONSEQUENCE"
+    second = _seal_payload(second)
+
+    first_report = _score_acquisition(first, oracle_source="captured")
+    second_report = _score_acquisition(second, oracle_source="captured")
+    stability = _stability_report([first, second], [first_report, second_report])
+
+    assert stability["acquisition_count"] == 2
+    assert stability["metrics"]["legacy_target"]["changed_case_count"] == 1
+    assert stability["metrics"]["selected_move"]["changed_case_count"] == 1
+    assert stability["metrics"]["validator_signature"]["changed_case_count"] == 0
+    assert stability["metrics"]["reasoning_pass"]["changed_case_count"] == 0
