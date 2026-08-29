@@ -1596,8 +1596,7 @@
           "ACCEPT"
         ],
         "tradeoff_visible": [
-          "ACCEPT",
-          "PARTIAL"
+          "REJECT"
         ]
       }
     },
@@ -2986,8 +2985,7 @@
           "PARTIAL"
         ],
         "evidence_boundary_visible": [
-          "PARTIAL",
-          "REJECT"
+          "ACCEPT"
         ]
       }
     },
@@ -4863,8 +4861,7 @@
           "REJECT"
         ],
         "evidence_boundary_visible": [
-          "PARTIAL",
-          "REJECT"
+          "ACCEPT"
         ]
       }
     },

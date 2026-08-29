@@ -4,6 +4,8 @@
 
 ### Added
 
+- Calibrates three PR4 reasoning-oracle cases to the frozen reasoning-dimension semantics: re-estimation triggers are not automatically tradeoffs, while an explicit distinction between passing/appearing reasonable and unverified safety or failure-path behavior establishes an evidence boundary.
+
 - Corrects PR4 live-evaluation parity so shadow planning receives the same semantic intent, teaching-needed signal, legacy target, and reviewer lens that production PR3 planning receives; also narrows hidden-grading detection so ordinary engineering terms such as `enterprise-grade` do not create false hard failures.
 
 - Calibrates PR4 machine planning scoring so selector-valid alternative moves can satisfy the machine gate when they advance an accepted objective outcome; explicit and preferred move matches remain diagnostic inputs to blinded human comparison.
