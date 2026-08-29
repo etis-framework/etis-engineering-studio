@@ -4,6 +4,9 @@
 
 ### Added
 
+- Adds PR4D analytical-evaluation repeatability infrastructure: immutable content-hashed live acquisition artifacts, deterministic zero-model-call replay against captured or current corpus oracles, multi-replicate acquisition, and run-to-run stability reporting for semantic intent/target, validator decisions, planner status/move/target, realized-question validity, hard failures, and cost.
+- Records acquisition provenance including repository commit, corpus/runner/support hashes, selected cases, stage configuration, Python version, UTC acquisition time, and model identities when existing usage telemetry reports them; blind human packets remain tied to one explicitly chosen acquisition.
+
 - Calibrates three PR4 reasoning-oracle cases to the frozen reasoning-dimension semantics: re-estimation triggers are not automatically tradeoffs, while an explicit distinction between passing/appearing reasonable and unverified safety or failure-path behavior establishes an evidence boundary.
 
 - Corrects PR4 live-evaluation parity so shadow planning receives the same semantic intent, teaching-needed signal, legacy target, and reviewer lens that production PR3 planning receives; also narrows hidden-grading detection so ordinary engineering terms such as `enterprise-grade` do not create false hard failures.
@@ -39,6 +42,8 @@
 
 ### Compatibility
 
+- PR4D changes evaluation tooling, tests, and architecture documentation only. Acquisition/replay/replicate modes do not change production model prompts, reasoning authority, planner authority, student-visible questions, readiness, evidence authority, database state, API behavior, or Azure runtime configuration.
+- Deterministic replay makes no model calls; changing an oracle can therefore be measured by rescoring the same sealed acquisition instead of reacquiring stochastic model output.
 - PR4 changes evaluation data, offline/live evaluation tooling, tests, and architecture documentation only. It does not add a production AI call, database migration, API response field, student UI change, evidence-contract change, readiness change, or analytical authority transfer.
 - PR4 live semantic evals are operator-invoked and intentionally excluded from CI; ordinary CI validates deterministic corpus/selector contracts without incurring model cost.
 - PR3 shadow planning never changes the legacy reviewer reply, `target_move`, readiness, recommendation behavior, finding authority, or Complete Review behavior; planner/realizer failure is internal telemetry only.

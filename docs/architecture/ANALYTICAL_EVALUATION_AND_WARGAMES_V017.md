@@ -10,7 +10,7 @@ PR4 answers a different engineering question from PR1-PR3:
 
 The answer must be supported by repeatable evidence rather than prompt intuition, one-off demonstrations, or model enthusiasm.
 
-PR4 therefore adds a committed A1-A6 analytical corpus, deterministic selector oracles, optional live semantic evaluation, blinded human current-vs-shadow review, and explicit enablement thresholds.
+PR4 therefore adds a committed A1-A6 analytical corpus, deterministic selector oracles, optional live semantic evaluation, immutable acquisition/replay support, replicated-run stability analysis, blinded human current-vs-shadow review, and explicit enablement thresholds.
 
 PR4 does **not** change production review behavior.
 
@@ -290,6 +290,100 @@ The report separates reasoning-oracle accuracy, selected-move accuracy, realized
 
 The live runner requires the normal configured OpenAI provider and therefore incurs API cost. A full default run evaluates the live current conversation engine plus the reasoning validator and shadow planner/realizer. It is intentionally not a CI step. Use `--fixture-current-question` only for development when an actual current-vs-shadow comparison is not required.
 
+### Acquisition, deterministic replay, and repeatability
+
+PR4D separates **stochastic model acquisition** from **deterministic scoring**.
+
+A live acquisition captures the structured observations needed to reproduce the evaluation without making another model call:
+
+- the current semantic-engine result and usage telemetry;
+- reasoning-validator signal and usage telemetry;
+- planning/selector/realizer shadow signal and usage telemetry;
+- the exact case snapshot used during acquisition;
+- acquisition ID and UTC timestamp;
+- repository commit SHA;
+- corpus SHA-256;
+- runner and evaluation-support SHA-256 values;
+- Python version;
+- model identities when reported by existing usage events;
+- the selected case IDs and whether fixture-current/reasoning/planning stages were enabled.
+
+The acquisition payload is sealed with a content SHA-256. Replay rejects a modified payload rather than silently rescoring altered observations.
+
+The governing rule is:
+
+> **Model acquisition is stochastic; scoring of a captured acquisition is deterministic.**
+
+Capture one live acquisition and score it normally:
+
+```bash
+python scripts/run_analytical_engine_evals.py \
+  --acquisition-output artifacts/analytical-acquisition.json \
+  --output artifacts/analytical-eval.json
+```
+
+Replay the exact captured acquisition against its captured oracle with **zero model calls**:
+
+```bash
+python scripts/run_analytical_engine_evals.py \
+  --replay-acquisition artifacts/analytical-acquisition.json \
+  --replay-oracle captured \
+  --output artifacts/analytical-replay.json
+```
+
+For the same acquisition and captured case snapshots, replay must reproduce the reasoning scores, planning scores, hard failures, usage/cost summaries, and machine acceptance result exactly.
+
+To measure an oracle-only change without reacquiring model output, rescore the same observations against the current committed corpus:
+
+```bash
+python scripts/run_analytical_engine_evals.py \
+  --replay-acquisition artifacts/analytical-acquisition.json \
+  --replay-oracle current \
+  --output artifacts/analytical-rescored-current-oracle.json
+```
+
+This explicitly separates an **oracle/scoring change** from a **new stochastic model sample**.
+
+For calibration work, acquire multiple independent observations of the same case set rather than treating one live pass as ground truth:
+
+```bash
+python scripts/run_analytical_engine_evals.py \
+  --replicates 3 \
+  --acquisition-output artifacts/analytical-acquisition-3x.json \
+  --output artifacts/analytical-eval-3x.json \
+  --stability-output artifacts/analytical-stability-3x.json
+```
+
+Replicated acquisition reports stability for:
+
+- reasoning pass/fail;
+- planning pass/fail;
+- interpreted student intent;
+- current legacy target;
+- validator decision signature;
+- planner completion/failure status;
+- selected move;
+- selected target;
+- realized-question machine validity;
+- hard failures;
+- acquisition cost.
+
+The report records both the number of cases that changed and the majority-agreement rate. It also records whether every scored acquisition used the same oracle source and corpus hash. Score-level stability should be interpreted as model variance only when that scoring-oracle consistency flag is true; raw stage-observation stability remains visible either way. A calibration decision should therefore distinguish a stable defect from ordinary model variance.
+
+Existing acquisition files can also be compared directly without model calls:
+
+```bash
+python scripts/run_analytical_engine_evals.py \
+  --compare-acquisition artifacts/acquisition-1.json \
+  --compare-acquisition artifacts/acquisition-2.json \
+  --replay-oracle captured \
+  --stability-output artifacts/analytical-stability.json
+```
+
+Comparison requires identical case IDs in identical order. `--replay-oracle current` may be used when all acquisitions should be rescored against one current oracle before score stability is compared.
+
+Blind human packets are intentionally generated from **one chosen acquisition**, not automatically from a replicated set. This prevents a stochastic replicate from being silently selected as the human-review baseline. Replay the explicitly chosen acquisition and then generate the blind packet from that replay.
+
 ## Blind-review workflow
 
 Generate live eval output plus randomized A/B packet and separate key:
@@ -324,8 +418,9 @@ The scorer maps A/B back to current/shadow only after the reviews are complete a
 
 ## No chain-of-thought retention
 
-The evaluation system stores only structured outputs needed to reproduce acceptance decisions:
+The evaluation system stores only structured outputs needed to reproduce acquisition and acceptance decisions. PR4D acquisition artifacts preserve structured stage observations and case snapshots, not hidden model reasoning. Stored evaluation data includes:
 
+- current semantic reply/target/intent/lens fields and usage telemetry;
 - validator decisions and reason codes;
 - selected move and target outcome;
 - evidence references;
