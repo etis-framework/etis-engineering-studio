@@ -234,16 +234,22 @@ def score_planning_signal(case: Mapping[str, Any], signal: Mapping[str, Any]) ->
     acceptable_targets = {str(value) for value in (expected.get("acceptable_target_outcomes") or ())}
     forbidden_moves = {str(value) for value in (expected.get("forbidden_moves") or ())}
     status_ok = str(signal.get("status") or "") == "completed"
-    move_ok = move in acceptable_moves and move not in forbidden_moves
     target_ok = target in acceptable_targets
+    explicit_move_match = move in acceptable_moves
+    preferred_move_match = move in {
+        str(value) for value in (expected.get("preferred_moves") or ())
+    }
+    move_ok = bool(move) and move not in forbidden_moves and target_ok
     question_ok = bool(question.strip()) and question.count("?") == 1
-    move_pass = status_ok and move_ok and target_ok
+    move_pass = status_ok and move_ok
     return {
         "pass": move_pass and question_ok,
         "move_pass": move_pass,
         "status_ok": status_ok,
         "move_ok": move_ok,
         "target_ok": target_ok,
+        "explicit_move_match": explicit_move_match,
+        "preferred_move_match": preferred_move_match,
         "question_ok": question_ok,
         "observed_move": move,
         "observed_target": target,

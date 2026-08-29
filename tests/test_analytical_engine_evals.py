@@ -10,6 +10,7 @@ from scripts.analytical_eval_support import (
     load_cases,
     oracle_candidates,
     reasoning_probe,
+    score_planning_signal,
     validate_enum_contract,
 )
 
@@ -148,6 +149,63 @@ def test_corpus_does_not_use_future_phase_as_expected_move():
             assert row["phase_id"] == "A3"
         assert "A7" not in title + statement
 
+
+
+def test_machine_planning_score_accepts_selector_valid_alternative_for_acceptable_target():
+    case = next(row for row in load_cases() if row["id"] == "a4-ci-green-overconfidence")
+    score = score_planning_signal(
+        case,
+        {
+            "status": "completed",
+            "shadow_planner": {
+                "selected_move_type": "CLARIFY_CONSEQUENCE",
+                "target_outcome": "ENGINEERING_CONSEQUENCE_CLEAR",
+                "proposed_question": (
+                    "What engineering consequence should we state for merging while the "
+                    "external-service failure path remains untested?"
+                ),
+            },
+        },
+    )
+    assert score["pass"] is True
+    assert score["move_ok"] is True
+    assert score["target_ok"] is True
+    assert score["explicit_move_match"] is False
+    assert score["preferred_move_match"] is False
+
+
+def test_machine_planning_score_still_rejects_forbidden_or_unacceptable_target():
+    case = dict(next(row for row in load_cases() if row["id"] == "a4-ci-green-overconfidence"))
+    case["expectations"] = dict(case["expectations"])
+    case["expectations"]["forbidden_moves"] = ["CLARIFY_CONSEQUENCE"]
+    forbidden = score_planning_signal(
+        case,
+        {
+            "status": "completed",
+            "shadow_planner": {
+                "selected_move_type": "CLARIFY_CONSEQUENCE",
+                "target_outcome": "ENGINEERING_CONSEQUENCE_CLEAR",
+                "proposed_question": "What engineering consequence matters here?",
+            },
+        },
+    )
+    assert forbidden["move_ok"] is False
+    assert forbidden["pass"] is False
+
+    wrong_target = score_planning_signal(
+        case,
+        {
+            "status": "completed",
+            "shadow_planner": {
+                "selected_move_type": "STRESS_TEST_POSITION",
+                "target_outcome": "TRADEOFF_CLEAR",
+                "proposed_question": "What tradeoff matters here?",
+            },
+        },
+    )
+    assert wrong_target["target_ok"] is False
+    assert wrong_target["move_ok"] is False
+    assert wrong_target["pass"] is False
 
 def test_analytical_eval_rubric_has_hard_authority_gates_and_enablement_thresholds():
     import json

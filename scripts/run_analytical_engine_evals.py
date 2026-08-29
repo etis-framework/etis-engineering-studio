@@ -320,6 +320,14 @@ def _report(results: list[dict[str, Any]]) -> dict[str, Any]:
     summary["planning_move_pass_rate"] = _rate(
         sum(bool(row["planning"]["score"]["move_pass"]) for row in planning_rows), len(planning_rows)
     )
+    summary["planning_explicit_move_match_rate"] = _rate(
+        sum(bool(row["planning"]["score"].get("explicit_move_match")) for row in planning_rows),
+        len(planning_rows),
+    )
+    summary["planning_preferred_move_match_rate"] = _rate(
+        sum(bool(row["planning"]["score"].get("preferred_move_match")) for row in planning_rows),
+        len(planning_rows),
+    )
     summary["realized_question_valid_rate"] = _rate(
         sum(bool(row["planning"]["score"]["question_ok"]) for row in planning_rows), len(planning_rows)
     )
@@ -335,6 +343,14 @@ def _report(results: list[dict[str, Any]]) -> dict[str, Any]:
             "planning_pass_rate": _rate(sum(bool(row["planning"]["score"]["pass"]) for row in p_rows), len(p_rows)),
             "planning_move_pass_rate": _rate(
                 sum(bool(row["planning"]["score"]["move_pass"]) for row in p_rows), len(p_rows)
+            ),
+            "planning_explicit_move_match_rate": _rate(
+                sum(bool(row["planning"]["score"].get("explicit_move_match")) for row in p_rows),
+                len(p_rows),
+            ),
+            "planning_preferred_move_match_rate": _rate(
+                sum(bool(row["planning"]["score"].get("preferred_move_match")) for row in p_rows),
+                len(p_rows),
             ),
             "realized_question_valid_rate": _rate(
                 sum(bool(row["planning"]["score"]["question_ok"]) for row in p_rows), len(p_rows)
@@ -397,6 +413,8 @@ def _print_summary(report: Mapping[str, Any]) -> None:
     print("  reasoning pass rate:", summary.get("reasoning_pass_rate"))
     print("  planning pass rate:", summary.get("planning_pass_rate"))
     print("  planning move pass rate:", summary.get("planning_move_pass_rate"))
+    print("  explicit move oracle match rate:", summary.get("planning_explicit_move_match_rate"))
+    print("  preferred move match rate:", summary.get("planning_preferred_move_match_rate"))
     print("  realized question valid rate:", summary.get("realized_question_valid_rate"))
     print("  hard failures:", summary["hard_failure_count"])
     for phase, values in report["by_phase"].items():
