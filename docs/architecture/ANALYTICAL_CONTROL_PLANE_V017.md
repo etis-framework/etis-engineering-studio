@@ -1,6 +1,6 @@
 # ETIS Engineering Studio v0.17 Analytical Control Plane
 
-> **Status:** PR1 architecture contract. The v0.16.1 conversation engine remains student-authoritative while this planning spine is introduced.
+> **Status:** PR2 reasoning-validation shadow implemented on the PR1 planning spine. The legacy conversation engine remains student-authoritative while independent reasoning validation is measured in shadow.
 
 ## Purpose
 
@@ -12,7 +12,7 @@ The central analytical question for v0.17 is:
 
 > Given the current phase/gate, locked review purpose, Review Objective, frozen repository evidence, current finding or focus, validated student reasoning, prior questions and answers, disagreement and corrections, uncertainty, engineering consequence, and student understanding, what is the single highest-value next engineering move?
 
-PR1 establishes the contracts needed to answer that question later. It does not replace the current question-selection or readiness behavior.
+PR1 established the contracts needed to answer that question later. PR2 adds an independent reasoning validator in shadow mode. It does not replace current question-selection, legacy reasoning, readiness, recommendation, or completion behavior.
 
 ## PR1 compatibility boundary
 
@@ -152,7 +152,7 @@ The planned mode vocabulary is:
 - `shadow`
 - `selected`
 
-PR1 supports only `legacy` for both dimensions and fails closed if a future mode is configured before its implementation exists.
+PR2 supports `legacy` and `shadow` for reasoning validation while review planning remains `legacy` only. Unsupported `validated` reasoning or future planning modes still fail closed. The selected reasoning mode is locked when the review begins.
 
 ## Reasoning authority
 
@@ -173,6 +173,30 @@ semantic interpretation
 Validated reasoning must support revision, contradiction, reopening, and supersession. It must not reproduce the current permanent OR-only semantics under a different name.
 
 Prior-session reasoning remains context rather than proof of a current claim.
+
+## PR2 reasoning-validation shadow
+
+PR2 separates semantic interpretation from durable reasoning authority without transferring authority yet. The existing conversational model continues to propose the same eight legacy reasoning updates. Those proposals are exposed internally to a second structured validator pass; they are never returned to the student UI.
+
+The independent validator receives only the newest student statement, explicit structured decision/evidence references, the first-class Review Objective, bounded frozen evidence context, recent conversation context, current shadow reasoning status, and candidate transitions proposed by the conversational reviewer. It does **not** receive the newly generated reviewer reply, so the reviewer cannot validate its own prose.
+
+For each proposed transition the validator returns one of:
+
+- `ACCEPT` — the student's reasoning is sufficiently explicit and defensible for the current Review Objective;
+- `PARTIAL` — meaningful progress exists, but an important element remains unresolved;
+- `REJECT` — the statement does not justify durable reasoning credit.
+
+The validator cannot grant a dimension that the conversational interpreter did not propose. On student correction/disagreement/evidence-dispute turns, it may also reopen a previously partial or validated shadow dimension. Reopening preserves history in the persisted turn signal rather than deleting the earlier judgment.
+
+Shadow state is stored under `review_control.reasoning_shadow`. Current dimension status and aggregate comparison counters remain in session state; the detailed per-turn validation event is stored with the student's `ReviewTurn.signals_json`. This avoids unbounded duplicate history inside `challenge_state_json`.
+
+Shadow telemetry is internal analytical data. Normal Review Room responses strip `review_control.*_shadow` payloads and per-turn reasoning-validation shadow signals before returning session state to the client. Students therefore do not receive ACCEPT/PARTIAL/REJECT telemetry or a new progress checklist during PR2.
+
+Shadow-validator failures are non-authoritative: they are recorded as failed shadow telemetry and the existing student turn continues normally. Synthetic `/coach` text is explicitly skipped so generated help-seeking prose cannot receive reasoning credit.
+
+The validator uses `OPENAI_REASONING_VALIDATOR_MODEL` when configured, otherwise the selective critic model, then the primary conversation model. Model usage is recorded under the `reasoning_validation_shadow` purpose. Validation is invoked only when a new reasoning transition is proposed or a correction-like turn could reopen prior shadow state, limiting unnecessary cost and latency.
+
+Production deployment remains opt-in. The manual Azure deployment workflow defaults to `legacy` and offers an explicit `shadow` choice for newly started reviews. Existing active reviews retain their session-locked mode.
 
 ## Planning Context
 

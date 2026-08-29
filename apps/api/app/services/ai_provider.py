@@ -78,6 +78,100 @@ CONVERSATION_SCHEMA = {
 
 
 
+REASONING_VALIDATION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "evaluations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "dimension": {
+                        "type": "string",
+                        "enum": [
+                            "consequence_visible", "evidence_boundary_visible", "decision_explicit",
+                            "boundary_visible", "ownership_visible", "change_trigger_visible",
+                            "uncertainty_visible", "tradeoff_visible"
+                        ],
+                    },
+                    "decision": {"type": "string", "enum": ["ACCEPT", "PARTIAL", "REJECT"]},
+                    "reason_codes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "STUDENT_REASONING_EXPLICIT",
+                                "SELECTED_DECISION_SUPPORTS_REASONING",
+                                "EVIDENCE_REFERENCE_IN_SCOPE",
+                                "EVIDENCE_SUPPORT_NOT_ESTABLISHED",
+                                "TENTATIVE_BUT_MEANINGFUL",
+                                "TOO_VAGUE_TO_ESTABLISH",
+                                "ONLY_REPEATS_REVIEWER_LANGUAGE",
+                                "REVIEWER_CLAIM_NOT_STUDENT_REASONING",
+                                "OUTSIDE_REVIEW_OBJECTIVE",
+                                "UNSUPPORTED_BY_FROZEN_EVIDENCE",
+                                "VALID_UNCERTAINTY_BOUNDED",
+                                "STUDENT_CORRECTION_REOPENS",
+                                "CURRENT_TURN_CONTRADICTS_PRIOR_STATE",
+                                "VALIDATOR_RESULT_MISSING"
+                            ],
+                        },
+                    },
+                    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+                    "summary": {"type": "string", "maxLength": 220},
+                },
+                "required": ["dimension", "decision", "reason_codes", "evidence_refs", "summary"],
+                "additionalProperties": False,
+            },
+        },
+        "reopens": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "dimension": {
+                        "type": "string",
+                        "enum": [
+                            "consequence_visible", "evidence_boundary_visible", "decision_explicit",
+                            "boundary_visible", "ownership_visible", "change_trigger_visible",
+                            "uncertainty_visible", "tradeoff_visible"
+                        ],
+                    },
+                    "new_status": {"type": "string", "enum": ["unestablished", "partial"]},
+                    "reason_codes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "STUDENT_REASONING_EXPLICIT",
+                                "SELECTED_DECISION_SUPPORTS_REASONING",
+                                "EVIDENCE_REFERENCE_IN_SCOPE",
+                                "EVIDENCE_SUPPORT_NOT_ESTABLISHED",
+                                "TENTATIVE_BUT_MEANINGFUL",
+                                "TOO_VAGUE_TO_ESTABLISH",
+                                "ONLY_REPEATS_REVIEWER_LANGUAGE",
+                                "REVIEWER_CLAIM_NOT_STUDENT_REASONING",
+                                "OUTSIDE_REVIEW_OBJECTIVE",
+                                "UNSUPPORTED_BY_FROZEN_EVIDENCE",
+                                "VALID_UNCERTAINTY_BOUNDED",
+                                "STUDENT_CORRECTION_REOPENS",
+                                "CURRENT_TURN_CONTRADICTS_PRIOR_STATE",
+                                "VALIDATOR_RESULT_MISSING"
+                            ],
+                        },
+                    },
+                    "summary": {"type": "string", "maxLength": 220},
+                },
+                "required": ["dimension", "new_status", "reason_codes", "summary"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["evaluations", "reopens"],
+    "additionalProperties": False,
+}
+
+
 REPOSITORY_ASSESSMENT_SCHEMA = {
     "type": "object",
     "properties": {
@@ -146,6 +240,9 @@ class AIProvider:
         raise NotImplementedError
 
     def repository_assessment(self, system_prompt: str, user_prompt: str) -> dict:
+        raise NotImplementedError
+
+    def validate_reasoning_turn(self, system_prompt: str, user_prompt: str) -> dict:
         raise NotImplementedError
 
 
@@ -316,4 +413,12 @@ class OpenAIResponsesProvider(AIProvider):
         return self._post_structured(
             system_prompt, user_prompt, REPOSITORY_ASSESSMENT_SCHEMA, "etis_repository_assessment",
             model=self.s.openai_repository_model, purpose="repository_semantic_analysis", reasoning_effort=self.s.etis_repository_ai_reasoning_effort
+        )
+
+    def validate_reasoning_turn(self, system_prompt: str, user_prompt: str) -> dict:
+        model = self.s.openai_reasoning_validator_model or self.s.openai_critic_model or self.s.openai_model
+        return self._post_structured(
+            system_prompt, user_prompt, REASONING_VALIDATION_SCHEMA, "etis_reasoning_validation",
+            model=model, purpose="reasoning_validation_shadow",
+            reasoning_effort=self.s.etis_reasoning_validator_ai_reasoning_effort
         )

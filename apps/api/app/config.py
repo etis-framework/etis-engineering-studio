@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     etis_ai_reasoning_effort: str = "low"
     etis_repository_ai_reasoning_effort: str = "low"
     etis_critic_ai_reasoning_effort: str = "low"
+    etis_reasoning_validator_ai_reasoning_effort: str = "low"
     etis_ai_usage_enabled: bool = True
     etis_ai_warning_team_usd: float = 25.0
     etis_ai_warning_course_usd: float = 150.0
@@ -65,15 +66,16 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-5.6-sol"
     openai_repository_model: str = "gpt-5.6-luna"
     openai_critic_model: str = "gpt-5.6-luna"
+    openai_reasoning_validator_model: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
 
     @model_validator(mode="after")
     def validate_production_configuration(self):
         reasoning_mode = self.etis_reasoning_validation_mode.strip().lower()
         planning_mode = self.etis_review_planning_mode.strip().lower()
-        if reasoning_mode != "legacy":
+        if reasoning_mode not in {"legacy", "shadow"}:
             raise ValueError(
-                "ETIS_REASONING_VALIDATION_MODE only supports legacy in this release"
+                "ETIS_REASONING_VALIDATION_MODE only supports legacy or shadow in this release"
             )
         if planning_mode != "legacy":
             raise ValueError(

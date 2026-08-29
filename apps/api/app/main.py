@@ -224,6 +224,12 @@ def health():
         "model": settings.openai_model if semantic_ready else None,
         "repository_model": settings.openai_repository_model if semantic_ready else None,
         "critic_model": settings.openai_critic_model if semantic_ready else None,
+        "reasoning_validation_mode": settings.etis_reasoning_validation_mode,
+        "reasoning_validator_model": (
+            settings.openai_reasoning_validator_model
+            or settings.openai_critic_model
+            or settings.openai_model
+        ) if semantic_ready else None,
         "conversation_critic_mode": settings.etis_conversation_critic_mode,
         "prompt_cache_enabled": settings.etis_prompt_cache_enabled,
         "environment": settings.etis_env,

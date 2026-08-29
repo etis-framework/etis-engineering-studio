@@ -12,10 +12,16 @@ from ..models import EvidenceSnapshot, ReviewSession, ReviewTurn, Team, User, Te
 from ..schemas import ReviewStartRequest, ReviewResponseRequest, ReviewClarifyRequest, ReviewCoachRequest, EvidenceDisputeRequest, FindingDispositionRequest
 from ..services.challenge_engine import ChallengeEngine, Challenge, reviewer_profile, default_memory
 from ..services.review_orchestrator import ReviewOrchestrator
-from ..services.review_planning import build_review_objective, initialize_review_control
+from ..services.review_planning import (
+    ReasoningValidationMode,
+    build_review_objective,
+    initialize_review_control,
+    review_control_modes,
+)
 from ..services.evidence import snapshot_from_dict
 from ..services.evidence_package import EvidencePackageBuilder
 from ..services.usage_store import record_usage_events
+from ..services.reasoning_validation import ReasoningValidator, blank_reasoning_shadow
 from ..services.course_admin import phase_access
 from ..services.auth import (
     STAFF_ROLES,
@@ -342,6 +348,73 @@ def _record_reply_usage(db: Session, reply: dict, session: ReviewSession):
     )
 
 
+def _reasoning_proposal_from_reply(reply: dict) -> tuple[dict, str]:
+    proposals = dict(reply.pop("_reasoning_proposals", {}) or {})
+    proposal_intent = str(
+        reply.pop("_reasoning_proposal_intent", "")
+        or reply.get("interpreted_intent")
+        or "other"
+    )
+    return proposals, proposal_intent
+
+
+def _run_reasoning_shadow(
+    db: Session,
+    *,
+    session: ReviewSession,
+    state: dict,
+    proposal_updates: dict,
+    proposal_intent: str,
+    student_text: str,
+    decision: str | None,
+    evidence_refs: list[str] | tuple[str, ...],
+    conversation_history: list[dict],
+    turn_sequence: int,
+    client_turn_id: str | None,
+    operation: str,
+    legacy_prior: dict,
+    legacy_merged: dict,
+) -> dict | None:
+    reasoning_mode, _ = review_control_modes(state)
+    if reasoning_mode is not ReasoningValidationMode.SHADOW:
+        return None
+
+    control = state.setdefault("review_control", {})
+    shadow_state = control.get("reasoning_shadow") or blank_reasoning_shadow()
+    outcome = ReasoningValidator(ai=engine.ai).validate_turn(
+        objective=dict(control.get("objective") or {}),
+        shadow_state=shadow_state,
+        proposal_updates=proposal_updates,
+        proposal_intent=proposal_intent,
+        student_text=student_text,
+        decision=decision,
+        evidence_refs=evidence_refs,
+        evidence_context=_evidence_context(db, state),
+        conversation_history=conversation_history,
+        turn_sequence=turn_sequence,
+        client_turn_id=client_turn_id,
+        operation=operation,
+        legacy_prior=legacy_prior,
+        legacy_merged=legacy_merged,
+    )
+    control["reasoning_shadow"] = outcome.shadow_state
+    if outcome.usage_events:
+        record_usage_events(
+            db,
+            list(outcome.usage_events),
+            team_id=session.team_id,
+            user_id=session.user_id,
+            session_id=session.id,
+            phase_id=session.phase_id,
+            metadata={
+                "source": "reasoning_validation_shadow",
+                "turn_sequence": turn_sequence,
+                "operation": operation,
+            },
+        )
+    return outcome.signal
+
+
 def _save_memory(state: dict, reply: dict):
     memory = reply.get("conversation_memory")
     if memory:
@@ -350,6 +423,20 @@ def _save_memory(state: dict, reply: dict):
     state["coaching_target"] = reply.get("target_move")
 
 
+def _public_review_state(state: dict) -> dict:
+    public = json.loads(json.dumps(state))
+    control = public.get("review_control")
+    if isinstance(control, dict):
+        for key in list(control):
+            if key.endswith("_shadow"):
+                control.pop(key, None)
+    return public
+
+
+def _public_turn_signals(signals: dict) -> dict:
+    public = dict(signals or {})
+    public.pop("reasoning_validation_shadow", None)
+    return public
 
 
 def _authorize_session_read(
@@ -961,6 +1048,8 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
         reasoning_mode=engine.settings.etis_reasoning_validation_mode,
         planning_mode=engine.settings.etis_review_planning_mode,
     )
+    if review_control["reasoning_mode"] == ReasoningValidationMode.SHADOW.value:
+        review_control["reasoning_shadow"] = blank_reasoning_shadow()
     state = {
         "challenge": challenge.to_dict(),
         "compact_evidence_package": compact_package,
@@ -1063,7 +1152,7 @@ def get_review(session_id: int, request:Request, db: Session = Depends(get_db)):
         },
         "team": {"id": team.id, "name": team.name, "project_name": team.project_name, "repo_full_name": team.repo_full_name} if team else None,
         "snapshot": {"id": snapshot.id, "commit_sha": snapshot.commit_sha, "source": snapshot.source, "created_at": snapshot.created_at.isoformat()} if snapshot else None,
-        "state": state,
+        "state": _public_review_state(state),
         "evidence": evidence,
         "turns": [
             {
@@ -1072,7 +1161,7 @@ def get_review(session_id: int, request:Request, db: Session = Depends(get_db)):
                 "lens": turn.lens,
                 "content": turn.content,
                 "evidence_refs": _safe_json(turn.evidence_refs_json, []),
-                "signals": _safe_json(turn.signals_json, {}),
+                "signals": _public_turn_signals(_safe_json(turn.signals_json, {})),
                 "created_at": turn.created_at.isoformat(),
             }
             for turn in turns
@@ -1150,23 +1239,44 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
         sequence = (turns[-1].sequence if turns else 0) + 1
         student = _student_for_session(db, session)
         prior = state.get("reasoning_state") or {}
+        history_payload = _history_payload(turns)
         reply, merged, evaluation = engine.converse(
             challenge, req.question, prior, intent="clarify",
             coaching_level=state.get("coaching_level", 0), evidence_context=_evidence_context(db, state),
-            conversation_history=_history_payload(turns), conversation_memory=state.get("conversation_memory") or {},
+            conversation_history=history_payload, conversation_memory=state.get("conversation_memory") or {},
             student_name=student.display_name if student else "",
         )
+        proposal_updates, proposal_intent = _reasoning_proposal_from_reply(reply)
+        shadow_signal = _run_reasoning_shadow(
+            db,
+            session=session,
+            state=state,
+            proposal_updates=proposal_updates,
+            proposal_intent=proposal_intent,
+            student_text=req.question,
+            decision=None,
+            evidence_refs=[],
+            conversation_history=history_payload,
+            turn_sequence=sequence,
+            client_turn_id=req.client_turn_id,
+            operation="clarify",
+            legacy_prior=prior,
+            legacy_merged=merged,
+        )
+        turn_signals = {
+            "kind": "student_conversation", "selected_intent": "clarify",
+            "idempotency_operation": "clarify",
+            "idempotency_fingerprint": _idempotency_fingerprint(
+                {"question": req.question}
+            ),
+            "interpreted_intent": reply.get("interpreted_intent"), "client_turn_id": req.client_turn_id,
+        }
+        if shadow_signal is not None:
+            turn_signals["reasoning_validation_shadow"] = shadow_signal
         db.add(ReviewTurn(
             session_id=session_id, sequence=sequence, client_turn_id=req.client_turn_id,
             actor="student", lens="conversation", content=req.question,
-            evidence_refs_json="[]", signals_json=json.dumps({
-                "kind": "student_conversation", "selected_intent": "clarify",
-                "idempotency_operation": "clarify",
-                "idempotency_fingerprint": _idempotency_fingerprint(
-                    {"question": req.question}
-                ),
-                "interpreted_intent": reply.get("interpreted_intent"), "client_turn_id": req.client_turn_id,
-            }),
+            evidence_refs_json="[]", signals_json=json.dumps(turn_signals),
         ))
         _add_reviewer_turn(db, session_id, sequence + 1, reply)
         _record_reply_usage(db, reply, session)
@@ -1252,25 +1362,47 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
         student = _student_for_session(db, session)
         turns = db.query(ReviewTurn).filter_by(session_id=session_id).order_by(ReviewTurn.sequence).all()
         text = "I need another nudge. If we are going in circles, teach me the concept directly and show me where I can review it."
+        history_payload = _history_payload(turns)
+        prior = state.get("reasoning_state") or {}
         reply, merged, evaluation = engine.converse(
-            challenge, text, state.get("reasoning_state") or {}, intent="coach", decision=req.decision,
-            coaching_level=level, evidence_context=_evidence_context(db, state), conversation_history=_history_payload(turns),
+            challenge, text, prior, intent="coach", decision=req.decision,
+            coaching_level=level, evidence_context=_evidence_context(db, state), conversation_history=history_payload,
             conversation_memory=state.get("conversation_memory") or {}, student_name=student.display_name if student else "",
         )
+        proposal_updates, proposal_intent = _reasoning_proposal_from_reply(reply)
         sequence = (turns[-1].sequence if turns else 0) + 1
+        shadow_signal = _run_reasoning_shadow(
+            db,
+            session=session,
+            state=state,
+            proposal_updates=proposal_updates,
+            proposal_intent=proposal_intent,
+            student_text=text,
+            decision=req.decision,
+            evidence_refs=[],
+            conversation_history=history_payload,
+            turn_sequence=sequence,
+            client_turn_id=req.client_turn_id,
+            operation="coach",
+            legacy_prior=prior,
+            legacy_merged=merged,
+        )
+        turn_signals = {
+            "kind": "student_coach_request",
+            "selected_intent": "coach",
+            "idempotency_operation": "coach",
+            "decision": req.decision,
+            "idempotency_fingerprint": _idempotency_fingerprint(
+                {"decision": req.decision}
+            ),
+            "client_turn_id": req.client_turn_id,
+        }
+        if shadow_signal is not None:
+            turn_signals["reasoning_validation_shadow"] = shadow_signal
         db.add(ReviewTurn(
             session_id=session_id, sequence=sequence, client_turn_id=req.client_turn_id,
             actor="student", lens="conversation", content=text, evidence_refs_json="[]",
-            signals_json=json.dumps({
-                "kind": "student_coach_request",
-                "selected_intent": "coach",
-                "idempotency_operation": "coach",
-                "decision": req.decision,
-                "idempotency_fingerprint": _idempotency_fingerprint(
-                    {"decision": req.decision}
-                ),
-                "client_turn_id": req.client_turn_id,
-            }),
+            signals_json=json.dumps(turn_signals),
         ))
         _add_reviewer_turn(db, session_id, sequence + 1, reply)
         _record_reply_usage(db, reply, session)
@@ -1363,29 +1495,50 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
         student = _student_for_session(db, session)
         prior = state.get("reasoning_state") or {}
 
+        history_payload = _history_payload(turns)
         follow_up, merged, evaluation = engine.converse(
             challenge, req.response, prior, intent=req.intent, decision=req.decision,
             evidence_refs=req.evidence_refs, coaching_level=state.get("coaching_level", 0),
-            evidence_context=_evidence_context(db, state), conversation_history=_history_payload(turns),
+            evidence_context=_evidence_context(db, state), conversation_history=history_payload,
             conversation_memory=state.get("conversation_memory") or {},
             student_name=student.display_name if student else "",
         )
+        proposal_updates, proposal_intent = _reasoning_proposal_from_reply(follow_up)
+        shadow_signal = _run_reasoning_shadow(
+            db,
+            session=session,
+            state=state,
+            proposal_updates=proposal_updates,
+            proposal_intent=proposal_intent,
+            student_text=req.response,
+            decision=req.decision,
+            evidence_refs=list(req.evidence_refs),
+            conversation_history=history_payload,
+            turn_sequence=sequence,
+            client_turn_id=req.client_turn_id,
+            operation="respond",
+            legacy_prior=prior,
+            legacy_merged=merged,
+        )
+        turn_signals = {
+            **evaluation, "decision": req.decision, "selected_intent": req.intent,
+            "idempotency_operation": "respond",
+            "idempotency_fingerprint": _idempotency_fingerprint({
+                "response": req.response,
+                "evidence_refs": list(req.evidence_refs),
+                "decision": req.decision,
+                "intent": req.intent,
+            }),
+            "interpreted_intent": follow_up.get("interpreted_intent"), "client_turn_id": req.client_turn_id,
+        }
+        if shadow_signal is not None:
+            turn_signals["reasoning_validation_shadow"] = shadow_signal
 
         db.add(ReviewTurn(
             session_id=session_id, sequence=sequence, client_turn_id=req.client_turn_id,
             actor="student", lens="conversation",
             content=req.response, evidence_refs_json=json.dumps(req.evidence_refs),
-            signals_json=json.dumps({
-                **evaluation, "decision": req.decision, "selected_intent": req.intent,
-                "idempotency_operation": "respond",
-                "idempotency_fingerprint": _idempotency_fingerprint({
-                    "response": req.response,
-                    "evidence_refs": list(req.evidence_refs),
-                    "decision": req.decision,
-                    "intent": req.intent,
-                }),
-                "interpreted_intent": follow_up.get("interpreted_intent"), "client_turn_id": req.client_turn_id,
-            }),
+            signals_json=json.dumps(turn_signals),
         ))
         _add_reviewer_turn(db, session_id, sequence + 1, follow_up)
         _record_reply_usage(db, follow_up, session)

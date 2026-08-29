@@ -27,9 +27,10 @@ The compact package includes the chosen challenge, relevant FACT observations, a
 - Student-facing conversation: `OPENAI_MODEL` (default `gpt-5.6-sol`).
 - Repository semantic interpretation: `OPENAI_REPOSITORY_MODEL` (default `gpt-5.6-luna`).
 - Selective conversation-quality critic: `OPENAI_CRITIC_MODEL` (default `gpt-5.6-luna`).
+- Independent PR2 shadow reasoning validator: `OPENAI_REASONING_VALIDATOR_MODEL` when configured, otherwise the critic model and then the primary conversation model.
 - Deterministic extraction, provenance, phase rules, and authorization never require an LLM.
 
-The reviewer model is intentionally the highest-quality path because conversational trust and coaching quality are product-critical. Bounded background interpretation is routed for cost efficiency.
+The reviewer model is intentionally the highest-quality path because conversational trust and coaching quality are product-critical. Bounded background interpretation is routed for cost efficiency. PR2 reasoning validation is a second structured pass only on analytically material shadow-enabled turns; legacy sessions make no validator call, and no-call skips avoid unnecessary cost when no new transition or correction requires validation.
 
 ## Usage accounting
 

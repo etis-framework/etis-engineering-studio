@@ -4,6 +4,8 @@ from fastapi.testclient import TestClient
 from apps.api.app.main import app
 from apps.api.app.routers import reviews as reviews_router
 from apps.api.app.services.challenge_engine import ChallengeEngine
+from apps.api.app.db import SessionLocal
+from apps.api.app.models import ReviewSession, ReviewTurn
 
 client = TestClient(app)
 
@@ -73,6 +75,34 @@ class FakeSemanticProvider:
     def critique_reviewer_turn(self, system_prompt, user_prompt):
         return {"acceptable": True, "issues": [], "revised_reply": "", "provider": "fake-semantic", "model": "test-model"}
 
+    def validate_reasoning_turn(self, system_prompt, user_prompt):
+        payload = json.loads(user_prompt)
+        evaluations = []
+        for dimension in payload.get("candidate_transitions", []):
+            if dimension == "consequence_visible":
+                evaluations.append({
+                    "dimension": dimension,
+                    "decision": "REJECT",
+                    "reason_codes": ["TOO_VAGUE_TO_ESTABLISH"],
+                    "evidence_refs": [],
+                    "summary": "The shadow validator does not accept this consequence claim.",
+                })
+            else:
+                evaluations.append({
+                    "dimension": dimension,
+                    "decision": "ACCEPT",
+                    "reason_codes": ["STUDENT_REASONING_EXPLICIT"],
+                    "evidence_refs": [],
+                    "summary": "The shadow validator accepts this proposed transition.",
+                })
+        return {
+            "evaluations": evaluations,
+            "reopens": [],
+            "provider": "fake-validator",
+            "model": "validator-model",
+            "response_id": "validator-response",
+        }
+
 
 def use_fake_semantic():
     reviews_router.engine.ai = FakeSemanticProvider()
@@ -84,6 +114,8 @@ def test_health():
         assert r.status_code == 200
         assert r.json()['status'] == 'ok'
         assert r.json()['version'] == '0.16.1'
+        assert r.json()['reasoning_validation_mode'] in {'legacy', 'shadow'}
+        assert 'reasoning_validator_model' in r.json()
 
 
 def test_course_endpoint():
@@ -215,3 +247,88 @@ def test_review_start_retry_reuses_same_persisted_review_objective():
     detail_again = client.get(f"/api/v1/reviews/{second.json()['session_id']}")
     objective_again = detail_again.json()['state']['review_control']['objective']
     assert objective_again['objective_id'] == objective['objective_id']
+
+
+def test_shadow_reasoning_validation_records_disagreement_without_changing_legacy_behavior():
+    use_fake_semantic()
+    old_mode = reviews_router.engine.settings.etis_reasoning_validation_mode
+    reviews_router.engine.settings.etis_reasoning_validation_mode = "shadow"
+    try:
+        _, started = _start_a1()
+        sid = started["session_id"]
+        # Session-locked shadow mode must survive a later deployment-default change.
+        reviews_router.engine.settings.etis_reasoning_validation_mode = "legacy"
+        response = client.post(
+            f"/api/v1/reviews/{sid}/respond",
+            json={
+                "response": "finger pointing?",
+                "evidence_refs": [],
+                "decision": None,
+                "intent": "discuss",
+                "client_turn_id": "shadow-turn-1",
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["evaluation"]["learning_score"] >= 1
+        assert "_reasoning_proposals" not in payload["follow_up"]
+        assert "_reasoning_proposal_intent" not in payload["follow_up"]
+
+        review = client.get(f"/api/v1/reviews/{sid}").json()
+        assert review["state"]["reasoning_state"]["consequence_visible"] is True
+        assert review["state"]["review_control"]["reasoning_mode"] == "shadow"
+        assert "reasoning_shadow" not in review["state"]["review_control"]
+        assert all(
+            "reasoning_validation_shadow" not in turn["signals"]
+            for turn in review["turns"]
+        )
+
+        with SessionLocal() as db:
+            session = db.get(ReviewSession, sid)
+            persisted_state = json.loads(session.challenge_state_json)
+            shadow = persisted_state["review_control"]["reasoning_shadow"]
+            assert shadow["dimensions"]["consequence_visible"]["status"] == "unestablished"
+            assert shadow["last_validation"]["status"] == "completed"
+            assert shadow["last_validation"]["evaluations"][0]["decision"] == "REJECT"
+            student_turn = (
+                db.query(ReviewTurn)
+                .filter_by(session_id=sid, client_turn_id="shadow-turn-1")
+                .one()
+            )
+            signals = json.loads(student_turn.signals_json)
+            assert signals["reasoning_validation_shadow"]["status"] == "completed"
+    finally:
+        reviews_router.engine.settings.etis_reasoning_validation_mode = old_mode
+
+
+def test_legacy_reasoning_mode_never_invokes_shadow_validator():
+    class LegacyOnlyProvider(FakeSemanticProvider):
+        def validate_reasoning_turn(self, system_prompt, user_prompt):
+            raise AssertionError("shadow validator must not run for legacy sessions")
+
+    old_provider = reviews_router.engine.ai
+    old_mode = reviews_router.engine.settings.etis_reasoning_validation_mode
+    reviews_router.engine.ai = LegacyOnlyProvider()
+    reviews_router.engine.settings.etis_reasoning_validation_mode = "legacy"
+    try:
+        _, started = _start_a1()
+        sid = started["session_id"]
+        # A later default change to shadow must not change this active legacy session.
+        reviews_router.engine.settings.etis_reasoning_validation_mode = "shadow"
+        response = client.post(
+            f"/api/v1/reviews/{sid}/respond",
+            json={
+                "response": "finger pointing?",
+                "evidence_refs": [],
+                "decision": None,
+                "intent": "discuss",
+                "client_turn_id": "legacy-no-shadow",
+            },
+        )
+        assert response.status_code == 200
+        review = client.get(f"/api/v1/reviews/{sid}").json()
+        assert review["state"]["review_control"]["reasoning_mode"] == "legacy"
+        assert "reasoning_shadow" not in review["state"]["review_control"]
+    finally:
+        reviews_router.engine.ai = old_provider
+        reviews_router.engine.settings.etis_reasoning_validation_mode = old_mode

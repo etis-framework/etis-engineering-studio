@@ -4,6 +4,12 @@
 
 ### Added
 
+- Adds PR2 independent reasoning-transition validation in `shadow` mode, producing structured ACCEPT / PARTIAL / REJECT judgments without changing the legacy student-visible reasoning state or readiness.
+- Persists compact shadow reasoning state under the existing versioned `review_control` block and stores per-turn validation results in `ReviewTurn.signals_json` without a database migration.
+- Records shadow-validator model usage, latency, and cost through the existing AI usage ledger under the `reasoning_validation_shadow` purpose.
+- Adds production deployment support for explicitly choosing `legacy` or `shadow` reasoning validation for newly started review sessions; deployment defaults remain `legacy`.
+- Adds health metadata for the configured reasoning-validation mode and validator model.
+- Adds dedicated PR2 regression coverage for validation authority, PARTIAL progress, reopening/correction, fail-open shadow behavior, legacy isolation, provider routing, and Azure deployment configuration.
 - Introduces the PR1 analytical-control-plane contracts for a first-class Review Objective, runtime Planning Context, Candidate Next Move, selector result, and structured selection/rejection reason codes.
 - Persists a versioned `review_control` block for newly started reviews with the session-locked Review Objective and analytical modes.
 - Defines Board, Focused, and Finding Review objective semantics, including legitimate evidence-bounded unresolved conclusions.
@@ -13,6 +19,9 @@
 
 ### Compatibility
 
+- PR2 shadow validation never changes the legacy `reasoning_state`, readiness, recommendation enablement, reviewer reply, next-question selection, or finding lifecycle.
+- Shadow validation runs only for sessions created with reasoning mode `shadow`; legacy sessions make no validator calls, and active sessions never change analytical mode mid-review.
+- Synthetic Coach turns cannot earn shadow reasoning credit. Validator failure is recorded as shadow telemetry and does not fail the student's legacy review turn.
 - PR1 does not change frozen evidence acquisition, repository intelligence, challenge selection, reviewer/opening selection, semantic conversation, legacy reasoning-state merge, readiness, recommendation behavior, next-question generation, critic behavior, finding lifecycle, review completion, or instructor analytics.
 - Existing v0.16.1 review sessions are not backfilled; absence of `review_control` means legacy reasoning and legacy planning.
 - No database migration, new AI call, Azure infrastructure change, or student-visible analytical behavior change is introduced by PR1.
