@@ -1,6 +1,6 @@
 # Repository Intelligence and Review Orchestration
 
-> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+> **Status:** Production-accepted v0.16.1 evidence/review-preparation contract plus the v0.17 PR1 analytical-control-plane boundary.
 
 
 ## Purpose
@@ -8,6 +8,19 @@
 The ETIS Engineering Studio does not review an assignment by looking for one seeded file. A review begins from a **frozen repository evidence baseline**, evaluates that baseline against the **current COMP 330 phase contract**, identifies both strengths and material concerns, ranks a small number of high-value engineering conversations, and then lets a senior-reviewer persona coach the student through the judgment.
 
 The design deliberately separates evidence authority from AI conversation.
+
+## v0.17 PR1 control-plane boundary
+
+PR1 preserves the existing repository-intelligence and challenge-selection pipeline exactly. Frozen evidence is still established first, repository findings are still ranked by the v0.16.1 implementation, and the current challenge/reviewer/opening are selected before any new v0.17 control-plane metadata is created.
+
+After that existing challenge has been locked, PR1 derives a first-class **Review Objective** from the review mode and selected review object. The Review Objective is bounded by the same frozen evidence and is persisted under the session's versioned `review_control` block. It does not rerank findings, select a different challenge, fetch broader repository evidence, or alter the opening question.
+
+This keeps two responsibilities distinct:
+
+- **Review orchestration:** what frozen evidence and challenge begin this review?
+- **Analytical control plane:** given that locked review purpose and evidence boundary, what engineering move should happen next?
+
+The second responsibility is structure-only in PR1. Planning and reasoning validation remain legacy until later v0.17 PRs explicitly enable shadow behavior. See `docs/architecture/ANALYTICAL_CONTROL_PLANE_V017.md`.
 
 ## Three-layer architecture
 

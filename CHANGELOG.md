@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased - v0.17.0 Analytical Engine Evolution
+
+### Added
+
+- Introduces the PR1 analytical-control-plane contracts for a first-class Review Objective, runtime Planning Context, Candidate Next Move, selector result, and structured selection/rejection reason codes.
+- Persists a versioned `review_control` block for newly started reviews with the session-locked Review Objective and analytical modes.
+- Defines Board, Focused, and Finding Review objective semantics, including legitimate evidence-bounded unresolved conclusions.
+- Adds session-locked reasoning/planning mode configuration with `legacy` defaults and fail-closed rejection of future modes that are not implemented in PR1.
+- Adds dedicated regression coverage for objective derivation, compatibility, mode locking, and Start Review idempotency.
+- Adds `docs/architecture/ANALYTICAL_CONTROL_PLANE_V017.md` as the v0.17 control-plane architecture contract.
+
+### Compatibility
+
+- PR1 does not change frozen evidence acquisition, repository intelligence, challenge selection, reviewer/opening selection, semantic conversation, legacy reasoning-state merge, readiness, recommendation behavior, next-question generation, critic behavior, finding lifecycle, review completion, or instructor analytics.
+- Existing v0.16.1 review sessions are not backfilled; absence of `review_control` means legacy reasoning and legacy planning.
+- No database migration, new AI call, Azure infrastructure change, or student-visible analytical behavior change is introduced by PR1.
+
 ## [0.16.1] - 2026-08-29
 
 ### Evidence Correctness & Phase-Gate Alignment

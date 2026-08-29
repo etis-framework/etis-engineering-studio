@@ -12,6 +12,7 @@ from ..models import EvidenceSnapshot, ReviewSession, ReviewTurn, Team, User, Te
 from ..schemas import ReviewStartRequest, ReviewResponseRequest, ReviewClarifyRequest, ReviewCoachRequest, EvidenceDisputeRequest, FindingDispositionRequest
 from ..services.challenge_engine import ChallengeEngine, Challenge, reviewer_profile, default_memory
 from ..services.review_orchestrator import ReviewOrchestrator
+from ..services.review_planning import build_review_objective, initialize_review_control
 from ..services.evidence import snapshot_from_dict
 from ..services.evidence_package import EvidencePackageBuilder
 from ..services.usage_store import record_usage_events
@@ -933,6 +934,33 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
     memory["asked_targets"][opening.get("target_move", "consequence_visible")] = 1
 
     compact_package = evidence_package_builder.build(evidence.to_dict(), challenge.to_dict()).to_dict()
+    selected_finding_ids = list(dict.fromkeys([
+        *(req.finding_ids or []),
+        *([req.finding_id] if req.finding_id else []),
+    ]))[:3]
+    valid_objective_finding_ids = {
+        str(finding.get("id"))
+        for finding in evidence.findings
+        if isinstance(finding, dict) and finding.get("id")
+    }
+    selected_finding_ids = [
+        finding_id
+        for finding_id in selected_finding_ids
+        if finding_id in valid_objective_finding_ids
+    ]
+    review_objective = build_review_objective(
+        raw_mode=req.mode,
+        phase_id=req.phase_id,
+        challenge=challenge,
+        focus=req.focus,
+        related_finding_ids=selected_finding_ids,
+        entry_intent=req.entry_intent,
+    )
+    review_control = initialize_review_control(
+        review_objective,
+        reasoning_mode=engine.settings.etis_reasoning_validation_mode,
+        planning_mode=engine.settings.etis_review_planning_mode,
+    )
     state = {
         "challenge": challenge.to_dict(),
         "compact_evidence_package": compact_package,
@@ -955,6 +983,7 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
         "source_view": req.source_view,
         "start_request": start_request_payload,
         "evidence_disputes": [],
+        "review_control": review_control,
     }
 
     session = ReviewSession(

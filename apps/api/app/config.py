@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     etis_direct_teach_after_stall_turns: int = 2
     etis_conversation_critic: bool = True
     etis_conversation_critic_mode: str = "selective"
+    etis_reasoning_validation_mode: str = "legacy"
+    etis_review_planning_mode: str = "legacy"
     etis_review_challenge_limit: int = 4
     etis_platform_base_url: str = "https://platform.etisframework.org"
     etis_semantic_repository_review: bool = True
@@ -67,6 +69,19 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_configuration(self):
+        reasoning_mode = self.etis_reasoning_validation_mode.strip().lower()
+        planning_mode = self.etis_review_planning_mode.strip().lower()
+        if reasoning_mode != "legacy":
+            raise ValueError(
+                "ETIS_REASONING_VALIDATION_MODE only supports legacy in this release"
+            )
+        if planning_mode != "legacy":
+            raise ValueError(
+                "ETIS_REVIEW_PLANNING_MODE only supports legacy in this release"
+            )
+        self.etis_reasoning_validation_mode = reasoning_mode
+        self.etis_review_planning_mode = planning_mode
+
         if self.etis_env.strip().lower() == "production":
             session_secret = self.etis_session_secret.strip()
             if (
