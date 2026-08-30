@@ -154,6 +154,127 @@ def test_corpus_does_not_use_future_phase_as_expected_move():
 
 
 
+PR4H_PATH_CASES = {
+    "a1-excellent-governance",
+    "a1-blind-ai-agreement",
+    "a2-verbose-vague-confidence",
+    "a3-blind-security-agreement",
+    "a3-architecture-changed",
+    "a4-implementation-changed-architecture",
+    "a5-excellent-release",
+    "a6-excellent-operations",
+    "a6-recovery-claim-contradiction",
+}
+
+
+def test_pr4h_planning_path_contract_is_limited_to_audited_cases():
+    rows = load_cases()
+    migrated = {
+        row["id"]
+        for row in rows
+        if (row.get("expectations") or {}).get("acceptable_planning_paths")
+    }
+    assert migrated == PR4H_PATH_CASES
+    for row in rows:
+        validate_enum_contract(row)
+
+
+def test_pr4h_planning_path_contract_accepts_audited_pr4g_paths():
+    cases = {row["id"]: row for row in load_cases()}
+    samples = {
+        "a1-excellent-governance": (
+            "EVIDENCE_DEFICIT",
+            "TEST_EVIDENCE_BOUNDARY",
+            "EVIDENCE_BOUNDARY_CLEAR",
+        ),
+        "a1-blind-ai-agreement": (
+            "TEACHING_OR_TEACHBACK",
+            "TEACH_CONCEPT",
+            "OWNERSHIP_CLEAR",
+        ),
+        "a2-verbose-vague-confidence": (
+            "EVIDENCE_DEFICIT",
+            "TEST_EVIDENCE_BOUNDARY",
+            "EVIDENCE_BOUNDARY_CLEAR",
+        ),
+        "a3-blind-security-agreement": (
+            "TEACHING_OR_TEACHBACK",
+            "REQUEST_TEACH_BACK",
+            "EVIDENCE_BOUNDARY_CLEAR",
+        ),
+        "a3-architecture-changed": (
+            "CONTRADICTION_OR_STALE_STATE",
+            "RECONCILE_CONTRADICTION",
+            "CURRENT_POSITION_CLEAR",
+        ),
+        "a4-implementation-changed-architecture": (
+            "CONTRADICTION_OR_STALE_STATE",
+            "RECONCILE_CONTRADICTION",
+            "CURRENT_POSITION_CLEAR",
+        ),
+        "a5-excellent-release": (
+            "EVIDENCE_DEFICIT",
+            "TEST_EVIDENCE_BOUNDARY",
+            "EVIDENCE_BOUNDARY_CLEAR",
+        ),
+        "a6-excellent-operations": (
+            "EVIDENCE_DEFICIT",
+            "TEST_EVIDENCE_BOUNDARY",
+            "EVIDENCE_BOUNDARY_CLEAR",
+        ),
+        "a6-recovery-claim-contradiction": (
+            "CONTRADICTION_OR_STALE_STATE",
+            "RECONCILE_CONTRADICTION",
+            "CURRENT_POSITION_CLEAR",
+        ),
+    }
+    for case_id, (need, move, target) in samples.items():
+        score = score_planning_signal(
+            cases[case_id],
+            {
+                "status": "completed",
+                "shadow_planner": {
+                    "primary_need": need,
+                    "selected_move_type": move,
+                    "target_outcome": target,
+                    "proposed_question": "What should the engineer establish next?",
+                },
+            },
+        )
+        assert score["path_contract_active"] is True, case_id
+        assert score["path_ok"] is True, case_id
+        assert score["path_pass"] is True, case_id
+        assert score["move_pass"] is True, case_id
+        assert score["pass"] is True, case_id
+
+
+def test_pr4h_planning_path_contract_rejects_cross_product_false_positive():
+    case = next(
+        row for row in load_cases()
+        if row["id"] == "a4-implementation-changed-architecture"
+    )
+    score = score_planning_signal(
+        case,
+        {
+            "status": "completed",
+            "shadow_planner": {
+                "primary_need": "CONTRADICTION_OR_STALE_STATE",
+                "selected_move_type": "RECONCILE_CONTRADICTION",
+                # ACTION_BOUNDARY_CLEAR is acceptable elsewhere in this case,
+                # but not for this Need -> Move combination.
+                "target_outcome": "ACTION_BOUNDARY_CLEAR",
+                "proposed_question": "What bounded action should the team take?",
+            },
+        },
+    )
+    assert score["target_ok"] is True
+    assert score["explicit_move_match"] is True
+    assert score["path_ok"] is False
+    assert score["path_pass"] is False
+    assert score["move_pass"] is False
+    assert score["pass"] is False
+
+
 def test_machine_planning_score_accepts_selector_valid_alternative_for_acceptable_target():
     case = next(row for row in load_cases() if row["id"] == "a4-ci-green-overconfidence")
     score = score_planning_signal(
@@ -175,6 +296,8 @@ def test_machine_planning_score_accepts_selector_valid_alternative_for_acceptabl
     assert score["target_ok"] is True
     assert score["explicit_move_match"] is False
     assert score["preferred_move_match"] is False
+    assert score["path_contract_active"] is False
+    assert score["path_ok"] is None
 
 
 def test_machine_planning_score_still_rejects_forbidden_or_unacceptable_target():
@@ -599,6 +722,40 @@ def test_machine_report_separates_move_quality_realization_and_usage_cost():
     assert summary["estimated_cost_usd"] == 0.012
 
 
+def test_machine_report_exposes_pr4h_path_diagnostics():
+    from scripts.run_analytical_engine_evals import _report
+
+    report = _report([
+        {
+            "case_id": "c1",
+            "phase_id": "A1",
+            "review_mode": "board_review",
+            "hard_failures": [],
+            "current": {"usage_events": []},
+            "planning": {
+                "score": {
+                    "pass": True,
+                    "move_pass": True,
+                    "path_pass": True,
+                    "path_contract_active": True,
+                    "preferred_path_match": False,
+                    "question_ok": True,
+                    "explicit_move_match": True,
+                    "preferred_move_match": False,
+                },
+                "usage_events": [],
+            },
+        }
+    ])
+
+    summary = report["summary"]
+    assert summary["planning_path_contract_case_count"] == 1
+    assert summary["planning_path_pass_rate"] == 1.0
+    assert summary["planning_preferred_path_match_rate"] == 0.0
+    assert report["by_phase"]["A1"]["planning_path_contract_case_count"] == 1
+    assert report["by_phase"]["A1"]["planning_path_pass_rate"] == 1.0
+
+
 def test_blind_human_acceptance_can_pass_only_with_complete_42_case_two_rater_set(tmp_path):
     import json
     from scripts.score_analytical_blind_review import score_packets
@@ -662,8 +819,15 @@ def _sample_acquisition_for_replay():
             "evidence_refs": [],
             "summary": "captured reasoning decision",
         })
-    target = case["expectations"]["acceptable_target_outcomes"][0]
-    move = case["expectations"]["acceptable_moves"][0]
+    path = next(iter(case["expectations"].get("acceptable_planning_paths") or ()), None)
+    if path:
+        primary_need = path["primary_need"]
+        move = path["move_type"]
+        target = path["target_outcome"]
+    else:
+        primary_need = ""
+        target = case["expectations"]["acceptable_target_outcomes"][0]
+        move = case["expectations"]["acceptable_moves"][0]
     record = {
         "case_id": case["id"],
         "phase_id": case["phase_id"],
@@ -690,6 +854,7 @@ def _sample_acquisition_for_replay():
             "signal": {
                 "status": "completed",
                 "shadow_planner": {
+                    "primary_need": primary_need,
                     "selected_move_type": move,
                     "target_outcome": target,
                     "proposed_question": "What evidence makes that engineering position defensible?",
@@ -798,6 +963,7 @@ def test_stability_report_separates_raw_stage_variance_from_scoring_variance():
     assert stability["metrics"]["primary_need"]["changed_case_count"] == 1
     assert stability["metrics"]["primary_need_source"]["changed_case_count"] == 1
     assert stability["metrics"]["semantic_primary_need"]["changed_case_count"] == 1
+    assert stability["metrics"]["planning_path"]["changed_case_count"] == 1
     assert stability["metrics"]["realization_repair"]["changed_case_count"] == 1
     assert stability["metrics"]["validator_signature"]["changed_case_count"] == 0
     assert stability["metrics"]["reasoning_pass"]["changed_case_count"] == 0

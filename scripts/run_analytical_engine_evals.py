@@ -60,7 +60,7 @@ from scripts.analytical_eval_support import (
 RUBRIC_PATH = ROOT / "evals" / "analytical_engine_rubric.json"
 CASES_PATH = ROOT / "evals" / "analytical_engine_cases.json"
 ACQUISITION_SCHEMA_VERSION = 1
-REPORT_SCHEMA_VERSION = 2
+REPORT_SCHEMA_VERSION = 3
 
 
 def parse_args() -> argparse.Namespace:
@@ -530,6 +530,7 @@ def _stability_report(
         "primary_need": lambda raw, scored: _planning_signal_value(raw, "primary_need"),
         "primary_need_source": lambda raw, scored: _planning_signal_value(raw, "primary_need_source"),
         "semantic_primary_need": lambda raw, scored: _planning_signal_value(raw, "semantic_primary_need"),
+        "planning_path": lambda raw, scored: _planning_path_signature(raw),
         "selected_move": lambda raw, scored: _shadow_value(raw, "selected_move_type"),
         "selected_target": lambda raw, scored: _shadow_value(raw, "target_outcome"),
         "realization_repair": lambda raw, scored: _realization_repair_signature(raw),
@@ -625,6 +626,16 @@ def _planning_signal_value(raw: Mapping[str, Any], key: str) -> str:
     return str(shadow.get(key) or signal.get(key) or "")
 
 
+def _planning_path_signature(raw: Mapping[str, Any]) -> tuple[str, str, str]:
+    signal = (raw.get("planning") or {}).get("signal") or {}
+    shadow = signal.get("shadow_planner") or {}
+    return (
+        str(shadow.get("primary_need") or signal.get("primary_need") or ""),
+        str(shadow.get("selected_move_type") or ""),
+        str(shadow.get("target_outcome") or ""),
+    )
+
+
 def _realization_repair_signature(raw: Mapping[str, Any]) -> tuple[bool, bool, tuple[str, ...], tuple[str, ...]]:
     signal = (raw.get("planning") or {}).get("signal") or {}
     shadow = signal.get("shadow_planner") or {}
@@ -711,6 +722,7 @@ def _print_stability(stability: Mapping[str, Any]) -> None:
         "primary_need",
         "primary_need_source",
         "semantic_primary_need",
+        "planning_path",
         "selected_move",
         "selected_target",
         "realization_repair",
@@ -927,6 +939,19 @@ def _report(results: list[dict[str, Any]]) -> dict[str, Any]:
         sum(bool(row["planning"]["score"].get("preferred_move_match")) for row in planning_rows),
         len(planning_rows),
     )
+    path_rows = [
+        row for row in planning_rows
+        if bool(row["planning"]["score"].get("path_contract_active"))
+    ]
+    summary["planning_path_contract_case_count"] = len(path_rows)
+    summary["planning_path_pass_rate"] = _rate(
+        sum(bool(row["planning"]["score"].get("path_pass")) for row in path_rows),
+        len(path_rows),
+    )
+    summary["planning_preferred_path_match_rate"] = _rate(
+        sum(bool(row["planning"]["score"].get("preferred_path_match")) for row in path_rows),
+        len(path_rows),
+    )
     summary["realized_question_valid_rate"] = _rate(
         sum(bool(row["planning"]["score"]["question_ok"]) for row in planning_rows), len(planning_rows)
     )
@@ -950,6 +975,21 @@ def _report(results: list[dict[str, Any]]) -> dict[str, Any]:
             "planning_preferred_move_match_rate": _rate(
                 sum(bool(row["planning"]["score"].get("preferred_move_match")) for row in p_rows),
                 len(p_rows),
+            ),
+            "planning_path_contract_case_count": len([
+                row for row in p_rows
+                if bool(row["planning"]["score"].get("path_contract_active"))
+            ]),
+            "planning_path_pass_rate": _rate(
+                sum(
+                    bool(row["planning"]["score"].get("path_pass"))
+                    for row in p_rows
+                    if bool(row["planning"]["score"].get("path_contract_active"))
+                ),
+                len([
+                    row for row in p_rows
+                    if bool(row["planning"]["score"].get("path_contract_active"))
+                ]),
             ),
             "realized_question_valid_rate": _rate(
                 sum(bool(row["planning"]["score"]["question_ok"]) for row in p_rows), len(p_rows)
@@ -1014,6 +1054,9 @@ def _print_summary(report: Mapping[str, Any]) -> None:
     print("  planning move pass rate:", summary.get("planning_move_pass_rate"))
     print("  explicit move oracle match rate:", summary.get("planning_explicit_move_match_rate"))
     print("  preferred move match rate:", summary.get("planning_preferred_move_match_rate"))
+    print("  planning path contract cases:", summary.get("planning_path_contract_case_count"))
+    print("  planning path pass rate:", summary.get("planning_path_pass_rate"))
+    print("  preferred path match rate:", summary.get("planning_preferred_path_match_rate"))
     print("  realized question valid rate:", summary.get("realized_question_valid_rate"))
     print("  hard failures:", summary["hard_failure_count"])
     for phase, values in report["by_phase"].items():

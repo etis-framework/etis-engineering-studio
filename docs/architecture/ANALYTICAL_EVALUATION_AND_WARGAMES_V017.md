@@ -183,6 +183,22 @@ PR4G adds stability telemetry for the semantic and effective `primary_need`, its
 
 Correct-student-challenge hard-failure detection likewise evaluates the selected move **and target together**. A `TEST_EVIDENCE_BOUNDARY` move targeting `FINDING_EVIDENCE_TESTED` remains on the disputed REVIEW finding and is therefore challenge-responsive. A downstream action/change move that leaves the dispute unresolved is still a hard failure.
 
+### PR4H planning-path evaluation contract
+
+PR4G made `PlanningNeed` a first-class control-plane concept, which means machine evaluation can no longer safely treat an acceptable move list and an acceptable target list as two independent sets. Independent sets imply an unintended cross product: a move and target may each be acceptable somewhere in a case while their combination is not the correct path for the student's current analytical need.
+
+PR4H therefore allows a case to declare explicit `acceptable_planning_paths` containing the semantic tuple:
+
+`(effective Planning Need, selected Move, target Objective Outcome)`
+
+For a migrated case, that tuple is the machine planning acceptance unit. A completed, non-forbidden move passes only when the observed tuple exactly matches one committed acceptable path and the realized question remains machine-valid. `acceptable_moves`, `preferred_moves`, and `acceptable_target_outcomes` remain as diagnostics and deterministic-selector fixtures; they no longer create an implicit cross-product acceptance rule for migrated cases. Optional `preferred_planning_paths` provide a narrower diagnostic preference without making one reasonable path mandatory.
+
+Cases without `acceptable_planning_paths` retain the PR4F scoring contract unchanged. This backward-compatible migration keeps the corpus stable while allowing path semantics to be introduced only where replicated evidence demonstrates that the older independent-list oracle cannot represent legitimate behavior.
+
+The initial PR4H migration is intentionally limited to nine post-PR4G audited cases where preserved acquisitions showed defensible paths that the older oracle misclassified: `a1-excellent-governance`, `a1-blind-ai-agreement`, `a2-verbose-vague-confidence`, `a3-architecture-changed`, `a3-blind-security-agreement`, `a4-implementation-changed-architecture`, `a5-excellent-release`, `a6-excellent-operations`, and `a6-recovery-claim-contradiction`. The final two additions are deliberately narrow contradiction cases: replicated observations held the application-owned `CONTRADICTION_OR_STALE_STATE` need and `RECONCILE_CONTRADICTION` move constant while varying only between defensible current-position and evidence-boundary targets. PR4H deliberately does **not** calibrate `a2-excellent-traceability` or `a3-no-future-implementation-demand`; those remain diagnostic failures for reasoning-validator and planner follow-up respectively.
+
+Replicated stability reporting also records the complete planning-path signature in addition to need, move, and target separately. This distinguishes harmless move variation inside a stable need from actual semantic path variation. PR4H is evaluation-only and does not change production planner prompts, selector behavior, reasoning validation, evidence authority, review objectives, or student-visible review behavior.
+
 ## Hard failures
 
 Some outcomes are not matters of preference. Any occurrence is a hard failure for student-visible enablement:
