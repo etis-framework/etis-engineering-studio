@@ -6,7 +6,7 @@ import hashlib
 import httpx
 from ..config import get_settings
 from .ai_telemetry import usage_from_response
-from .review_planning import CandidateMoveType, ObjectiveOutcome, SelectionReasonCode
+from .review_planning import CandidateMoveType, ObjectiveOutcome, PlanningNeed, SelectionReasonCode
 
 
 CONVERSATION_SCHEMA = {
@@ -82,6 +82,10 @@ CONVERSATION_SCHEMA = {
 REVIEW_PLANNER_SCHEMA = {
     "type": "object",
     "properties": {
+        "primary_need": {
+            "type": "string",
+            "enum": [item.value for item in PlanningNeed],
+        },
         "candidates": {
             "type": "array",
             "minItems": 1,
@@ -135,7 +139,7 @@ REVIEW_PLANNER_SCHEMA = {
             },
         },
     },
-    "required": ["candidates"],
+    "required": ["primary_need", "candidates"],
     "additionalProperties": False,
 }
 

@@ -527,8 +527,12 @@ def _stability_report(
         "legacy_target": lambda raw, scored: (raw.get("current") or {}).get("target_move"),
         "validator_signature": lambda raw, scored: _validator_signature(raw),
         "planner_status": lambda raw, scored: _planner_status(raw),
+        "primary_need": lambda raw, scored: _planning_signal_value(raw, "primary_need"),
+        "primary_need_source": lambda raw, scored: _planning_signal_value(raw, "primary_need_source"),
+        "semantic_primary_need": lambda raw, scored: _planning_signal_value(raw, "semantic_primary_need"),
         "selected_move": lambda raw, scored: _shadow_value(raw, "selected_move_type"),
         "selected_target": lambda raw, scored: _shadow_value(raw, "target_outcome"),
+        "realization_repair": lambda raw, scored: _realization_repair_signature(raw),
         "realized_question_valid": lambda raw, scored: (scored.get("planning") or {}).get("score", {}).get("question_ok"),
         "hard_failures": lambda raw, scored: tuple(scored.get("hard_failures") or ()),
     }
@@ -615,6 +619,24 @@ def _shadow_value(raw: Mapping[str, Any], key: str) -> str:
     return str((signal.get("shadow_planner") or {}).get(key) or "")
 
 
+def _planning_signal_value(raw: Mapping[str, Any], key: str) -> str:
+    signal = (raw.get("planning") or {}).get("signal") or {}
+    shadow = signal.get("shadow_planner") or {}
+    return str(shadow.get(key) or signal.get(key) or "")
+
+
+def _realization_repair_signature(raw: Mapping[str, Any]) -> tuple[bool, bool, tuple[str, ...], tuple[str, ...]]:
+    signal = (raw.get("planning") or {}).get("signal") or {}
+    shadow = signal.get("shadow_planner") or {}
+    repair = shadow.get("realization_repair") or signal.get("realization_repair") or {}
+    return (
+        bool(repair.get("attempted")),
+        bool(repair.get("succeeded")),
+        tuple(str(item) for item in (repair.get("initial_rejection_codes") or ())),
+        tuple(str(item) for item in (repair.get("final_rejection_codes") or ())),
+    )
+
+
 def _stable_json_value(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
@@ -686,8 +708,12 @@ def _print_stability(stability: Mapping[str, Any]) -> None:
         "legacy_target",
         "validator_signature",
         "planner_status",
+        "primary_need",
+        "primary_need_source",
+        "semantic_primary_need",
         "selected_move",
         "selected_target",
+        "realization_repair",
         "realized_question_valid",
         "hard_failures",
     ):

@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from apps.api.app.services.reasoning_validation import blank_reasoning_shadow
 from apps.api.app.services.next_question_selector import NextQuestionSelector
 from apps.api.app.services.review_planner import ReviewPlanner, blank_planning_shadow
@@ -7,6 +9,7 @@ from apps.api.app.services.review_planning import (
     CandidateRejectionCode,
     ObjectiveOutcome,
     PlanningContext,
+    PlanningNeed,
     ReasoningValidationMode,
     ReviewPlanningMode,
     SelectionReasonCode,
@@ -82,8 +85,17 @@ def planning_context(*, intent="reasoning", recent_questions=(), shadow=None, ex
 
 
 class FakePlannerAI:
-    def __init__(self, *, plan_payload=None, realization_payload=None, plan_error=None, realization_error=None):
+    def __init__(
+        self,
+        *,
+        plan_payload=None,
+        realization_payload=None,
+        realization_payloads=None,
+        plan_error=None,
+        realization_error=None,
+    ):
         self.plan_payload = plan_payload or {
+            "primary_need": "EVIDENCE_DEFICIT",
             "candidates": [
                 {
                     "candidate_id": "evidence",
@@ -111,6 +123,7 @@ class FakePlannerAI:
             "question": "What does the frozen architecture evidence establish, and what does it still leave unsupported?",
             "_usage": {"purpose": "review_move_realization_shadow", "estimated_cost_usd": 0.001},
         }
+        self.realization_payloads = list(realization_payloads or ())
         self.plan_error = plan_error
         self.realization_error = realization_error
         self.plan_calls = 0
@@ -137,6 +150,9 @@ class FakePlannerAI:
         self.last_realizer_user = user_prompt
         if self.realization_error:
             raise self.realization_error
+        if self.realization_payloads:
+            index = min(self.realization_calls - 1, len(self.realization_payloads) - 1)
+            return self.realization_payloads[index]
         return self.realization_payload
 
 
@@ -427,6 +443,239 @@ def test_planning_signal_records_candidate_moves_for_post_run_diagnosis():
     assert candidates[0]["move_type"] == "TEST_EVIDENCE_BOUNDARY"
 
 
+
+def test_selector_uses_semantic_primary_need_before_objective_checklist_order():
+    selector = NextQuestionSelector()
+    context = planning_context()
+    position = CandidateNextMove(
+        candidate_id="position",
+        move_type=CandidateMoveType.MAKE_POSITION_EXPLICIT,
+        target_outcome=ObjectiveOutcome.CURRENT_POSITION_CLEAR,
+    )
+    evidence = CandidateNextMove(
+        candidate_id="evidence",
+        move_type=CandidateMoveType.TEST_EVIDENCE_BOUNDARY,
+        target_outcome=ObjectiveOutcome.EVIDENCE_BOUNDARY_CLEAR,
+        evidence_refs=("PATH:docs/architecture/system.md",),
+    )
+
+    selected, _ = selector.select(
+        context=context,
+        candidates=(position, evidence),
+        semantic_need=PlanningNeed.EVIDENCE_DEFICIT,
+    )
+
+    assert selected.selected_candidate_id == "evidence"
+    assert selected.primary_need is PlanningNeed.EVIDENCE_DEFICIT
+    assert SelectionReasonCode.MATCHES_PRIMARY_NEED in selected.reason_codes
+
+
+def test_evidence_backed_student_challenge_is_application_required_before_downstream_change():
+    selector = NextQuestionSelector()
+    base = planning_context(intent="evidence_dispute")
+    finding_objective = build_review_objective(
+        raw_mode="finding_review",
+        phase_id="A3",
+        challenge=challenge(),
+        related_finding_ids=("finding-17",),
+        objective_id="finding-objective-1",
+    )
+    context = replace(
+        base,
+        review_mode=finding_objective.review_mode,
+        objective=finding_objective,
+        evidence_disputes=({"finding_id": "finding-17", "status": "present"},),
+        finding_states=({"finding_id": "finding-17", "status": "evidence_disputed"},),
+    )
+    evidence_test = CandidateNextMove(
+        candidate_id="evidence-test",
+        move_type=CandidateMoveType.TEST_EVIDENCE_BOUNDARY,
+        target_outcome=ObjectiveOutcome.FINDING_EVIDENCE_TESTED,
+        evidence_refs=("PATH:docs/architecture/system.md",),
+    )
+    downstream = CandidateNextMove(
+        candidate_id="downstream",
+        move_type=CandidateMoveType.ESTABLISH_CHANGE_TRIGGER,
+        target_outcome=ObjectiveOutcome.NEXT_ACTION_OR_UNCERTAINTY_CLEAR,
+    )
+
+    selected, rejected = selector.select(
+        context=context,
+        candidates=(downstream, evidence_test),
+        semantic_need=PlanningNeed.ACTION_OR_CHANGE,
+    )
+
+    assert selected.selected_candidate_id == "evidence-test"
+    assert selected.primary_need is PlanningNeed.STUDENT_CHALLENGE
+    assert selected.primary_need_source.value == "application"
+    rejected_by_id = {item.candidate_id: item for item in rejected}
+    assert (
+        CandidateRejectionCode.DOES_NOT_ADDRESS_REQUIRED_NEED
+        in rejected_by_id["downstream"].rejection_codes
+    )
+
+
+def test_independent_judgment_need_beats_downstream_change_without_global_move_bonus():
+    selector = NextQuestionSelector()
+    context = planning_context()
+    position = CandidateNextMove(
+        candidate_id="position",
+        move_type=CandidateMoveType.MAKE_POSITION_EXPLICIT,
+        target_outcome=ObjectiveOutcome.CURRENT_POSITION_CLEAR,
+    )
+    change = CandidateNextMove(
+        candidate_id="change",
+        move_type=CandidateMoveType.ESTABLISH_CHANGE_TRIGGER,
+        target_outcome=ObjectiveOutcome.CHANGE_OR_CLOSURE_CONDITION_CLEAR,
+    )
+
+    selected, _ = selector.select(
+        context=context,
+        candidates=(change, position),
+        semantic_need=PlanningNeed.INDEPENDENT_JUDGMENT,
+    )
+
+    assert selected.selected_candidate_id == "position"
+    assert selected.primary_need is PlanningNeed.INDEPENDENT_JUDGMENT
+
+
+def test_non_teaching_move_cannot_gain_teaching_authority_from_boolean():
+    selector = NextQuestionSelector()
+    context = planning_context(intent="stuck")
+    mislabeled = CandidateNextMove(
+        candidate_id="mislabeled",
+        move_type=CandidateMoveType.TEST_EVIDENCE_BOUNDARY,
+        target_outcome=ObjectiveOutcome.EVIDENCE_BOUNDARY_CLEAR,
+        evidence_refs=("PATH:docs/architecture/system.md",),
+        teaching_required=True,
+    )
+    teach = CandidateNextMove(
+        candidate_id="teach",
+        move_type=CandidateMoveType.TEACH_CONCEPT,
+        target_outcome=ObjectiveOutcome.CURRENT_POSITION_CLEAR,
+        teaching_required=True,
+    )
+
+    selected, rejected = selector.select(context=context, candidates=(mislabeled, teach))
+
+    assert selected.selected_candidate_id == "teach"
+    rejected_by_id = {item.candidate_id: item for item in rejected}
+    assert CandidateRejectionCode.TEACHING_REQUIRED_FIRST in rejected_by_id["mislabeled"].rejection_codes
+
+
+def test_planner_adds_selectable_teaching_fallback_when_model_teaching_candidate_is_outside_objective():
+    ai = FakePlannerAI(
+        plan_payload={
+            "primary_need": "TEACHING_OR_TEACHBACK",
+            "candidates": [
+                {
+                    "candidate_id": "bad-teach",
+                    "move_type": "TEACH_CONCEPT",
+                    "target_outcome": "FOCUS_UNDERSTOOD",
+                    "evidence_refs": [],
+                    "preferred_reviewer_lens": "chief_architect",
+                    "teaching_required": True,
+                    "reason_codes": [],
+                }
+            ],
+        },
+        realization_payload={
+            "lead_in": "A defensible position must be explainable in your own words.",
+            "question": "What is your current position and why do you hold it?",
+        },
+    )
+
+    outcome = ReviewPlanner(ai=ai).plan_turn(
+        context=planning_context(intent="stuck"),
+        shadow_state=None,
+        current_engine={},
+        turn_sequence=3,
+        client_turn_id="turn-3",
+        operation="respond",
+    )
+
+    assert outcome.signal["status"] == "completed"
+    assert outcome.signal["shadow_planner"]["selected_candidate_id"] == "app-bounded-teaching-fallback"
+    assert outcome.signal["shadow_planner"]["primary_need"] == "TEACHING_OR_TEACHBACK"
+
+
+def test_planner_adds_uncertainty_continuity_fallback_instead_of_reasking_evidence_boundary():
+    ai = FakePlannerAI(
+        plan_payload={
+            "primary_need": "EVIDENCE_DEFICIT",
+            "candidates": [
+                {
+                    "candidate_id": "evidence",
+                    "move_type": "TEST_EVIDENCE_BOUNDARY",
+                    "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
+                    "evidence_refs": ["PATH:docs/architecture/system.md"],
+                    "preferred_reviewer_lens": "evidence_auditor",
+                    "teaching_required": False,
+                    "reason_codes": [],
+                }
+            ],
+        },
+        realization_payload={
+            "lead_in": "",
+            "question": "What evidence or decision would resolve the uncertainty you have identified?",
+        },
+    )
+
+    outcome = ReviewPlanner(ai=ai).plan_turn(
+        context=planning_context(explicit_uncertainty=("Failure behavior is not established.",)),
+        shadow_state=None,
+        current_engine={},
+        turn_sequence=3,
+        client_turn_id="turn-3",
+        operation="respond",
+    )
+
+    assert outcome.signal["status"] == "completed"
+    shadow = outcome.signal["shadow_planner"]
+    assert shadow["primary_need"] == "UNCERTAINTY"
+    assert shadow["primary_need_source"] == "application"
+    assert shadow["selected_candidate_id"] == "app-bounded-uncertainty-fallback"
+    assert shadow["selected_move_type"] == "SURFACE_UNCERTAINTY"
+
+
+def test_realizer_repairs_invalid_wording_once_without_replanning_or_changing_move():
+    ai = FakePlannerAI(
+        realization_payloads=[
+            {
+                "lead_in": "",
+                "question": "What A4 implementation artifact will prove this A3 architecture decision?",
+                "_usage": {"purpose": "review_move_realization_shadow"},
+            },
+            {
+                "lead_in": "",
+                "question": "What current A3 evidence would make you revise this architecture position?",
+                "_usage": {"purpose": "review_move_realization_shadow"},
+            },
+        ]
+    )
+
+    outcome = ReviewPlanner(ai=ai).plan_turn(
+        context=planning_context(),
+        shadow_state=None,
+        current_engine={},
+        turn_sequence=3,
+        client_turn_id="turn-3",
+        operation="respond",
+    )
+
+    assert outcome.signal["status"] == "completed"
+    assert ai.plan_calls == 1
+    assert ai.realization_calls == 2
+    shadow = outcome.signal["shadow_planner"]
+    assert shadow["selected_candidate_id"] == "evidence"
+    assert shadow["realization_repair"]["attempted"] is True
+    assert shadow["realization_repair"]["succeeded"] is True
+    assert shadow["realization_repair"]["initial_rejection_codes"] == ["FUTURE_PHASE_DEMAND"]
+    assert outcome.shadow_state["comparison"]["realization_repair_attempts"] == 1
+    assert outcome.shadow_state["comparison"]["realization_repair_successes"] == 1
+    assert "previous wording was rejected" in ai.last_realizer_system
+
+
 def test_planner_prompt_prioritizes_first_order_defects_over_checklist_coverage():
     ai = FakePlannerAI()
     ReviewPlanner(ai=ai).plan_turn(
@@ -441,6 +690,8 @@ def test_planner_prompt_prioritizes_first_order_defects_over_checklist_coverage(
     assert "already states a meaningful consequence" in ai.last_plan_system
     assert "first-order defects" in ai.last_plan_system
     assert "not a checklist order" in ai.last_plan_system
+    assert "primary_need" in ai.last_plan_system
+    assert "INDEPENDENT_JUDGMENT" in ai.last_plan_system
 
 
 def test_realizer_rejects_future_phase_question_after_selection():
@@ -462,6 +713,9 @@ def test_realizer_rejects_future_phase_question_after_selection():
     assert outcome.signal["status"] == "failed"
     assert outcome.signal["failure_stage"] == "realizer_validation"
     assert "FUTURE_PHASE_DEMAND" in outcome.signal["realization_rejection_codes"]
+    assert outcome.signal["realization_repair"]["attempted"] is True
+    assert outcome.signal["realization_repair"]["succeeded"] is False
+    assert ai.realization_calls == 2
     assert outcome.shadow_state["comparison"]["realization_failures"] == 1
 
 

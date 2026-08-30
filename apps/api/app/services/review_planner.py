@@ -14,14 +14,17 @@ from .review_planning import (
     CandidateRejectionCode,
     ObjectiveOutcome,
     PlanningContext,
+    PlanningNeed,
     SelectionReasonCode,
     SelectionResult,
 )
 from .next_question_selector import (
     NextQuestionSelector,
     allowed_evidence_refs,
+    candidate_addresses_need,
     context_requires_teaching,
     reasoning_dimension_for_outcome,
+    resolve_primary_need,
 )
 
 
@@ -49,6 +52,8 @@ def blank_planning_shadow() -> dict[str, Any]:
             "same_target_as_legacy": 0,
             "different_target_from_legacy": 0,
             "realization_failures": 0,
+            "realization_repair_attempts": 0,
+            "realization_repair_successes": 0,
         },
         "last_plan": None,
     }
@@ -134,9 +139,14 @@ class ReviewPlanner:
             )
         _append_usage(usage_events, planned)
 
-        candidates = _normalize_planner_result(planned)
-        candidates = _ensure_bounded_fallback_candidates(context, candidates)
-        selection, rejected = self.selector.select(context=context, candidates=candidates)
+        semantic_need, candidates = _normalize_planner_result(planned)
+        primary_need, primary_need_source = resolve_primary_need(context, semantic_need)
+        candidates = _ensure_bounded_fallback_candidates(
+            context, candidates, primary_need=primary_need
+        )
+        selection, rejected = self.selector.select(
+            context=context, candidates=candidates, semantic_need=semantic_need
+        )
         if selection is None:
             signal = {
                 "schema_version": PLANNING_SHADOW_SCHEMA_VERSION,
@@ -146,6 +156,9 @@ class ReviewPlanner:
                 "turn_sequence": turn_sequence,
                 "client_turn_id": client_turn_id,
                 "operation": operation,
+                "semantic_primary_need": semantic_need.value if semantic_need else None,
+                "primary_need": primary_need.value if primary_need else None,
+                "primary_need_source": primary_need_source.value if primary_need_source else None,
                 "candidate_count": len(candidates),
                 "candidate_moves": [item.to_dict() for item in candidates],
                 "rejected_candidates": [item.to_dict() for item in rejected],
@@ -178,6 +191,9 @@ class ReviewPlanner:
                 operation=operation,
             )
 
+        realization_repair_attempted = False
+        realization_repair_succeeded = False
+        initial_realization_rejections: tuple[CandidateRejectionCode, ...] = ()
         try:
             realized = self.ai.realize_review_move(
                 _realizer_system_prompt(),
@@ -205,6 +221,43 @@ class ReviewPlanner:
             question=selected_question,
         )
         if realization_rejections:
+            initial_realization_rejections = realization_rejections
+            realization_repair_attempted = True
+            try:
+                repaired = self.ai.realize_review_move(
+                    _realizer_repair_system_prompt(realization_rejections),
+                    _realizer_user_prompt(
+                        context,
+                        selected,
+                        selection,
+                        repair_rejection_codes=realization_rejections,
+                    ),
+                )
+            except Exception as exc:
+                return _failed_after_selection(
+                    shadow,
+                    usage_events=usage_events,
+                    selection=selection,
+                    candidates=candidates,
+                    error_type=type(exc).__name__,
+                    failure_stage="realizer_repair",
+                    turn_sequence=turn_sequence,
+                    client_turn_id=client_turn_id,
+                    operation=operation,
+                    realization_repair_attempted=True,
+                    initial_realization_rejections=initial_realization_rejections,
+                )
+            _append_usage(usage_events, repaired)
+            lead_in, selected_question = _normalize_realization(repaired)
+            realization_rejections = _realization_rejection_codes(
+                context=context,
+                candidate=selected,
+                lead_in=lead_in,
+                question=selected_question,
+            )
+            realization_repair_succeeded = not realization_rejections
+
+        if realization_rejections:
             signal = {
                 "schema_version": PLANNING_SHADOW_SCHEMA_VERSION,
                 "status": "failed",
@@ -213,11 +266,24 @@ class ReviewPlanner:
                 "turn_sequence": turn_sequence,
                 "client_turn_id": client_turn_id,
                 "operation": operation,
+                "semantic_primary_need": semantic_need.value if semantic_need else None,
+                "primary_need": selection.primary_need.value if selection.primary_need else None,
+                "primary_need_source": (
+                    selection.primary_need_source.value if selection.primary_need_source else None
+                ),
                 "candidate_count": len(candidates),
                 "candidate_moves": [item.to_dict() for item in candidates],
                 "selected_candidate_id": selection.selected_candidate_id,
                 "selected_move_type": selection.selected_move_type.value,
                 "target_outcome": selection.target_outcome.value,
+                "realization_repair": {
+                    "attempted": realization_repair_attempted,
+                    "succeeded": False,
+                    "initial_rejection_codes": [
+                        code.value for code in initial_realization_rejections
+                    ],
+                    "final_rejection_codes": [code.value for code in realization_rejections],
+                },
                 "realization_rejection_codes": [code.value for code in realization_rejections],
             }
             return PlanningShadowOutcome(
@@ -229,6 +295,8 @@ class ReviewPlanner:
                     candidate_count=len(candidates),
                     rejected_count=len(selection.rejected_candidates),
                     realization_failure=True,
+                    realization_repair_attempted=realization_repair_attempted,
+                    realization_repair_succeeded=False,
                 ),
                 usage_events=tuple(usage_events),
             )
@@ -253,6 +321,11 @@ class ReviewPlanner:
                 "question": legacy_question,
             },
             "shadow_planner": {
+                "semantic_primary_need": semantic_need.value if semantic_need else None,
+                "primary_need": selection.primary_need.value if selection.primary_need else None,
+                "primary_need_source": (
+                    selection.primary_need_source.value if selection.primary_need_source else None
+                ),
                 "candidate_count": len(candidates),
                 "candidate_moves": [item.to_dict() for item in candidates],
                 "selected_candidate_id": selection.selected_candidate_id,
@@ -265,6 +338,14 @@ class ReviewPlanner:
                 "lead_in": lead_in,
                 "proposed_question": selected_question,
                 "proposed_prompt": proposed_prompt,
+                "realization_repair": {
+                    "attempted": realization_repair_attempted,
+                    "succeeded": realization_repair_succeeded,
+                    "initial_rejection_codes": [
+                        code.value for code in initial_realization_rejections
+                    ],
+                    "final_rejection_codes": [],
+                },
                 "rejected_candidates": [item.to_dict() for item in selection.rejected_candidates],
             },
             "comparison": {
@@ -281,6 +362,8 @@ class ReviewPlanner:
                 candidate_count=len(candidates),
                 rejected_count=len(selection.rejected_candidates),
                 same_target=same_target if selected_legacy_dimension else None,
+                realization_repair_attempted=realization_repair_attempted,
+                realization_repair_succeeded=realization_repair_succeeded,
             ),
             usage_events=tuple(usage_events),
         )
@@ -299,10 +382,22 @@ Authority rules:
 3. Validated shadow reasoning is context; prior-session reasoning is not current proof.
 4. Respect evidence-backed student disagreement and reviewer fallibility.
 5. Legitimate uncertainty is a valid engineering state. Do not force false certainty.
-6. Continue from what the student has already established. Do not propose CLARIFY_CONSEQUENCE
+6. First classify exactly one `primary_need`: the reasoning problem that matters most **now**,
+   not the Review Objective outcome that happens to be next in a list. Use:
+   STUDENT_CHALLENGE for an evidence-backed dispute with the reviewer;
+   TEACHING_OR_TEACHBACK when the student needs bounded teaching or must explain the work;
+   EVIDENCE_DEFICIT for an unsupported/broad claim or missing proof;
+   CONTRADICTION_OR_STALE_STATE for conflicting/stale artifacts or self-correction;
+   UNCERTAINTY for a legitimate unresolved unknown;
+   INDEPENDENT_JUDGMENT for blind reviewer/AI deference; POSITION_CLARITY for a vague position;
+   ACTION_OR_CHANGE for the next bounded action/owner/change condition; STRESS_TEST for testing
+   an otherwise defensible position; CONSEQUENCE for a still-missing material implication; and
+   SYNTHESIS only when the current reasoning is genuinely ready to close or summarize.
+7. Generate candidates that address that primary need before secondary agenda items.
+8. Continue from what the student has already established. Do not propose CLARIFY_CONSEQUENCE
    as the leading move when the newest student turn already states a meaningful consequence or
    decision risk. Resolve the more immediate analytical defect instead.
-7. Treat these first-order defects as higher-value than generic consequence elaboration when they
+9. Treat these first-order defects as higher-value than generic consequence elaboration when they
    are present in the student's newest turn:
    - unsupported/broad claim or missing proof -> TEST_EVIDENCE_BOUNDARY or REQUEST_MISSING_EVIDENCE;
    - stale/conflicting artifacts or self-correction -> RECONCILE_CONTRADICTION,
@@ -311,21 +406,21 @@ Authority rules:
      ESTABLISH_CHANGE_TRIGGER without forcing certainty;
    - blind deference to reviewer/AI or inability to explain AI-assisted work ->
      MAKE_POSITION_EXPLICIT, TEACH_CONCEPT, or REQUEST_TEACH_BACK as appropriate.
-8. Evidence-testing candidates should cite the relevant supplied frozen evidence refs when the
+10. Evidence-testing candidates should cite the relevant supplied frozen evidence refs when the
    move depends on known evidence. Do not omit a valid ref merely to make a generic candidate.
-9. Required Review Objective outcomes are boundaries, not a checklist order. Do not propose a move
+11. Required Review Objective outcomes are boundaries, not a checklist order. Do not propose a move
    merely because an outcome is still unresolved if it would repeat or skip over the student's
    actual reasoning need.
-10. Prefer consequential, evidence-grounded, novel moves over terminology trivia or artifact theater.
-11. Do not ask for future-phase deliverables.
-12. If the student needs direct teaching, propose TEACH_CONCEPT or REQUEST_TEACH_BACK before
+12. Prefer consequential, evidence-grounded, novel moves over terminology trivia or artifact theater.
+13. Do not ask for future-phase deliverables.
+14. If the student needs direct teaching, propose TEACH_CONCEPT or REQUEST_TEACH_BACK before
    continuing ordinary challenge moves.
-13. Return 2-4 genuinely distinct candidates when possible, ordered from highest to lowest value.
+15. Return 2-4 genuinely distinct candidates when possible, ordered from highest to lowest value.
    Each candidate targets exactly one listed objective outcome and uses only allowed move types.
-14. Do NOT draft the student-facing question. A separate realizer runs only after the
+16. Do NOT draft the student-facing question. A separate realizer runs only after the
     application selector locks one move.
-15. Candidate reason codes are descriptive hints only; the application independently selects.
-16. Do not reveal chain-of-thought. Return only the required structured output.
+17. Candidate reason codes are descriptive hints only; the application independently selects.
+18. Do not reveal chain-of-thought. Return only the required structured output.
 """.strip()
 
 
@@ -387,16 +482,37 @@ Rules:
 """.strip()
 
 
+def _realizer_repair_system_prompt(
+    rejection_codes: Sequence[CandidateRejectionCode],
+) -> str:
+    codes = ", ".join(code.value for code in rejection_codes)
+    return (
+        _realizer_system_prompt()
+        + "\n\nThe previous wording was rejected by deterministic validation for: "
+        + codes
+        + ". Repair the wording ONCE while preserving the exact locked move, target outcome, "
+          "evidence boundary, and reviewer lens. Do not re-plan. Do not name a later A-phase when "
+          "the rejection is FUTURE_PHASE_DEMAND. Return one corrected question only in the required "
+          "structured fields."
+    )
+
+
 def _realizer_user_prompt(
     context: PlanningContext,
     candidate: CandidateNextMove,
     selection: SelectionResult,
+    *,
+    repair_rejection_codes: Sequence[CandidateRejectionCode] = (),
 ) -> str:
     payload = {
         "phase_id": context.phase_id,
         "review_mode": context.review_mode.value,
         "review_objective": context.objective.to_dict(),
         "locked_move": candidate.to_dict(),
+        "primary_need": selection.primary_need.value if selection.primary_need else None,
+        "primary_need_source": (
+            selection.primary_need_source.value if selection.primary_need_source else None
+        ),
         "selector_reason_codes": [code.value for code in selection.reason_codes],
         "selected_reviewer_lens": selection.selected_reviewer_lens or context.active_reviewer_lens,
         "frozen_commit_sha": context.commit_sha,
@@ -410,6 +526,7 @@ def _realizer_user_prompt(
         "current_position": context.current_position,
         "committed_position": context.committed_position,
         "assistance_state": context.assistance_state,
+        "repair_rejection_codes": [code.value for code in repair_rejection_codes],
     }
     return sanitize_model_text(
         json.dumps(payload, ensure_ascii=False, separators=(",", ":"))[:12000]
@@ -419,53 +536,145 @@ def _realizer_user_prompt(
 def _ensure_bounded_fallback_candidates(
     context: PlanningContext,
     candidates: Sequence[CandidateNextMove],
+    *,
+    primary_need: PlanningNeed | None,
 ) -> tuple[CandidateNextMove, ...]:
-    """Add a safe teaching fallback only when the context requires teaching.
+    """Guarantee bounded candidates for application-owned continuity needs.
 
-    The semantic planner remains responsible for ordinary candidate generation. The
-    application supplies this fallback solely to prevent a student who clearly needs
-    teaching from receiving no usable next move because the planner omitted every
-    teaching candidate. The fallback never invents evidence and stays inside the
-    locked Review Objective.
+    Ordinary candidate generation remains semantic. These fallbacks exist only where
+    the application already knows the conversation must stay on an evidence-backed
+    challenge, a direct-teaching boundary, or an active legitimate uncertainty. They
+    do not invent evidence or engineering conclusions.
     """
     result = list(candidates)
-    if not context_requires_teaching(context):
-        return tuple(result)
-    if any(
-        item.teaching_required
-        or item.move_type in {CandidateMoveType.TEACH_CONCEPT, CandidateMoveType.REQUEST_TEACH_BACK}
+    allowed = set(context.objective.required_outcomes) | set(context.objective.optional_outcomes)
+    allowed_refs = allowed_evidence_refs(context)
+
+    if primary_need is PlanningNeed.STUDENT_CHALLENGE and not any(
+        candidate_addresses_need(item, PlanningNeed.STUDENT_CHALLENGE)
+        and item.target_outcome in allowed
+        and not (set(item.evidence_refs) - allowed_refs)
         for item in result
     ):
-        return tuple(result)
-
-    allowed = set(context.objective.required_outcomes) | set(context.objective.optional_outcomes)
-    preferred_targets = (
-        ObjectiveOutcome.FOCUS_UNDERSTOOD,
-        ObjectiveOutcome.FINDING_CLAIM_CLEAR,
-        ObjectiveOutcome.CURRENT_POSITION_CLEAR,
-        ObjectiveOutcome.CURRENT_EVIDENCE_ASSESSED,
-        ObjectiveOutcome.EVIDENCE_BOUNDARY_CLEAR,
-    )
-    target = next((item for item in preferred_targets if item in allowed), None)
-    if target is None:
-        return tuple(result)
-
-    result.append(
-        CandidateNextMove(
-            candidate_id="app-bounded-teaching-fallback",
-            move_type=CandidateMoveType.TEACH_CONCEPT,
-            target_outcome=target,
-            evidence_refs=(),
-            preferred_reviewer_lens=context.active_reviewer_lens or None,
-            teaching_required=True,
-            reason_codes=(SelectionReasonCode.MATCHES_ASSISTANCE_LEVEL,),
+        challenge_target = next(
+            (
+                item
+                for item in (
+                    ObjectiveOutcome.FINDING_EVIDENCE_TESTED,
+                    ObjectiveOutcome.EVIDENCE_BOUNDARY_CLEAR,
+                    ObjectiveOutcome.CURRENT_EVIDENCE_ASSESSED,
+                )
+                if item in allowed
+            ),
+            None,
         )
-    )
+        if challenge_target is not None:
+            move_type = (
+                CandidateMoveType.TEST_FINDING_SUPPORT
+                if challenge_target is ObjectiveOutcome.FINDING_EVIDENCE_TESTED
+                else CandidateMoveType.ADDRESS_STUDENT_CHALLENGE
+            )
+            refs = _safe_fallback_evidence_refs(context, allowed_refs)
+            result.append(
+                CandidateNextMove(
+                    candidate_id="app-bounded-challenge-fallback",
+                    move_type=move_type,
+                    target_outcome=challenge_target,
+                    evidence_refs=refs,
+                    preferred_reviewer_lens=context.active_reviewer_lens or None,
+                    teaching_required=False,
+                    reason_codes=(SelectionReasonCode.ADDRESSES_STUDENT_CHALLENGE,),
+                )
+            )
+
+    if primary_need is PlanningNeed.TEACHING_OR_TEACHBACK and not _has_selectable_teaching_candidate(
+        context, result, allowed_refs
+    ):
+        preferred_targets = (
+            ObjectiveOutcome.FOCUS_UNDERSTOOD,
+            ObjectiveOutcome.FINDING_CLAIM_CLEAR,
+            ObjectiveOutcome.CURRENT_POSITION_CLEAR,
+            ObjectiveOutcome.CURRENT_EVIDENCE_ASSESSED,
+            ObjectiveOutcome.EVIDENCE_BOUNDARY_CLEAR,
+        )
+        target = next((item for item in preferred_targets if item in allowed), None)
+        if target is not None:
+            result.append(
+                CandidateNextMove(
+                    candidate_id="app-bounded-teaching-fallback",
+                    move_type=CandidateMoveType.TEACH_CONCEPT,
+                    target_outcome=target,
+                    evidence_refs=(),
+                    preferred_reviewer_lens=context.active_reviewer_lens or None,
+                    teaching_required=True,
+                    reason_codes=(SelectionReasonCode.MATCHES_ASSISTANCE_LEVEL,),
+                )
+            )
+
+    if primary_need is PlanningNeed.UNCERTAINTY and not any(
+        candidate_addresses_need(item, PlanningNeed.UNCERTAINTY)
+        and item.target_outcome in allowed
+        and not (set(item.evidence_refs) - allowed_refs)
+        for item in result
+    ):
+        uncertainty_target = next(
+            (
+                item
+                for item in (
+                    ObjectiveOutcome.NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR,
+                    ObjectiveOutcome.NEXT_ACTION_OR_UNCERTAINTY_CLEAR,
+                    ObjectiveOutcome.UNCERTAINTY_CLEAR,
+                )
+                if item in allowed
+            ),
+            None,
+        )
+        if uncertainty_target is not None:
+            result.append(
+                CandidateNextMove(
+                    candidate_id="app-bounded-uncertainty-fallback",
+                    move_type=CandidateMoveType.SURFACE_UNCERTAINTY,
+                    target_outcome=uncertainty_target,
+                    evidence_refs=_safe_fallback_evidence_refs(context, allowed_refs),
+                    preferred_reviewer_lens=context.active_reviewer_lens or None,
+                    teaching_required=False,
+                    reason_codes=(SelectionReasonCode.PRESERVES_VALID_UNCERTAINTY,),
+                )
+            )
+
     return tuple(result)
 
 
-def _normalize_planner_result(parsed: Mapping[str, Any] | None) -> tuple[CandidateNextMove, ...]:
+def _has_selectable_teaching_candidate(
+    context: PlanningContext,
+    candidates: Sequence[CandidateNextMove],
+    allowed_refs: frozenset[str],
+) -> bool:
+    allowed = set(context.objective.required_outcomes) | set(context.objective.optional_outcomes)
+    return any(
+        item.move_type in {CandidateMoveType.TEACH_CONCEPT, CandidateMoveType.REQUEST_TEACH_BACK}
+        and item.target_outcome in allowed
+        and not (set(item.evidence_refs) - allowed_refs)
+        for item in candidates
+    )
+
+
+def _safe_fallback_evidence_refs(
+    context: PlanningContext, allowed_refs: frozenset[str]
+) -> tuple[str, ...]:
+    ordered = list(context.latest_student_evidence_refs) + list(context.objective_evidence_refs)
+    return tuple(dict.fromkeys(ref for ref in ordered if ref in allowed_refs))[:3]
+
+
+def _normalize_planner_result(
+    parsed: Mapping[str, Any] | None,
+) -> tuple[PlanningNeed | None, tuple[CandidateNextMove, ...]]:
     data = dict(parsed or {})
+    try:
+        semantic_need = PlanningNeed(str(data.get("primary_need") or ""))
+    except ValueError:
+        semantic_need = None
+
     candidates: list[CandidateNextMove] = []
     seen: set[str] = set()
     for raw in (data.get("candidates") or [])[:4]:
@@ -487,6 +696,12 @@ def _normalize_planner_result(parsed: Mapping[str, Any] | None) -> tuple[Candida
                 reason_codes.append(SelectionReasonCode(str(value)))
             except ValueError:
                 continue
+        # A model-provided boolean does not grant teaching authority to an ordinary
+        # analytical move. Only explicit teaching move types carry teaching semantics.
+        teaching_required = move_type in {
+            CandidateMoveType.TEACH_CONCEPT,
+            CandidateMoveType.REQUEST_TEACH_BACK,
+        }
         candidates.append(
             CandidateNextMove(
                 candidate_id=candidate_id,
@@ -494,12 +709,12 @@ def _normalize_planner_result(parsed: Mapping[str, Any] | None) -> tuple[Candida
                 target_outcome=target,
                 evidence_refs=_dedupe_strings(raw.get("evidence_refs") or ()),
                 preferred_reviewer_lens=lens,
-                teaching_required=bool(raw.get("teaching_required", False)),
+                teaching_required=teaching_required,
                 reason_codes=tuple(dict.fromkeys(reason_codes)),
             )
         )
         seen.add(candidate_id)
-    return tuple(candidates)
+    return semantic_need, tuple(candidates)
 
 
 def _normalize_realization(parsed: Mapping[str, Any] | None) -> tuple[str, str]:
@@ -644,6 +859,8 @@ def _update_shadow(
     rejected_count: int = 0,
     same_target: bool | None = None,
     realization_failure: bool = False,
+    realization_repair_attempted: bool = False,
+    realization_repair_succeeded: bool = False,
 ) -> dict[str, Any]:
     updated = ensure_planning_shadow(shadow)
     comparison = updated["comparison"]
@@ -661,6 +878,10 @@ def _update_shadow(
         comparison["different_target_from_legacy"] += 1
     if realization_failure:
         comparison["realization_failures"] += 1
+    if realization_repair_attempted:
+        comparison["realization_repair_attempts"] += 1
+    if realization_repair_succeeded:
+        comparison["realization_repair_successes"] += 1
     updated["last_plan"] = dict(signal)
     return updated
 
@@ -722,6 +943,8 @@ def _failed_after_selection(
     turn_sequence: int,
     client_turn_id: str | None,
     operation: str,
+    realization_repair_attempted: bool = False,
+    initial_realization_rejections: Sequence[CandidateRejectionCode] = (),
 ) -> PlanningShadowOutcome:
     signal = {
         "schema_version": PLANNING_SHADOW_SCHEMA_VERSION,
@@ -731,11 +954,23 @@ def _failed_after_selection(
         "turn_sequence": turn_sequence,
         "client_turn_id": client_turn_id,
         "operation": operation,
+        "primary_need": selection.primary_need.value if selection.primary_need else None,
+        "primary_need_source": (
+            selection.primary_need_source.value if selection.primary_need_source else None
+        ),
         "candidate_count": len(candidates),
         "candidate_moves": [item.to_dict() for item in candidates],
         "selected_candidate_id": selection.selected_candidate_id,
         "selected_move_type": selection.selected_move_type.value,
         "target_outcome": selection.target_outcome.value,
+        "realization_repair": {
+            "attempted": realization_repair_attempted,
+            "succeeded": False,
+            "initial_rejection_codes": [
+                code.value for code in initial_realization_rejections
+            ],
+            "final_rejection_codes": [],
+        },
     }
     return PlanningShadowOutcome(
         signal=signal,
@@ -746,6 +981,7 @@ def _failed_after_selection(
             candidate_count=len(candidates),
             rejected_count=len(selection.rejected_candidates),
             realization_failure=True,
+            realization_repair_attempted=realization_repair_attempted,
         ),
         usage_events=tuple(dict(event) for event in usage_events),
     )

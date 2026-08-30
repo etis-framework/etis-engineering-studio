@@ -78,6 +78,7 @@ class FakeSemanticProvider:
 
     def plan_review_turn(self, system_prompt, user_prompt):
         return {
+            "primary_need": "POSITION_CLARITY",
             "candidates": [
                 {
                     "candidate_id": "shadow-consequence",
@@ -103,9 +104,17 @@ class FakeSemanticProvider:
         }
 
     def realize_review_move(self, system_prompt, user_prompt):
+        payload = json.loads(user_prompt)
+        move = (payload.get("locked_move") or {}).get("move_type")
+        if move == "MAKE_POSITION_EXPLICIT":
+            lead_in = "You have already identified a consequence; now make the engineering judgment explicit."
+            question = "What is your current engineering position given that consequence?"
+        else:
+            lead_in = "Your current reasoning identifies a consequence worth stress-testing."
+            question = "If that consequence occurs, what engineering decision should change first?"
         return {
-            "lead_in": "Your current reasoning identifies a consequence worth stress-testing.",
-            "question": "If that consequence occurs, what engineering decision should change first?",
+            "lead_in": lead_in,
+            "question": question,
             "provider": "fake-planner",
             "model": "planner-model",
         }
@@ -415,7 +424,11 @@ def test_shadow_review_planning_records_comparison_without_changing_live_questio
             # already surfaced a consequence, so the shadow selector should continue
             # toward an explicit engineering position rather than re-ask consequence.
             assert planning["last_plan"]["shadow_planner"]["selected_move_type"] == "MAKE_POSITION_EXPLICIT"
-            assert planning["last_plan"]["shadow_planner"]["proposed_question"].startswith("If that consequence")
+            assert planning["last_plan"]["shadow_planner"]["primary_need"] == "POSITION_CLARITY"
+            assert planning["last_plan"]["shadow_planner"]["primary_need_source"] == "semantic"
+            assert planning["last_plan"]["shadow_planner"]["proposed_question"].startswith(
+                "What is your current engineering position"
+            )
             student_turn = (
                 db.query(ReviewTurn)
                 .filter_by(session_id=sid, client_turn_id="planning-shadow-turn-1")

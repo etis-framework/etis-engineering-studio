@@ -72,6 +72,26 @@ class SubjectType(str, Enum):
     FINDING = "finding"
 
 
+class PlanningNeed(str, Enum):
+    STUDENT_CHALLENGE = "STUDENT_CHALLENGE"
+    TEACHING_OR_TEACHBACK = "TEACHING_OR_TEACHBACK"
+    EVIDENCE_DEFICIT = "EVIDENCE_DEFICIT"
+    CONTRADICTION_OR_STALE_STATE = "CONTRADICTION_OR_STALE_STATE"
+    UNCERTAINTY = "UNCERTAINTY"
+    INDEPENDENT_JUDGMENT = "INDEPENDENT_JUDGMENT"
+    POSITION_CLARITY = "POSITION_CLARITY"
+    ACTION_OR_CHANGE = "ACTION_OR_CHANGE"
+    STRESS_TEST = "STRESS_TEST"
+    CONSEQUENCE = "CONSEQUENCE"
+    SYNTHESIS = "SYNTHESIS"
+
+
+class PlanningNeedSource(str, Enum):
+    APPLICATION = "application"
+    SEMANTIC = "semantic"
+    FALLBACK = "fallback"
+
+
 class CandidateMoveType(str, Enum):
     CLARIFY_CONSEQUENCE = "CLARIFY_CONSEQUENCE"
     TEST_EVIDENCE_BOUNDARY = "TEST_EVIDENCE_BOUNDARY"
@@ -107,6 +127,8 @@ class SelectionReasonCode(str, Enum):
     REVIEWER_CORRECTION_REQUIRED = "REVIEWER_CORRECTION_REQUIRED"
     SUPPORTS_OBJECTIVE_CLOSURE = "SUPPORTS_OBJECTIVE_CLOSURE"
     PRESERVES_VALID_UNCERTAINTY = "PRESERVES_VALID_UNCERTAINTY"
+    MATCHES_PRIMARY_NEED = "MATCHES_PRIMARY_NEED"
+    APPLICATION_CONTINUITY_REQUIRED = "APPLICATION_CONTINUITY_REQUIRED"
 
 
 class CandidateRejectionCode(str, Enum):
@@ -124,6 +146,7 @@ class CandidateRejectionCode(str, Enum):
     TOO_BROAD = "TOO_BROAD"
     NOT_ACTIONABLE_NOW = "NOT_ACTIONABLE_NOW"
     LOWER_VALUE_THAN_SELECTED = "LOWER_VALUE_THAN_SELECTED"
+    DOES_NOT_ADDRESS_REQUIRED_NEED = "DOES_NOT_ADDRESS_REQUIRED_NEED"
 
 
 @dataclass(frozen=True)
@@ -222,6 +245,8 @@ class SelectionResult:
     target_outcome: ObjectiveOutcome
     selected_reviewer_lens: str | None = None
     teaching_required: bool = False
+    primary_need: PlanningNeed | None = None
+    primary_need_source: PlanningNeedSource | None = None
     reason_codes: tuple[SelectionReasonCode, ...] = ()
     rejected_candidates: tuple[CandidateRejection, ...] = ()
 

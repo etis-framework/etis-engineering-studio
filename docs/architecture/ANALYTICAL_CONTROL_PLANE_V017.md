@@ -204,15 +204,19 @@ The shadow path is intentionally split into three authorities:
 
 ```text
 Planning Context
-  -> semantic Review Planner proposes 2-4 Candidate Next Moves
-  -> application-owned Next-Question Selector rejects/ranks candidates
+  -> semantic Review Planner identifies one current Planning Need + proposes 2-4 Candidate Next Moves
+  -> application-owned continuity rules may override the advisory Planning Need
+  -> application-owned Next-Question Selector rejects/ranks candidates within that need
   -> semantic move realizer phrases only the locked selected move
+  -> one same-move wording repair is allowed after deterministic realization rejection
   -> current-vs-shadow comparison telemetry
 ```
 
-The planner is not allowed to draft the student-facing question. The selector is deterministic after candidate generation. The realizer receives only the selected move; it cannot switch objective outcomes or re-plan. Neither shadow model call receives the current engine's newly generated question, which prevents the shadow comparison from simply copying production output.
+The planner is not allowed to draft the student-facing question. The selector is deterministic after candidate generation. `PlanningNeed` is a bounded description of the reasoning problem that matters now; it is not a new Review Objective, grading dimension, or completion state. The application can override the model's advisory need when authoritative conversation state already establishes an evidence-backed student challenge, required teaching, active legitimate uncertainty, or self-correction. The realizer receives only the selected move; it cannot switch objective outcomes or re-plan. Neither shadow model call receives the current engine's newly generated question, which prevents the shadow comparison from simply copying production output.
 
-The selector rejects candidates that are outside the Review Objective, cite unauthorized frozen evidence, target an already validated outcome, bypass needed teaching, or attempt premature closure. Student disagreement/evidence-dispute moves receive explicit priority when appropriate. After selection, the realized question is rejected if it repeats a recent reviewer question, demands a future phase, explicitly cites unauthorized evidence, degenerates into generic trivia, or becomes artifact theater. Invalid realization is recorded as failed shadow telemetry and never affects the student turn.
+The selector rejects candidates that are outside the Review Objective, cite unauthorized frozen evidence, improperly repeat an already established outcome, bypass needed teaching, abandon an active evidence-backed student challenge, or attempt premature closure. Selection is lexicographic: candidates addressing the current Planning Need are considered before objective-completeness, evidence-grounding, conversational-continuity, and planner-order tie breakers. Global move-type bonuses are intentionally absent so an unresolved objective cannot silently become a checklist priority. Only explicit `TEACH_CONCEPT` and `REQUEST_TEACH_BACK` moves satisfy an application-required teaching boundary; a model-provided boolean cannot grant teaching authority to an ordinary analytical move.
+
+After selection, the realized question is rejected if it repeats a recent reviewer question, demands a future phase, explicitly cites unauthorized evidence, degenerates into generic trivia, or becomes artifact theater. PR4G permits exactly one wording repair after such deterministic rejection. The selected move, target outcome, evidence refs, and reviewer lens remain locked and the planner is not called again. If the repaired wording still fails validation, shadow planning fails closed exactly as before and never affects the student turn.
 
 Shadow planning state is stored under `review_control.planning_shadow`; detailed per-turn comparison data is stored in `ReviewTurn.signals_json`. Normal Review Room responses strip both planning and reasoning shadow state/signals. The student sees no shadow question, score, selector reason code, or experimental outcome.
 
@@ -253,6 +257,26 @@ It contains the bounded authoritative inputs the PR3 shadow planner needs:
 - active reviewer lens.
 
 The planner must reconstruct this context from authoritative persisted records rather than maintain an opaque private memory that can drift across turns or replicas.
+
+## Planning Need
+
+PR4G inserts one bounded control-plane abstraction between `PlanningContext` and candidate selection. The Review Objective still answers *where this review is ultimately going*. `PlanningNeed` answers *what reasoning problem is most important to address now*. A Candidate Next Move answers *what bounded engineering move can address that need*.
+
+The allowed needs are:
+
+- `STUDENT_CHALLENGE`;
+- `TEACHING_OR_TEACHBACK`;
+- `EVIDENCE_DEFICIT`;
+- `CONTRADICTION_OR_STALE_STATE`;
+- `UNCERTAINTY`;
+- `INDEPENDENT_JUDGMENT`;
+- `POSITION_CLARITY`;
+- `ACTION_OR_CHANGE`;
+- `STRESS_TEST`;
+- `CONSEQUENCE`;
+- `SYNTHESIS`.
+
+The semantic planner returns exactly one advisory `primary_need` in the same structured call that returns candidates; PR4G adds no extra model call. Application-owned continuity has precedence for evidence-backed reviewer disputes, direct-teaching requirements, active legitimate uncertainty that has not yet been validated, and explicit self-correction. The selected need and its source (`application`, `semantic`, or bounded compatibility fallback) are retained only in internal shadow telemetry. They do not alter student-visible reasoning state or evidence authority.
 
 ## Candidate Next Move
 
@@ -313,6 +337,14 @@ The selector also distinguishes **reasoning demonstrated** from **objective exha
 When the bounded assistance state requires direct teaching but the semantic planner omits every teaching candidate, the application adds one narrow `TEACH_CONCEPT` fallback inside the locked Review Objective. The fallback invents no evidence, changes no engineering decision, and exists only to prevent a student who needs help from receiving no usable analytical move. Ordinary candidate generation remains semantic-model responsibility.
 
 Internal shadow telemetry now records the bounded candidate move set as well as the selected/rejected result. This is not student-visible and contains no chain-of-thought; it exists so replicated evaluation can distinguish candidate-generation defects from selector-priority defects before selected planning is ever enabled.
+
+### PR4G planning-need and continuity refinement
+
+The post-PR4E replicated baseline showed a different residual shape from PR4D: most of the original stable planner failures improved, while the remaining defects split across challenge continuity, teaching eligibility, legitimate-uncertainty continuity, and realization wording. PR4G therefore does not add another global selector weight calibration.
+
+The selector now uses a need-first lexicographic priority vector instead of additive move bonuses. This preserves multiple defensible moves within one reasoning need while preventing generic required-outcome weight from becoming a hidden checklist. Evidence-backed student challenges are application-required continuity: downstream action/change candidates are temporarily ineligible until the disputed REVIEW claim/evidence has been tested. When direct teaching is required, only explicit teaching/teach-back moves qualify; if the semantic planner generated no selectable teaching move, the application may add one neutral `TEACH_CONCEPT` candidate inside the locked objective. Likewise, when legitimate uncertainty is active and the planner omitted an appropriate uncertainty-resolution move, the application may add one bounded `SURFACE_UNCERTAINTY` candidate using only authorized evidence context.
+
+PR4G also records `semantic_primary_need`, effective `primary_need`, `primary_need_source`, and bounded realization-repair telemetry. Replicated evaluation reports stability for these fields separately from selected-move stability so the team can distinguish unstable diagnosis of the student's current reasoning need from healthy variation among multiple good moves addressing the same need.
 
 ## Reviewer persona boundary
 

@@ -10,6 +10,8 @@ from .review_planning import (
     CandidateRejectionCode,
     ObjectiveOutcome,
     PlanningContext,
+    PlanningNeed,
+    PlanningNeedSource,
     SelectionReasonCode,
     SelectionResult,
 )
@@ -137,12 +139,66 @@ _OUTCOME_REASONING_DIMENSION: dict[ObjectiveOutcome, str] = {
 _ASSISTANCE_INTENTS = frozenset(
     {"stuck", "answer_seeking", "frustration", "misconception", "simplify_request"}
 )
-_CHALLENGE_INTENTS = frozenset(
-    {"disagreement", "evidence_dispute", "self_correction", "meta_misunderstood"}
-)
 _CLOSURE_MOVES = frozenset(
     {CandidateMoveType.SYNTHESIZE_OBJECTIVE, CandidateMoveType.CLOSE_WITH_UNRESOLVED_EVIDENCE}
 )
+_TEACHING_MOVES = frozenset(
+    {CandidateMoveType.TEACH_CONCEPT, CandidateMoveType.REQUEST_TEACH_BACK}
+)
+_ACTIVE_CHALLENGE_INTENTS = frozenset({"disagreement", "evidence_dispute", "meta_misunderstood"})
+_NEED_MOVES: dict[PlanningNeed, frozenset[CandidateMoveType]] = {
+    PlanningNeed.TEACHING_OR_TEACHBACK: _TEACHING_MOVES,
+    PlanningNeed.EVIDENCE_DEFICIT: frozenset(
+        {
+            CandidateMoveType.TEST_EVIDENCE_BOUNDARY,
+            CandidateMoveType.REQUEST_MISSING_EVIDENCE,
+            CandidateMoveType.TEST_FINDING_SUPPORT,
+        }
+    ),
+    PlanningNeed.CONTRADICTION_OR_STALE_STATE: frozenset(
+        {
+            CandidateMoveType.RECONCILE_CONTRADICTION,
+            CandidateMoveType.CLARIFY_ACTION_BOUNDARY,
+            CandidateMoveType.ESTABLISH_CHANGE_TRIGGER,
+        }
+    ),
+    PlanningNeed.UNCERTAINTY: frozenset(
+        {
+            CandidateMoveType.SURFACE_UNCERTAINTY,
+            CandidateMoveType.REQUEST_MISSING_EVIDENCE,
+            CandidateMoveType.ESTABLISH_CHANGE_TRIGGER,
+            CandidateMoveType.CLOSE_WITH_UNRESOLVED_EVIDENCE,
+        }
+    ),
+    PlanningNeed.INDEPENDENT_JUDGMENT: frozenset(
+        {
+            CandidateMoveType.MAKE_POSITION_EXPLICIT,
+            CandidateMoveType.STRESS_TEST_POSITION,
+            CandidateMoveType.REQUEST_TEACH_BACK,
+        }
+    ),
+    PlanningNeed.POSITION_CLARITY: frozenset(
+        {CandidateMoveType.MAKE_POSITION_EXPLICIT, CandidateMoveType.STRESS_TEST_POSITION}
+    ),
+    PlanningNeed.ACTION_OR_CHANGE: frozenset(
+        {
+            CandidateMoveType.CLARIFY_ACTION_BOUNDARY,
+            CandidateMoveType.ESTABLISH_OWNERSHIP,
+            CandidateMoveType.ESTABLISH_CHANGE_TRIGGER,
+        }
+    ),
+    PlanningNeed.STRESS_TEST: frozenset(
+        {
+            CandidateMoveType.STRESS_TEST_POSITION,
+            CandidateMoveType.TEST_TRADEOFF,
+            CandidateMoveType.TEST_EVIDENCE_BOUNDARY,
+        }
+    ),
+    PlanningNeed.CONSEQUENCE: frozenset(
+        {CandidateMoveType.CLARIFY_CONSEQUENCE, CandidateMoveType.STRESS_TEST_POSITION}
+    ),
+    PlanningNeed.SYNTHESIS: _CLOSURE_MOVES,
+}
 
 
 def reasoning_dimension_for_outcome(outcome: ObjectiveOutcome) -> str | None:
@@ -153,9 +209,11 @@ def reasoning_dimension_for_outcome(outcome: ObjectiveOutcome) -> str | None:
 class NextQuestionSelector:
     """Application-owned selector for semantic planner candidates.
 
-    Selection is deterministic after the model proposes a bounded candidate set.
-    Hard authority constraints run before ranking. No model can bypass these
-    objective, evidence, assistance, or validated-state checks.
+    Selection is deterministic after the model proposes a bounded primary analytical
+    need and candidate set. Hard authority/continuity constraints run before ranking.
+    Ranking is lexicographic rather than an additive global score so unresolved Review
+    Objective fields cannot behave like a hidden checklist that overwhelms the student's
+    current reasoning need.
     """
 
     def select(
@@ -163,12 +221,25 @@ class NextQuestionSelector:
         *,
         context: PlanningContext,
         candidates: Sequence[CandidateNextMove],
+        semantic_need: PlanningNeed | None = None,
     ) -> tuple[SelectionResult | None, tuple[CandidateRejection, ...]]:
         allowed_outcomes = set(context.objective.required_outcomes) | set(context.objective.optional_outcomes)
         allowed_refs = allowed_evidence_refs(context)
         rejected: list[CandidateRejection] = []
-        selectable: list[tuple[int, int, CandidateNextMove, tuple[SelectionReasonCode, ...]]] = []
+        selectable: list[
+            tuple[tuple[int, int, int, int, int, int], int, CandidateNextMove, tuple[SelectionReasonCode, ...]]
+        ] = []
         assistance_needed = context_requires_teaching(context)
+        primary_need, need_source = resolve_primary_need(context, semantic_need)
+        if primary_need is None and any(
+            _is_teaching_move(candidate) and candidate.teaching_required for candidate in candidates
+        ):
+            # Compatibility/safety fallback for callers predating the structured
+            # primary_need field: an explicit teaching move may signal the need, but
+            # a boolean on an ordinary analytical move never can.
+            primary_need = PlanningNeed.TEACHING_OR_TEACHBACK
+            need_source = PlanningNeedSource.FALLBACK
+        challenge_required = primary_need is PlanningNeed.STUDENT_CHALLENGE
 
         for index, candidate in enumerate(candidates):
             rejection_codes: list[CandidateRejectionCode] = []
@@ -185,6 +256,8 @@ class NextQuestionSelector:
                 rejection_codes.append(CandidateRejectionCode.ALREADY_ESTABLISHED)
             if assistance_needed and not _is_teaching_move(candidate):
                 rejection_codes.append(CandidateRejectionCode.TEACHING_REQUIRED_FIRST)
+            if challenge_required and not candidate_addresses_need(candidate, PlanningNeed.STUDENT_CHALLENGE):
+                rejection_codes.append(CandidateRejectionCode.DOES_NOT_ADDRESS_REQUIRED_NEED)
             if candidate.move_type in _CLOSURE_MOVES and not _closure_move_allowed(context, candidate):
                 rejection_codes.append(CandidateRejectionCode.CONFLICTS_WITH_LOCKED_PURPOSE)
 
@@ -197,8 +270,10 @@ class NextQuestionSelector:
                 )
                 continue
 
-            score, reasons = _score_candidate(context, candidate)
-            selectable.append((score, -index, candidate, reasons))
+            priority, reasons = _candidate_priority(
+                context, candidate, primary_need=primary_need, need_source=need_source
+            )
+            selectable.append((priority, -index, candidate, reasons))
 
         if not selectable:
             return None, tuple(rejected)
@@ -218,7 +293,9 @@ class NextQuestionSelector:
             selected_move_type=selected.move_type,
             target_outcome=selected.target_outcome,
             selected_reviewer_lens=selected.preferred_reviewer_lens,
-            teaching_required=selected.teaching_required,
+            teaching_required=_is_teaching_move(selected),
+            primary_need=primary_need,
+            primary_need_source=need_source,
             reason_codes=reasons,
             rejected_candidates=tuple(rejected),
         )
@@ -263,51 +340,61 @@ def allowed_evidence_refs(context: PlanningContext) -> frozenset[str]:
     return frozenset(refs)
 
 
-def _score_candidate(
+def _candidate_priority(
     context: PlanningContext,
     candidate: CandidateNextMove,
-) -> tuple[int, tuple[SelectionReasonCode, ...]]:
-    score = 0
+    *,
+    primary_need: PlanningNeed | None,
+    need_source: PlanningNeedSource | None,
+) -> tuple[tuple[int, int, int, int, int, int], tuple[SelectionReasonCode, ...]]:
+    """Return a lexicographic priority vector plus observable reason codes.
+
+    The primary reasoning need wins first. Objective completeness, evidence grounding,
+    and conversational continuity only order candidates *within* that need. This avoids
+    replacing PR3's old consequence bias with a different hidden checklist bias.
+    """
     reasons: list[SelectionReasonCode] = [
         SelectionReasonCode.ADVANCES_OBJECTIVE,
         SelectionReasonCode.PHASE_APPROPRIATE,
         SelectionReasonCode.NOVEL_VS_PRIOR_QUESTIONS,
     ]
+    matches_need = bool(primary_need and candidate_addresses_need(candidate, primary_need))
+    if matches_need:
+        reasons.append(SelectionReasonCode.MATCHES_PRIMARY_NEED)
+        if need_source is PlanningNeedSource.APPLICATION:
+            reasons.append(SelectionReasonCode.APPLICATION_CONTINUITY_REQUIRED)
+
     required = candidate.target_outcome in set(context.objective.required_outcomes)
     status = _outcome_status(context, candidate.target_outcome)
     if required:
-        score += 55
         reasons.append(SelectionReasonCode.TARGETS_REQUIRED_UNRESOLVED_OUTCOME)
+
+    if required and status == ReasoningStatus.UNESTABLISHED.value:
+        objective_rank = 4
+    elif required and status == ReasoningStatus.PARTIAL.value:
+        objective_rank = 3
+    elif not required and status == ReasoningStatus.UNESTABLISHED.value:
+        objective_rank = 2
+    elif not required and status == ReasoningStatus.PARTIAL.value:
+        objective_rank = 1
     else:
-        score += 12
-    if status == ReasoningStatus.UNESTABLISHED.value:
-        score += 30
-    elif status == ReasoningStatus.PARTIAL.value:
-        score += 22
+        objective_rank = 0
 
+    evidence_rank = 0
     if candidate.evidence_refs:
-        score += 16
+        evidence_rank = 2
         reasons.append(SelectionReasonCode.EVIDENCE_GROUNDED)
-    elif candidate.move_type is CandidateMoveType.REQUEST_MISSING_EVIDENCE:
-        score += 18
-        reasons.append(SelectionReasonCode.EVIDENCE_GAP_IS_THE_OBJECT)
-    elif candidate.move_type is CandidateMoveType.TEST_EVIDENCE_BOUNDARY:
-        # Testing an evidence boundary is itself an analytical action even when
-        # the planner does not attach a specific path. Do not let a generic
-        # consequence probe win merely because the model omitted an otherwise
-        # optional candidate evidence reference.
-        score += 10
+    elif candidate.move_type in {
+        CandidateMoveType.REQUEST_MISSING_EVIDENCE,
+        CandidateMoveType.TEST_EVIDENCE_BOUNDARY,
+    }:
+        evidence_rank = 1
         reasons.append(SelectionReasonCode.EVIDENCE_GAP_IS_THE_OBJECT)
 
-    if set(candidate.evidence_refs) & set(context.latest_student_evidence_refs):
-        score += 10
+    continuity_rank = int(bool(set(candidate.evidence_refs) & set(context.latest_student_evidence_refs)))
+    if continuity_rank:
         reasons.append(SelectionReasonCode.CONTINUES_STUDENT_REASONING)
 
-    # Consequence is important, but it is not a universal tie-breaker. In the
-    # replicated PR4D baseline, the old unconditional consequence bonus caused
-    # the selector to re-ask implications after students had already surfaced
-    # a more immediate evidence, contradiction, uncertainty, or understanding
-    # defect. Keep the reason code for observability without adding rank weight.
     if candidate.target_outcome in {
         ObjectiveOutcome.ENGINEERING_CONSEQUENCE_CLEAR,
         ObjectiveOutcome.IMPORTANT_IMPLICATION_CLEAR,
@@ -315,26 +402,12 @@ def _score_candidate(
     }:
         reasons.append(SelectionReasonCode.HIGH_ENGINEERING_CONSEQUENCE)
 
-    if context_requires_teaching(context) and _is_teaching_move(candidate):
-        score += 60
-        reasons.append(SelectionReasonCode.MATCHES_ASSISTANCE_LEVEL)
-    elif candidate.teaching_required and _is_teaching_move(candidate):
-        # The semantic planner can independently recognize a teach-back need
-        # from the student's words even when the upstream intent classifier did
-        # not. Give that bounded signal meaningful but non-authoritative weight.
-        score += 30
-        reasons.append(SelectionReasonCode.MATCHES_ASSISTANCE_LEVEL)
-    elif not candidate.teaching_required:
-        score += 5
+    if _is_teaching_move(candidate):
         reasons.append(SelectionReasonCode.MATCHES_ASSISTANCE_LEVEL)
 
-    intent = str(context.assistance_state.get("interpreted_intent") or "").lower()
-    if intent in _CHALLENGE_INTENTS and candidate.move_type in {
-        CandidateMoveType.ADDRESS_STUDENT_CHALLENGE,
-        CandidateMoveType.RECONCILE_CONTRADICTION,
-        CandidateMoveType.TEST_FINDING_SUPPORT,
-    }:
-        score += 55
+    if primary_need is PlanningNeed.STUDENT_CHALLENGE and candidate_addresses_need(
+        candidate, PlanningNeed.STUDENT_CHALLENGE
+    ):
         reasons.append(SelectionReasonCode.ADDRESSES_STUDENT_CHALLENGE)
         if context.evidence_disputes or any(
             str(item.get("status") or "") in {"corrected", "evidence_disputed"}
@@ -342,44 +415,84 @@ def _score_candidate(
         ):
             reasons.append(SelectionReasonCode.REVIEWER_CORRECTION_REQUIRED)
 
-    if _has_active_uncertainty(context) and candidate.move_type in {
-        CandidateMoveType.SURFACE_UNCERTAINTY,
-        CandidateMoveType.REQUEST_MISSING_EVIDENCE,
-        CandidateMoveType.ESTABLISH_CHANGE_TRIGGER,
-        CandidateMoveType.CLOSE_WITH_UNRESOLVED_EVIDENCE,
-    }:
-        score += 50
+    if primary_need is PlanningNeed.UNCERTAINTY or (
+        _has_active_uncertainty(context)
+        and candidate_addresses_need(candidate, PlanningNeed.UNCERTAINTY)
+    ):
         reasons.append(SelectionReasonCode.PRESERVES_VALID_UNCERTAINTY)
-
-    if intent == "self_correction" and candidate.move_type in {
-        CandidateMoveType.CLARIFY_ACTION_BOUNDARY,
-        CandidateMoveType.ESTABLISH_CHANGE_TRIGGER,
-    }:
-        score += 30
-        reasons.append(SelectionReasonCode.CONTINUES_STUDENT_REASONING)
-
-    # Small tie-breakers express conversational value, not a hidden universal
-    # checklist. They matter only after objective/validation/context scoring.
-    if candidate.move_type is CandidateMoveType.MAKE_POSITION_EXPLICIT:
-        score += 6
-    elif candidate.move_type in {
-        CandidateMoveType.CLARIFY_ACTION_BOUNDARY,
-        CandidateMoveType.ESTABLISH_CHANGE_TRIGGER,
-    }:
-        score += 8
-    elif candidate.move_type is CandidateMoveType.ESTABLISH_OWNERSHIP:
-        score += 4
 
     if candidate.move_type in _CLOSURE_MOVES:
-        score += 5
         reasons.append(SelectionReasonCode.SUPPORTS_OBJECTIVE_CLOSURE)
-    if candidate.move_type in {
-        CandidateMoveType.SURFACE_UNCERTAINTY,
-        CandidateMoveType.CLOSE_WITH_UNRESOLVED_EVIDENCE,
-    }:
-        reasons.append(SelectionReasonCode.PRESERVES_VALID_UNCERTAINTY)
 
-    return score, tuple(dict.fromkeys(reasons))
+    # Do not add global move-type bonuses here. The semantic planner's order is the
+    # final tie-break after the application has enforced need, objective, evidence,
+    # and continuity constraints.
+    priority = (
+        int(matches_need),
+        objective_rank,
+        evidence_rank,
+        continuity_rank,
+        int(required),
+        int(not _is_teaching_move(candidate) or context_requires_teaching(context)),
+    )
+    return priority, tuple(dict.fromkeys(reasons))
+
+
+def resolve_primary_need(
+    context: PlanningContext, semantic_need: PlanningNeed | None
+) -> tuple[PlanningNeed | None, PlanningNeedSource | None]:
+    application_need = _application_primary_need(context)
+    if application_need is not None:
+        return application_need, PlanningNeedSource.APPLICATION
+    if semantic_need is not None:
+        return semantic_need, PlanningNeedSource.SEMANTIC
+    return None, None
+
+
+def candidate_addresses_need(candidate: CandidateNextMove, need: PlanningNeed) -> bool:
+    if need is PlanningNeed.STUDENT_CHALLENGE:
+        if candidate.move_type in {
+            CandidateMoveType.ADDRESS_STUDENT_CHALLENGE,
+            CandidateMoveType.TEST_FINDING_SUPPORT,
+            CandidateMoveType.RECONCILE_CONTRADICTION,
+        }:
+            return True
+        return (
+            candidate.move_type in {
+                CandidateMoveType.TEST_EVIDENCE_BOUNDARY,
+                CandidateMoveType.REQUEST_MISSING_EVIDENCE,
+            }
+            and candidate.target_outcome is ObjectiveOutcome.FINDING_EVIDENCE_TESTED
+        )
+    return candidate.move_type in _NEED_MOVES.get(need, frozenset())
+
+
+def _application_primary_need(context: PlanningContext) -> PlanningNeed | None:
+    if _has_active_student_challenge(context):
+        return PlanningNeed.STUDENT_CHALLENGE
+    if context_requires_teaching(context):
+        return PlanningNeed.TEACHING_OR_TEACHBACK
+    if (
+        _has_active_uncertainty(context)
+        and _outcome_status(context, ObjectiveOutcome.UNCERTAINTY_CLEAR) != ReasoningStatus.VALIDATED.value
+    ):
+        return PlanningNeed.UNCERTAINTY
+    intent = str(context.assistance_state.get("interpreted_intent") or "").lower()
+    if intent == "self_correction":
+        return PlanningNeed.CONTRADICTION_OR_STALE_STATE
+    return None
+
+
+def _has_active_student_challenge(context: PlanningContext) -> bool:
+    intent = str(context.assistance_state.get("interpreted_intent") or "").lower()
+    if intent not in _ACTIVE_CHALLENGE_INTENTS:
+        return False
+    if context.latest_student_evidence_refs or context.evidence_disputes or context.reviewer_corrections:
+        return True
+    return any(
+        str(item.get("status") or "") in {"corrected", "evidence_disputed"}
+        for item in context.finding_states
+    )
 
 
 def _outcome_status(context: PlanningContext, outcome: ObjectiveOutcome) -> str:
@@ -427,10 +540,9 @@ def _can_deepen_validated_outcome(candidate: CandidateNextMove) -> bool:
 
 
 def _is_teaching_move(candidate: CandidateNextMove) -> bool:
-    return candidate.teaching_required or candidate.move_type in {
-        CandidateMoveType.TEACH_CONCEPT,
-        CandidateMoveType.REQUEST_TEACH_BACK,
-    }
+    # The planner's boolean is advisory metadata, not authority. Only explicit
+    # teaching move types satisfy an application-required teaching boundary.
+    return candidate.move_type in _TEACHING_MOVES
 
 
 def _closure_move_allowed(context: PlanningContext, candidate: CandidateNextMove) -> bool:
