@@ -60,7 +60,7 @@ from scripts.analytical_eval_support import (
 RUBRIC_PATH = ROOT / "evals" / "analytical_engine_rubric.json"
 CASES_PATH = ROOT / "evals" / "analytical_engine_cases.json"
 ACQUISITION_SCHEMA_VERSION = 1
-REPORT_SCHEMA_VERSION = 3
+REPORT_SCHEMA_VERSION = 4
 
 
 def parse_args() -> argparse.Namespace:
@@ -522,6 +522,7 @@ def _stability_report(
     ]
     metric_extractors = {
         "reasoning_pass": lambda raw, scored: (scored.get("reasoning") or {}).get("score", {}).get("pass"),
+        "reasoning_complete": lambda raw, scored: (scored.get("reasoning") or {}).get("score", {}).get("complete"),
         "planning_pass": lambda raw, scored: (scored.get("planning") or {}).get("score", {}).get("pass"),
         "interpreted_intent": lambda raw, scored: (raw.get("current") or {}).get("interpreted_intent"),
         "legacy_target": lambda raw, scored: (raw.get("current") or {}).get("target_move"),
@@ -714,6 +715,7 @@ def _print_stability(stability: Mapping[str, Any]) -> None:
     metrics = dict(stability.get("metrics") or {})
     for name in (
         "reasoning_pass",
+        "reasoning_complete",
         "planning_pass",
         "interpreted_intent",
         "legacy_target",
@@ -925,6 +927,27 @@ def _report(results: list[dict[str, Any]]) -> dict[str, Any]:
     summary["reasoning_pass_rate"] = _rate(
         sum(bool(row["reasoning"]["score"]["pass"]) for row in reasoning_rows), len(reasoning_rows)
     )
+    reasoning_judgment_count = sum(
+        int(row["reasoning"]["score"].get("requested_dimension_count") or 0)
+        for row in reasoning_rows
+    )
+    reasoning_missing_result_count = sum(
+        int(row["reasoning"]["score"].get("missing_result_count") or 0)
+        for row in reasoning_rows
+    )
+    summary["reasoning_dimension_judgment_count"] = reasoning_judgment_count
+    summary["reasoning_missing_result_count"] = reasoning_missing_result_count
+    summary["reasoning_validator_completeness_rate"] = _rate(
+        reasoning_judgment_count - reasoning_missing_result_count,
+        reasoning_judgment_count,
+    )
+    summary["reasoning_complete_case_count"] = sum(
+        bool(row["reasoning"]["score"].get("complete")) for row in reasoning_rows
+    )
+    summary["reasoning_complete_case_rate"] = _rate(
+        summary["reasoning_complete_case_count"],
+        len(reasoning_rows),
+    )
     summary["planning_pass_rate"] = _rate(
         sum(bool(row["planning"]["score"]["pass"]) for row in planning_rows), len(planning_rows)
     )
@@ -961,9 +984,28 @@ def _report(results: list[dict[str, Any]]) -> dict[str, Any]:
         phase_rows = [row for row in results if row["phase_id"] == phase]
         r_rows = [row for row in phase_rows if "reasoning" in row]
         p_rows = [row for row in phase_rows if "planning" in row]
+        phase_reasoning_judgment_count = sum(
+            int(row["reasoning"]["score"].get("requested_dimension_count") or 0)
+            for row in r_rows
+        )
+        phase_reasoning_missing_result_count = sum(
+            int(row["reasoning"]["score"].get("missing_result_count") or 0)
+            for row in r_rows
+        )
+        phase_reasoning_complete_case_count = sum(
+            bool(row["reasoning"]["score"].get("complete")) for row in r_rows
+        )
         by_phase[phase] = {
             "case_count": len(phase_rows),
             "reasoning_pass_rate": _rate(sum(bool(row["reasoning"]["score"]["pass"]) for row in r_rows), len(r_rows)),
+            "reasoning_dimension_judgment_count": phase_reasoning_judgment_count,
+            "reasoning_missing_result_count": phase_reasoning_missing_result_count,
+            "reasoning_validator_completeness_rate": _rate(
+                phase_reasoning_judgment_count - phase_reasoning_missing_result_count,
+                phase_reasoning_judgment_count,
+            ),
+            "reasoning_complete_case_count": phase_reasoning_complete_case_count,
+            "reasoning_complete_case_rate": _rate(phase_reasoning_complete_case_count, len(r_rows)),
             "planning_pass_rate": _rate(sum(bool(row["planning"]["score"]["pass"]) for row in p_rows), len(p_rows)),
             "planning_move_pass_rate": _rate(
                 sum(bool(row["planning"]["score"]["move_pass"]) for row in p_rows), len(p_rows)
@@ -1050,6 +1092,8 @@ def _print_summary(report: Mapping[str, Any]) -> None:
     print("\nAnalytical engine evaluation summary")
     print("  cases:", summary["case_count"])
     print("  reasoning pass rate:", summary.get("reasoning_pass_rate"))
+    print("  reasoning validator completeness rate:", summary.get("reasoning_validator_completeness_rate"))
+    print("  reasoning missing results:", summary.get("reasoning_missing_result_count"))
     print("  planning pass rate:", summary.get("planning_pass_rate"))
     print("  planning move pass rate:", summary.get("planning_move_pass_rate"))
     print("  explicit move oracle match rate:", summary.get("planning_explicit_move_match_rate"))

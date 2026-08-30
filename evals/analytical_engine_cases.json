@@ -1799,8 +1799,7 @@
       },
       "acceptable_decisions": {
         "evidence_boundary_visible": [
-          "REJECT",
-          "PARTIAL"
+          "ACCEPT"
         ]
       }
     },
@@ -5229,7 +5228,8 @@
           "ACCEPT"
         ],
         "boundary_visible": [
-          "ACCEPT"
+          "ACCEPT",
+          "PARTIAL"
         ]
       }
     },

@@ -235,23 +235,38 @@ def reasoning_probe(case: Mapping[str, Any]) -> tuple[dict[str, bool], dict[str,
 def score_reasoning_signal(case: Mapping[str, Any], signal: Mapping[str, Any]) -> dict[str, Any]:
     _, expected = reasoning_probe(case)
     observed = {
-        str(item.get("dimension")): str(item.get("decision"))
+        str(item.get("dimension")): dict(item)
         for item in (signal.get("evaluations") or ())
-        if isinstance(item, Mapping)
+        if isinstance(item, Mapping) and str(item.get("dimension") or "")
     }
     details = []
+    missing_dimensions: list[str] = []
     passed = True
     for dimension, acceptable in expected.items():
-        got = observed.get(dimension)
-        ok = got in acceptable
+        item = observed.get(dimension)
+        got = str(item.get("decision") or "") if item else None
+        reason_codes = [str(value) for value in ((item or {}).get("reason_codes") or ())]
+        validator_result_missing = item is None or "VALIDATOR_RESULT_MISSING" in reason_codes
+        ok = not validator_result_missing and got in acceptable
+        if validator_result_missing:
+            missing_dimensions.append(dimension)
         details.append({
             "dimension": dimension,
             "observed": got,
             "acceptable": sorted(acceptable),
+            "reason_codes": reason_codes,
+            "validator_result_missing": validator_result_missing,
             "pass": ok,
         })
         passed = passed and ok
-    return {"pass": passed, "details": details}
+    return {
+        "pass": passed,
+        "complete": not missing_dimensions,
+        "requested_dimension_count": len(expected),
+        "missing_result_count": len(missing_dimensions),
+        "missing_dimensions": missing_dimensions,
+        "details": details,
+    }
 
 
 def score_planning_signal(case: Mapping[str, Any], signal: Mapping[str, Any]) -> dict[str, Any]:
