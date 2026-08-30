@@ -196,6 +196,27 @@ The validator uses `OPENAI_REASONING_VALIDATOR_MODEL` when configured, otherwise
 
 Production deployment remains opt-in. The manual Azure deployment workflow defaults to `legacy` and offers an explicit `shadow` choice for newly started reviews. Existing active reviews retain their session-locked mode.
 
+### PR4J reasoning-validator calibration
+
+PR4I established that reasoning evaluation must distinguish a real semantic `REJECT` from a fail-closed `VALIDATOR_RESULT_MISSING` fallback. PR4J changes the production **shadow** validator itself, but still does not transfer reasoning authority to the student-visible path.
+
+The validator now receives explicit semantics for all eight reasoning dimensions and is instructed to separate two related but non-identical questions:
+
+1. did the student actually demonstrate the requested engineering reasoning dimension; and
+2. does the frozen repository evidence independently prove every factual premise behind that reasoning?
+
+Frozen evidence remains authoritative. The validator may never invent support, convert student reasoning into repository FACT, or treat an unsupported repository assertion as proven. But an evidence-support gap does not automatically erase a separately explicit consequence, boundary, trigger, uncertainty, or other reasoning relationship. Where appropriate the validator can preserve the reasoning judgment while attaching `EVIDENCE_SUPPORT_NOT_ESTABLISHED` or `UNSUPPORTED_BY_FROZEN_EVIDENCE`. Direct contradiction with frozen evidence remains grounds for rejection or reopening.
+
+Post-acquisition residual calibration makes that distinction operational rather than merely advisory. For `evidence_boundary_visible`, explicitly identifying evidence as stale, contradictory, missing, unverified, or unable to support a claim is itself the reasoning boundary being evaluated; `EVIDENCE_SUPPORT_NOT_ESTABLISHED` is not, by itself, grounds to reduce that dimension to `PARTIAL`. Decision credit remains stricter: hedged inclinations such as “probably should” are not durable decisions. A clear stop/hold condition can establish an action boundary even when remediation remains open, and a directly stated operational inability can establish consequence without requiring a redundant “therefore” restatement.
+
+The calibrated dimension meanings make several previously implicit distinctions explicit: an evidence boundary is a clear statement of what current evidence does and does not establish rather than a requirement to recite an exact filename; ownership requires responsibility for decision/verification/correction rather than merely naming an author; a change trigger may be an already-observed change when the student explicitly connects it to a required revision; and a tradeoff requires competing engineering value and downside rather than a threshold, trigger, consequence, or risk alone. `PARTIAL` remains meaningful-but-incomplete progress.
+
+Structured-output completeness is handled with one bounded repair. If the first successful validator response omits one or more requested candidate dimensions, the application may make **one** additional call to the same validator asking only for those missing dimensions. First-pass judgments and reopen decisions are locked; the repair cannot add noncandidate dimensions, revise an existing judgment, reopen reasoning, expand evidence authority, or re-run the conversational reviewer. If the repair fails or still omits a dimension, the existing fail-closed `REJECT` with `VALIDATOR_RESULT_MISSING` remains.
+
+Internal `completeness_repair` telemetry records whether repair was attempted, which dimensions were missing before and after, which were recovered, whether repair succeeded, and any repair error type. Both validator calls use the existing `reasoning_validation_shadow` usage purpose and flow through the existing usage ledger. The router already accepts a sequence of validator usage events; no API, database, or UI change is required. Normal Review Room responses continue to strip shadow reasoning signals.
+
+PR4J deliberately leaves the planning branch unchanged. A fresh replicated 3×42 acquisition is required after PR4J because prompt/validator behavior is stochastic and the preserved PR4G acquisition cannot demonstrate the quality of the new validator. `validated` reasoning mode remains fail-closed until the frozen acceptance gates are met.
+
 ## PR3 shadow planning / selection
 
 PR3 adds a second disconnected analytical branch after the current semantic turn. The live engine still produces the student-visible reply and target exactly as before. In parallel, PR3 reconstructs a bounded `PlanningContext` from the locked Review Objective, frozen evidence package, current finding/focus, persisted finding corrections and evidence disputes, validated shadow reasoning, recent transcript, current student position, uncertainty, assistance state, and reviewer lens.

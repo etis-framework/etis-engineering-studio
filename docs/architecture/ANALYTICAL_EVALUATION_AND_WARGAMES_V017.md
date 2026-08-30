@@ -169,6 +169,22 @@ PR4I also makes two narrow corpus corrections established by the preserved post-
 
 Rescoring the preserved 3×42 acquisition with strict missing-result handling plus only those two corrections yields the truthful pre-validator-calibration baseline: reasoning majority pass `34/42` (81.0%), pass/fail stability `35/42` (83.3%), and per-phase majority A1 `6/7`, A2 `5/7`, A3 `5/7`, A4 `5/7`, A5 `6/7`, A6 `7/7`. These results remain below the frozen reasoning enablement thresholds and therefore do not authorize `validated` reasoning mode.
 
+### PR4J reasoning-validator calibration
+
+PR4J primarily changes the shadow validator. Its initial fresh replicated acquisition was scored against the unchanged PR4I expert acceptable-decision sets so validator improvement could be attributed to production shadow behavior rather than scoring relaxation. After that acquisition and a narrower residual-calibration run, one additional oracle inconsistency was audited separately: `a4-ci-green-overconfidence` states an explicit current merge decision even though the position is unsupported by frozen evidence. `ACCEPT` is therefore valid for `decision_explicit` in that case while the evidence-boundary dimension remains non-creditable. This correction recognizes that a decision was explicitly stated; it does not endorse the decision, convert unsupported evidence into FACT, or broaden any other reasoning oracle.
+
+The validator prompt now defines all eight reasoning dimensions explicitly and separates reasoning recognition from repository-fact proof. Frozen evidence authority is unchanged: unsupported or contradicted evidence may never become FACT merely because the student reasons from it. At the same time, a student may demonstrate a consequence, evidence boundary, decision, action/scope boundary, ownership relationship, change trigger, uncertainty, or tradeoff even when additional evidence is still needed to prove an underlying premise. Evidence-support reason codes remain available to preserve that distinction.
+
+PR4J also addresses structured-output omission directly. A successful first validator response that omits a requested candidate dimension triggers at most one focused repair call to the same validator for only the missing dimensions. Existing first-pass judgments and reopen decisions are immutable during repair. If repair remains incomplete or fails, runtime behavior stays fail-closed with `VALIDATOR_RESULT_MISSING`; PR4I evaluation rules continue to treat that fallback as incomplete and non-creditable.
+
+The shadow signal records bounded `completeness_repair` telemetry, while both calls are captured through ordinary `reasoning_validation_shadow` usage events. This means post-PR4J evaluation must report not only reasoning oracle quality but also completeness, repair frequency, repair recovery, latency, and cost. A lower missing-result rate does not compensate for semantic over-credit, fabricated evidence, or authority failures.
+
+Because PR4J changes stochastic model prompting and may add a second validator call on incomplete responses, the preserved PR4G acquisition is useful only as the pre-change comparison baseline. Acceptance therefore used fresh replicated 3×42 live acquisitions plus deterministic replay rather than treating a prior stochastic sample as proof.
+
+The final amended-PR4J 3×42 acquisition produced per-run reasoning pass rates of `92.86%`, `97.62%`, and `92.86%`, with `100%` validator completeness and zero missing judgments in all three runs. Before the final oracle correction, reasoning majority pass was `40/42` (95.2%) and pass/fail stability was `37/42` (88.1%). A zero-model-call counterfactual against the preserved acquisition showed that adding only `ACCEPT` for `a4-ci-green-overconfidence.decision_explicit` changes that case from `[pass, fail, fail]` to `[pass, pass, pass]`, yielding reasoning majority `41/42` (97.6%), reasoning pass/fail stability `38/42` (90.5%), and per-phase majority A1 `7/7`, A2 `7/7`, A3 `7/7`, A4 `6/7`, A5 `7/7`, A6 `7/7`. `a4-strong-code-weak-traceability` remains a legitimate stochastic residual rather than being tuned away.
+
+Planning remains shadow and unchanged in PR4J. Its post-PR4J residual stability is evaluated separately and does not receive an oracle change through this reasoning correction.
+
 ## Deterministic selector oracle
 
 Every case contains a small oracle candidate set.
@@ -227,7 +243,7 @@ The canonical list is versioned in:
 
 `evals/analytical_engine_rubric.json`
 
-Hard-failure tolerance is **zero** for the proposed shadow path. Machine detectors must be narrow enough to avoid false positives from ordinary engineering language; for example, `enterprise-grade` is not grading behavior merely because it contains the substring `grade`. Deterministic live-runner checks cover failures that can be established structurally (for example unauthorized explicit evidence references, future-phase demands, grading language, or chain-of-thought exposure). Semantic authority failures such as fabricated natural-language claims or subtle reviewer-overreach are also scored in the blinded human review; the absence of a machine-detected failure must never be interpreted as proof that no semantic hard failure occurred.
+Hard-failure tolerance is **zero** for the proposed shadow path. Machine detectors must be narrow enough to avoid false positives from ordinary engineering language; for example, `enterprise-grade` is not grading behavior merely because it contains the substring `grade`, and engineering phrases such as `approval point`, `decision point`, or `single point of failure` are not grading behavior merely because they contain `point`. Point-based grading detection therefore requires explicit academic-scoring context rather than a bare `point` token. Deterministic live-runner checks cover failures that can be established structurally (for example unauthorized explicit evidence references, future-phase demands, grading language, or chain-of-thought exposure). Semantic authority failures such as fabricated natural-language claims or subtle reviewer-overreach are also scored in the blinded human review; the absence of a machine-detected failure must never be interpreted as proof that no semantic hard failure occurred.
 
 ## Machine acceptance thresholds
 

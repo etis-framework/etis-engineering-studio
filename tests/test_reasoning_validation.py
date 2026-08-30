@@ -1,3 +1,5 @@
+import json
+
 from apps.api.app.services.reasoning_validation import (
     ReasoningStatus,
     ReasoningValidator,
@@ -6,9 +8,10 @@ from apps.api.app.services.reasoning_validation import (
 
 
 class StubValidatorAI:
-    def __init__(self, payload=None, exc=None):
+    def __init__(self, payload=None, exc=None, responses=None):
         self.payload = payload or {"evaluations": [], "reopens": []}
         self.exc = exc
+        self.responses = list(responses or [])
         self.calls = []
 
     def available(self):
@@ -16,17 +19,24 @@ class StubValidatorAI:
 
     def validate_reasoning_turn(self, system_prompt, user_prompt):
         self.calls.append((system_prompt, user_prompt))
-        if self.exc:
-            raise self.exc
+        if self.responses:
+            payload = self.responses.pop(0)
+            if isinstance(payload, Exception):
+                raise payload
+        else:
+            if self.exc:
+                raise self.exc
+            payload = self.payload
+        response_id = f"resp-{len(self.calls)}"
         return {
-            **self.payload,
+            **payload,
             "provider": "stub-validator",
             "model": "validator-model",
-            "response_id": "resp-1",
+            "response_id": response_id,
             "_usage": {
                 "purpose": "reasoning_validation_shadow",
                 "model": "validator-model",
-                "response_id": "resp-1",
+                "response_id": response_id,
                 "input_tokens": 10,
                 "cached_input_tokens": 0,
                 "cache_write_tokens": 0,
@@ -102,7 +112,15 @@ def test_accept_updates_shadow_without_changing_legacy_state():
     assert outcome.shadow_state["dimensions"]["consequence_visible"]["status"] == "validated"
     assert outcome.shadow_state["comparison"]["legacy_new_grants"] == 1
     assert outcome.shadow_state["comparison"]["validator_accepts"] == 1
+    assert outcome.signal["completeness_repair"]["attempted"] is False
     assert len(outcome.usage_events) == 1
+    request = json.loads(ai.calls[0][1])
+    assert request["response_contract"]["required_evaluation_dimensions"] == [
+        "consequence_visible"
+    ]
+    assert request["response_contract"]["return_exactly_one_evaluation_per_required_dimension"] is True
+    assert "reasoning-dimension recognition" in ai.calls[0][0]
+    assert "change_trigger_visible" in ai.calls[0][0]
 
 
 def test_partial_is_preserved_as_meaningful_but_incomplete_progress():
@@ -174,13 +192,149 @@ def test_validator_cannot_grant_unproposed_dimension_or_unlisted_evidence():
     assert outcome.shadow_state["dimensions"]["ownership_visible"]["status"] == "unestablished"
 
 
-def test_missing_validator_judgment_fails_closed_to_reject():
+def test_missing_validator_judgment_gets_one_repair_then_fails_closed():
     ai = StubValidatorAI({"evaluations": [], "reopens": []})
     outcome = _validate(ai)
     evaluation = outcome.signal["evaluations"][0]
+    repair = outcome.signal["completeness_repair"]
     assert evaluation["decision"] == "REJECT"
     assert evaluation["reason_codes"] == ["VALIDATOR_RESULT_MISSING"]
+    assert repair == {
+        "attempted": True,
+        "missing_before": ["consequence_visible"],
+        "recovered_dimensions": [],
+        "missing_after": ["consequence_visible"],
+        "succeeded": False,
+        "error_type": None,
+    }
+    assert len(ai.calls) == 2
+    assert len(outcome.usage_events) == 2
+    repair_request = json.loads(ai.calls[1][1])
+    assert repair_request["response_contract"]["required_evaluation_dimensions"] == [
+        "consequence_visible"
+    ]
+    assert repair_request["response_contract"]["repair_only_missing_dimensions"] is True
+    assert repair_request["response_contract"]["reopens_allowed"] is False
 
+
+def test_missing_validator_judgment_can_be_recovered_without_revising_first_result():
+    ai = StubValidatorAI(
+        responses=[
+            {
+                "evaluations": [
+                    {
+                        "dimension": "consequence_visible",
+                        "decision": "ACCEPT",
+                        "reason_codes": ["STUDENT_REASONING_EXPLICIT"],
+                        "evidence_refs": [],
+                        "summary": "The consequence is explicit.",
+                    }
+                ],
+                "reopens": [],
+            },
+            {
+                "evaluations": [
+                    {
+                        "dimension": "consequence_visible",
+                        "decision": "REJECT",
+                        "reason_codes": ["TOO_VAGUE_TO_ESTABLISH"],
+                        "evidence_refs": [],
+                        "summary": "This must not revise the first result.",
+                    },
+                    {
+                        "dimension": "change_trigger_visible",
+                        "decision": "PARTIAL",
+                        "reason_codes": ["TENTATIVE_BUT_MEANINGFUL"],
+                        "evidence_refs": [],
+                        "summary": "A real but incomplete change trigger is stated.",
+                    },
+                ],
+                "reopens": [
+                    {
+                        "dimension": "consequence_visible",
+                        "new_status": "unestablished",
+                        "reason_codes": ["STUDENT_CORRECTION_REOPENS"],
+                        "summary": "Repair must not reopen prior reasoning.",
+                    }
+                ],
+            },
+        ]
+    )
+    outcome = _validate(
+        ai,
+        proposal_updates={
+            "consequence_visible": True,
+            "change_trigger_visible": True,
+        },
+        legacy_merged={
+            "consequence_visible": True,
+            "change_trigger_visible": True,
+        },
+    )
+    evaluations = {
+        item["dimension"]: item
+        for item in outcome.signal["evaluations"]
+    }
+    assert evaluations["consequence_visible"]["decision"] == "ACCEPT"
+    assert evaluations["change_trigger_visible"]["decision"] == "PARTIAL"
+    assert outcome.shadow_state["dimensions"]["consequence_visible"]["status"] == "validated"
+    assert outcome.shadow_state["dimensions"]["change_trigger_visible"]["status"] == "partial"
+    assert outcome.signal["reopens"] == []
+    assert outcome.signal["completeness_repair"] == {
+        "attempted": True,
+        "missing_before": ["change_trigger_visible"],
+        "recovered_dimensions": ["change_trigger_visible"],
+        "missing_after": [],
+        "succeeded": True,
+        "error_type": None,
+    }
+    assert len(outcome.usage_events) == 2
+
+
+def test_repair_provider_failure_preserves_initial_fail_closed_result():
+    ai = StubValidatorAI(
+        responses=[
+            {"evaluations": [], "reopens": []},
+            RuntimeError("repair failed"),
+        ]
+    )
+    outcome = _validate(ai)
+    evaluation = outcome.signal["evaluations"][0]
+    repair = outcome.signal["completeness_repair"]
+    assert outcome.signal["status"] == "completed"
+    assert evaluation["decision"] == "REJECT"
+    assert evaluation["reason_codes"] == ["VALIDATOR_RESULT_MISSING"]
+    assert repair["attempted"] is True
+    assert repair["succeeded"] is False
+    assert repair["error_type"] == "RuntimeError"
+    assert repair["missing_after"] == ["consequence_visible"]
+    assert len(outcome.usage_events) == 1
+
+
+
+def test_validator_prompt_freezes_dimension_vs_evidence_and_tentative_decision_semantics():
+    ai = StubValidatorAI(
+        {
+            "evaluations": [
+                {
+                    "dimension": "consequence_visible",
+                    "decision": "ACCEPT",
+                    "reason_codes": ["STUDENT_REASONING_EXPLICIT"],
+                    "evidence_refs": [],
+                    "summary": "A consequence is explicit.",
+                }
+            ],
+            "reopens": [],
+        }
+    )
+    _validate(ai)
+    system_prompt = ai.calls[0][0]
+    normalized_prompt = " ".join(system_prompt.split())
+    assert "the absence of proof is not by itself a reason to return PARTIAL" in normalized_prompt
+    assert "EVIDENCE_SUPPORT_NOT_ESTABLISHED is descriptive metadata rather than a downgrade reason" in normalized_prompt
+    assert '"probably should," "seems okay," "maybe,"' in normalized_prompt
+    assert '"resolve this before merge" can be ACCEPT' in normalized_prompt
+    assert "operators have no demonstrated way to know a failure" in normalized_prompt
 
 def test_correction_can_reopen_prior_validated_reasoning():
     shadow = blank_reasoning_shadow()

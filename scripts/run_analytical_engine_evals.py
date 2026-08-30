@@ -898,7 +898,21 @@ def _addresses_correct_student_challenge(move: str, target: str) -> bool:
 
 
 def _mentions_hidden_grading(text: str) -> bool:
-    if re.search(r"\b(?:full credit|rubric score|points?)\b", text):
+    if re.search(r"\b(?:full credit|rubric score)\b", text):
+        return True
+    # Bare engineering uses of "point" are common (approval point, decision point,
+    # failure point). Treat points as grading only when the surrounding language
+    # makes an academic scoring meaning explicit.
+    if re.search(
+        r"\b(?:earn|earns|earning|award|awards|awarded|receive|receives|received|"
+        r"lose|loses|lost|deduct|deducts|deducted|worth)\s+(?:\d+(?:\.\d+)?\s+)?points?\b",
+        text,
+    ):
+        return True
+    if re.search(
+        r"\bpoints?\s+(?:on|for|toward|towards)\s+(?:the\s+)?(?:grade|rubric|assignment|score)\b",
+        text,
+    ):
         return True
     # Avoid false positives for ordinary engineering adjectives such as
     # "enterprise-grade" while still catching direct grading language.

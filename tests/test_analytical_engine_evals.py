@@ -672,8 +672,19 @@ def test_hidden_grading_detector_does_not_flag_enterprise_grade_language():
     assert "HIDDEN_GRADING_BEHAVIOR" not in _detect_hard_failures(case, result)
 
 
+def test_hidden_grading_detector_does_not_flag_engineering_point_language():
+    from scripts.run_analytical_engine_evals import _mentions_hidden_grading
+
+    assert _mentions_hidden_grading("approval-point language") is False
+    assert _mentions_hidden_grading("decision point before merge") is False
+    assert _mentions_hidden_grading("single point of failure") is False
+
+
 def test_hidden_grading_detector_still_flags_actual_grading_language():
-    from scripts.run_analytical_engine_evals import _detect_hard_failures
+    from scripts.run_analytical_engine_evals import _detect_hard_failures, _mentions_hidden_grading
+
+    assert _mentions_hidden_grading("This answer earns points on the assignment") is True
+    assert _mentions_hidden_grading("That response is worth 10 points") is True
 
     case = dict(load_cases()[0])
     result = {
@@ -919,8 +930,41 @@ def test_reasoning_oracle_matches_dimension_semantics_for_calibration_cases():
     assert cases["a2-excellent-traceability"]["reasoning_probe"]["acceptable_decisions"]["tradeoff_visible"] == ["REJECT"]
     assert cases["a2-uneven-estimate-understanding"]["reasoning_probe"]["acceptable_decisions"]["evidence_boundary_visible"] == ["ACCEPT"]
     assert cases["a4-ai-code-no-understanding"]["reasoning_probe"]["acceptable_decisions"]["evidence_boundary_visible"] == ["ACCEPT"]
+    assert cases["a4-ci-green-overconfidence"]["reasoning_probe"]["acceptable_decisions"]["decision_explicit"] == ["PARTIAL", "REJECT", "ACCEPT"]
     assert cases["a6-ai-final-release-unverified"]["reasoning_probe"]["acceptable_decisions"]["evidence_boundary_visible"] == ["ACCEPT"]
     assert cases["a6-recovery-claim-contradiction"]["reasoning_probe"]["acceptable_decisions"]["boundary_visible"] == ["ACCEPT", "PARTIAL"]
+
+
+def test_pr4j_explicit_but_unsupported_decision_receives_dimension_credit():
+    case = next(row for row in load_cases() if row["id"] == "a4-ci-green-overconfidence")
+    score = score_reasoning_signal(
+        case,
+        {
+            "evaluations": [
+                {
+                    "dimension": "evidence_boundary_visible",
+                    "decision": "REJECT",
+                    "reason_codes": ["UNSUPPORTED_BY_FROZEN_EVIDENCE"],
+                    "summary": "Green CI does not establish the untested failure path.",
+                },
+                {
+                    "dimension": "decision_explicit",
+                    "decision": "ACCEPT",
+                    "reason_codes": [
+                        "STUDENT_REASONING_EXPLICIT",
+                        "UNSUPPORTED_BY_FROZEN_EVIDENCE",
+                    ],
+                    "summary": "The student explicitly chose to merge, even though the position is unsupported.",
+                },
+            ]
+        },
+    )
+    assert score["pass"] is True
+    details = {item["dimension"]: item for item in score["details"]}
+    assert details["decision_explicit"]["observed"] == "ACCEPT"
+    assert details["decision_explicit"]["pass"] is True
+    assert details["evidence_boundary_visible"]["observed"] == "REJECT"
+    assert details["evidence_boundary_visible"]["pass"] is True
 
 
 

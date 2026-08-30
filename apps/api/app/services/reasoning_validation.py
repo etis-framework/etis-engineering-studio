@@ -215,6 +215,7 @@ class ReasoningValidator:
             conversation_history=conversation_history or (),
         )
 
+        usage_events: list[dict[str, Any]] = []
         try:
             parsed = self.ai.validate_reasoning_turn(system_prompt, user_prompt)
         except Exception as exc:
@@ -228,12 +229,79 @@ class ReasoningValidator:
                 legacy_new=legacy_new,
             )
 
+        usage = parsed.get("_usage") if isinstance(parsed, Mapping) else None
+        if isinstance(usage, Mapping):
+            usage_events.append(dict(usage))
+
+        allowed_evidence_refs = _allowed_evidence_refs(
+            objective,
+            evidence_refs or (),
+        )
         normalized = _normalize_validator_result(
             parsed,
             candidates=candidates,
             reopen_candidates=reopen_candidates,
-            allowed_evidence_refs=_allowed_evidence_refs(objective, evidence_refs or ()),
+            allowed_evidence_refs=allowed_evidence_refs,
         )
+
+        missing_before = _missing_validator_dimensions(normalized)
+        repair_telemetry = {
+            "attempted": False,
+            "missing_before": list(missing_before),
+            "recovered_dimensions": [],
+            "missing_after": list(missing_before),
+            "succeeded": None,
+            "error_type": None,
+        }
+
+        if missing_before:
+            repair_telemetry["attempted"] = True
+            repair_prompt = _validator_user_prompt(
+                objective=objective,
+                shadow=shadow,
+                candidates=missing_before,
+                reopen_candidates=(),
+                proposal_intent=proposal_intent,
+                student_text=student_text,
+                decision=decision,
+                evidence_refs=evidence_refs or (),
+                evidence_context=evidence_context,
+                conversation_history=conversation_history or (),
+                repair_only_missing=True,
+            )
+            try:
+                repaired = self.ai.validate_reasoning_turn(
+                    system_prompt,
+                    repair_prompt,
+                )
+            except Exception as exc:
+                repair_telemetry["succeeded"] = False
+                repair_telemetry["error_type"] = type(exc).__name__
+            else:
+                repair_usage = (
+                    repaired.get("_usage")
+                    if isinstance(repaired, Mapping)
+                    else None
+                )
+                if isinstance(repair_usage, Mapping):
+                    usage_events.append(dict(repair_usage))
+                repair_normalized = _normalize_validator_result(
+                    repaired,
+                    candidates=missing_before,
+                    reopen_candidates=(),
+                    allowed_evidence_refs=allowed_evidence_refs,
+                )
+                normalized, recovered = _merge_validator_repair(
+                    normalized,
+                    repair_normalized,
+                    missing_before=missing_before,
+                )
+                missing_after = _missing_validator_dimensions(normalized)
+                repair_telemetry["recovered_dimensions"] = list(recovered)
+                repair_telemetry["missing_after"] = list(missing_after)
+                repair_telemetry["succeeded"] = not missing_after
+
+        normalized["completeness_repair"] = repair_telemetry
         updated = _apply_completed_validation(
             shadow,
             normalized,
@@ -243,11 +311,10 @@ class ReasoningValidator:
             proposal_intent=proposal_intent,
             legacy_new=legacy_new,
         )
-        usage = parsed.get("_usage") if isinstance(parsed, Mapping) else None
         return ReasoningValidationOutcome(
             signal=updated["last_validation"],
             shadow_state=updated,
-            usage_events=(dict(usage),) if isinstance(usage, Mapping) else (),
+            usage_events=tuple(usage_events),
         )
 
 
@@ -265,14 +332,55 @@ Authority rules:
 4. Do not grant a reasoning dimension that is not listed as a candidate transition.
 5. ACCEPT requires a sufficiently explicit, defensible engineering idea for this review objective.
 6. PARTIAL means the student made meaningful progress but an important part remains missing.
-7. REJECT means the statement is too vague, merely repeats reviewer language, is unsupported,
-   outside the objective, or otherwise does not justify durable reasoning credit.
-8. A tentative statement may be PARTIAL or ACCEPT when its engineering meaning is genuinely clear.
-9. For reopen candidates, reopen only when the newest student statement retracts, contradicts,
-   or materially corrects previously shadow-validated reasoning.
-10. Legitimate bounded uncertainty is valid engineering reasoning; never turn an unknown into a known.
-11. Never invent repository evidence or infer support from a path that is not supplied.
-12. Return only concise structured judgments and reason codes. Do not provide chain-of-thought.
+7. REJECT means the statement is too vague, merely repeats reviewer language, is outside the
+   objective, directly conflicts with frozen evidence, or otherwise does not justify durable credit.
+8. Separate reasoning-dimension recognition from proof of every factual premise. A student can
+   explicitly demonstrate a consequence, boundary, trigger, uncertainty, or other reasoning move
+   while frozen evidence still leaves the underlying premise incomplete. In that situation, use
+   EVIDENCE_SUPPORT_NOT_ESTABLISHED or UNSUPPORTED_BY_FROZEN_EVIDENCE as appropriate, but do not
+   automatically erase or downgrade an otherwise explicit reasoning dimension. For
+   evidence_boundary_visible especially, the fact that support is missing, stale, contradictory,
+   or unverified may be the boundary the student is correctly identifying; the absence of proof is
+   not by itself a reason to return PARTIAL. ACCEPT never converts the student's claim into
+   repository FACT.
+9. A tentative statement may be PARTIAL or ACCEPT when its engineering meaning is genuinely clear.
+10. For reopen candidates, reopen only when the newest student statement retracts, contradicts,
+    or materially corrects previously shadow-validated reasoning.
+11. Legitimate bounded uncertainty is valid engineering reasoning; never turn an unknown into a known.
+12. Never invent repository evidence or infer support from a path that is not supplied.
+13. Return exactly one evaluation for every required candidate dimension and no evaluation for any
+    other dimension. Do not silently omit a required judgment.
+14. Return only concise structured judgments and reason codes. Do not provide chain-of-thought.
+
+Reasoning-dimension meanings:
+- consequence_visible: the student states a meaningful engineering effect, impact, failure, delay,
+  blocked dependency, operational outcome, or other consequence. A directly stated operational
+  inability or exposure (for example, that operators have no demonstrated way to know a failure
+  occurred) can be ACCEPT without requiring the student to restate the obvious effect using the word
+  "therefore."
+- evidence_boundary_visible: the student distinguishes what current evidence establishes from what
+  it does not establish. Exact artifact-name recitation is not required when the boundary itself is
+  explicit and bounded; generic "we need more evidence" language is insufficient. When the student
+  explicitly identifies evidence as stale, contradictory, missing, unverified, or unable to support
+  a claim, EVIDENCE_SUPPORT_NOT_ESTABLISHED is descriptive metadata rather than a downgrade reason.
+  Return PARTIAL or REJECT only when the boundary itself is vague, merely inferred, fabricated, or
+  contradicted by supplied frozen evidence.
+- decision_explicit: the student actually states an adopted current engineering position or choice.
+  A hedge or inclination such as "probably should," "seems okay," "maybe," or merely saying an
+  action is possible is at most PARTIAL unless the student clearly adopts the position.
+- boundary_visible: the student identifies a meaningful action, scope, decision, stop, escalation,
+  or revision boundary. A clear hold/stop condition such as "resolve this before merge" can be ACCEPT
+  even when the exact remediation choice remains open. PARTIAL is appropriate when only a general
+  direction is visible and the operative boundary itself remains unclear.
+- ownership_visible: the student identifies who owns a decision, verification, correction, or
+  follow-through. Merely naming who authored work, including a teammate or AI, is not ownership.
+- change_trigger_visible: the student identifies an observable condition, evidence change, or event
+  that causes a position, plan, artifact, or action to change or close. A change that has already
+  occurred may satisfy this dimension when the student explicitly connects it to the required revision.
+- uncertainty_visible: the student identifies a bounded unknown rather than converting it into
+  certainty. Stronger reasoning also explains why the unknown matters or how it can be resolved.
+- tradeoff_visible: the student identifies competing engineering value/benefit and downside/cost/risk.
+  A threshold, trigger, consequence, or risk by itself is not automatically a tradeoff.
 """.strip()
 
 
@@ -288,6 +396,7 @@ def _validator_user_prompt(
     evidence_refs: Sequence[str],
     evidence_context: str,
     conversation_history: Sequence[Mapping[str, Any]],
+    repair_only_missing: bool = False,
 ) -> str:
     recent = []
     for turn in conversation_history[-8:]:
@@ -315,6 +424,13 @@ def _validator_user_prompt(
         "student_selected_decision": str(decision or "")[:500] or None,
         "student_selected_evidence_refs": _dedupe_strings(evidence_refs)[:20],
         "frozen_evidence_context": safe_evidence,
+        "response_contract": {
+            "required_evaluation_dimensions": list(candidates),
+            "return_exactly_one_evaluation_per_required_dimension": True,
+            "return_no_other_evaluation_dimensions": True,
+            "reopens_allowed": bool(reopen_candidates) and not repair_only_missing,
+            "repair_only_missing_dimensions": bool(repair_only_missing),
+        },
     }
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
@@ -420,6 +536,54 @@ def _normalize_validator_result(
     }
 
 
+def _missing_validator_dimensions(
+    normalized: Mapping[str, Any],
+) -> tuple[str, ...]:
+    return tuple(
+        str(item.get("dimension") or "")
+        for item in (normalized.get("evaluations") or ())
+        if isinstance(item, Mapping)
+        and ValidationReasonCode.VALIDATOR_RESULT_MISSING.value
+        in set(item.get("reason_codes") or ())
+        and str(item.get("dimension") or "")
+    )
+
+
+def _merge_validator_repair(
+    initial: Mapping[str, Any],
+    repair: Mapping[str, Any],
+    *,
+    missing_before: Sequence[str],
+) -> tuple[dict[str, Any], tuple[str, ...]]:
+    allowed = set(missing_before)
+    repaired_by_dimension = {
+        str(item.get("dimension") or ""): dict(item)
+        for item in (repair.get("evaluations") or ())
+        if isinstance(item, Mapping)
+        and str(item.get("dimension") or "") in allowed
+        and ValidationReasonCode.VALIDATOR_RESULT_MISSING.value
+        not in set(item.get("reason_codes") or ())
+    }
+
+    merged = dict(initial)
+    evaluations: list[dict[str, Any]] = []
+    recovered: list[str] = []
+    for item in initial.get("evaluations") or ():
+        current = dict(item)
+        dimension = str(current.get("dimension") or "")
+        replacement = repaired_by_dimension.get(dimension)
+        if (
+            replacement is not None
+            and ValidationReasonCode.VALIDATOR_RESULT_MISSING.value
+            in set(current.get("reason_codes") or ())
+        ):
+            current = replacement
+            recovered.append(dimension)
+        evaluations.append(current)
+    merged["evaluations"] = evaluations
+    return merged, tuple(recovered)
+
+
 def _apply_completed_validation(
     shadow: Mapping[str, Any],
     normalized: Mapping[str, Any],
@@ -493,6 +657,9 @@ def _apply_completed_validation(
         "provider": normalized.get("provider") or "",
         "model": normalized.get("model") or "",
         "response_id": normalized.get("response_id") or "",
+        "completeness_repair": dict(
+            normalized.get("completeness_repair") or {}
+        ),
     }
     updated["last_validation"] = last
     return updated
