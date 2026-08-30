@@ -3272,7 +3272,8 @@
         ],
         "decision_explicit": [
           "PARTIAL",
-          "REJECT"
+          "REJECT",
+          "ACCEPT"
         ]
       }
     },
