@@ -14,6 +14,7 @@ from scripts.analytical_eval_support import (
     oracle_candidates,
     reasoning_probe,
     score_planning_signal,
+    score_reasoning_signal,
     validate_enum_contract,
 )
 
@@ -152,6 +153,71 @@ def test_corpus_does_not_use_future_phase_as_expected_move():
             assert row["phase_id"] == "A3"
         assert "A7" not in title + statement
 
+
+
+def test_pr4i_reasoning_oracle_corrections_are_limited_to_audited_cases():
+    cases = {row["id"]: row for row in load_cases()}
+    assert (
+        cases["a2-uneven-estimate-understanding"]["reasoning_probe"]
+        ["acceptable_decisions"]["evidence_boundary_visible"]
+        == ["ACCEPT"]
+    )
+    assert (
+        cases["a6-recovery-claim-contradiction"]["reasoning_probe"]
+        ["acceptable_decisions"]["boundary_visible"]
+        == ["ACCEPT", "PARTIAL"]
+    )
+
+
+def test_pr4i_missing_validator_result_never_receives_reasoning_oracle_credit():
+    case = next(row for row in load_cases() if row["id"] == "a1-blind-ai-agreement")
+    missing = score_reasoning_signal(
+        case,
+        {
+            "evaluations": [
+                {
+                    "dimension": "decision_explicit",
+                    "decision": "REJECT",
+                    "reason_codes": ["VALIDATOR_RESULT_MISSING"],
+                    "summary": "Normalized fail-closed fallback.",
+                }
+            ]
+        },
+    )
+    assert missing["pass"] is False
+    assert missing["complete"] is False
+    assert missing["requested_dimension_count"] == 1
+    assert missing["missing_result_count"] == 1
+    assert missing["missing_dimensions"] == ["decision_explicit"]
+    assert missing["details"][0]["validator_result_missing"] is True
+
+    real_reject = score_reasoning_signal(
+        case,
+        {
+            "evaluations": [
+                {
+                    "dimension": "decision_explicit",
+                    "decision": "REJECT",
+                    "reason_codes": ["TOO_VAGUE_TO_ESTABLISH"],
+                    "summary": "A real validator judgment.",
+                }
+            ]
+        },
+    )
+    assert real_reject["pass"] is True
+    assert real_reject["complete"] is True
+    assert real_reject["missing_result_count"] == 0
+
+
+def test_pr4i_absent_reasoning_dimension_is_incomplete_and_cannot_pass():
+    case = next(row for row in load_cases() if row["id"] == "a1-blind-ai-agreement")
+    score = score_reasoning_signal(case, {"evaluations": []})
+    assert score["pass"] is False
+    assert score["complete"] is False
+    assert score["missing_result_count"] == 1
+    assert score["missing_dimensions"] == ["decision_explicit"]
+    assert score["details"][0]["observed"] is None
+    assert score["details"][0]["validator_result_missing"] is True
 
 
 PR4H_PATH_CASES = {
@@ -722,6 +788,56 @@ def test_machine_report_separates_move_quality_realization_and_usage_cost():
     assert summary["estimated_cost_usd"] == 0.012
 
 
+
+def test_machine_report_exposes_pr4i_reasoning_completeness():
+    from scripts.run_analytical_engine_evals import _report
+
+    report = _report([
+        {
+            "case_id": "c1",
+            "phase_id": "A1",
+            "review_mode": "board_review",
+            "hard_failures": [],
+            "current": {"usage_events": []},
+            "reasoning": {
+                "score": {
+                    "pass": True,
+                    "complete": True,
+                    "requested_dimension_count": 1,
+                    "missing_result_count": 0,
+                },
+                "usage_events": [],
+            },
+        },
+        {
+            "case_id": "c2",
+            "phase_id": "A1",
+            "review_mode": "board_review",
+            "hard_failures": [],
+            "current": {"usage_events": []},
+            "reasoning": {
+                "score": {
+                    "pass": False,
+                    "complete": False,
+                    "requested_dimension_count": 1,
+                    "missing_result_count": 1,
+                },
+                "usage_events": [],
+            },
+        },
+    ])
+
+    summary = report["summary"]
+    assert report["schema_version"] == 4
+    assert summary["reasoning_dimension_judgment_count"] == 2
+    assert summary["reasoning_missing_result_count"] == 1
+    assert summary["reasoning_validator_completeness_rate"] == 0.5
+    assert summary["reasoning_complete_case_count"] == 1
+    assert summary["reasoning_complete_case_rate"] == 0.5
+    assert report["by_phase"]["A1"]["reasoning_missing_result_count"] == 1
+    assert report["by_phase"]["A1"]["reasoning_validator_completeness_rate"] == 0.5
+
+
 def test_machine_report_exposes_pr4h_path_diagnostics():
     from scripts.run_analytical_engine_evals import _report
 
@@ -801,8 +917,10 @@ def test_reasoning_oracle_matches_dimension_semantics_for_calibration_cases():
     cases = {case["id"]: case for case in load_cases()}
 
     assert cases["a2-excellent-traceability"]["reasoning_probe"]["acceptable_decisions"]["tradeoff_visible"] == ["REJECT"]
+    assert cases["a2-uneven-estimate-understanding"]["reasoning_probe"]["acceptable_decisions"]["evidence_boundary_visible"] == ["ACCEPT"]
     assert cases["a4-ai-code-no-understanding"]["reasoning_probe"]["acceptable_decisions"]["evidence_boundary_visible"] == ["ACCEPT"]
     assert cases["a6-ai-final-release-unverified"]["reasoning_probe"]["acceptable_decisions"]["evidence_boundary_visible"] == ["ACCEPT"]
+    assert cases["a6-recovery-claim-contradiction"]["reasoning_probe"]["acceptable_decisions"]["boundary_visible"] == ["ACCEPT", "PARTIAL"]
 
 
 
@@ -967,3 +1085,4 @@ def test_stability_report_separates_raw_stage_variance_from_scoring_variance():
     assert stability["metrics"]["realization_repair"]["changed_case_count"] == 1
     assert stability["metrics"]["validator_signature"]["changed_case_count"] == 0
     assert stability["metrics"]["reasoning_pass"]["changed_case_count"] == 0
+    assert stability["metrics"]["reasoning_complete"]["changed_case_count"] == 0

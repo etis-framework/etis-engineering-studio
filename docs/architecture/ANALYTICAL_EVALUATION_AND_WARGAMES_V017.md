@@ -159,6 +159,16 @@ Reasoning-oracle decisions follow the frozen reasoning-dimension meanings rather
 
 The independent validator is expected to reject a conversational reviewer’s proposed dimension when the student expressed a different valid dimension. The evaluator must not mark that rejection as a validator failure merely because the conversational proposal was misclassified.
 
+### PR4I reasoning-evaluation integrity
+
+PR4I separates a real validator `REJECT` from a fail-closed normalized result produced because the validator omitted a requested judgment. Runtime shadow behavior remains fail-closed, but evaluation must not award semantic oracle credit merely because a `VALIDATOR_RESULT_MISSING` fallback happens to equal an oracle-acceptable decision. A requested reasoning dimension therefore passes only when the validator actually returned a judgment and that judgment is inside the case's acceptable set. An entirely absent requested dimension is treated the same way: incomplete and non-creditable.
+
+Each reasoning score now records whether all requested judgments were present, the requested-dimension count, missing-result count, missing dimensions, and per-dimension reason codes. Machine reports aggregate reasoning-validator completeness and complete-case rates overall and by phase, while replicated stability records reasoning-completeness stability separately from reasoning pass/fail. These are evaluation-integrity diagnostics; they do not change the runtime validator, its normalization behavior, or student-visible authority.
+
+PR4I also makes two narrow corpus corrections established by the preserved post-PR4G three-replicate audit. In `a2-uneven-estimate-understanding`, explicitly separating the documented three-to-five-day range from the unknown rationale establishes `evidence_boundary_visible`, so `ACCEPT` is the intended oracle decision. In `a6-recovery-claim-contradiction`, stating that the contradicted five-minute claim cannot stand and that either the runbook or target must change establishes meaningful but incomplete `boundary_visible` progress, so `PARTIAL` is acceptable alongside `ACCEPT`. No other reasoning oracle is broadened in PR4I.
+
+Rescoring the preserved 3×42 acquisition with strict missing-result handling plus only those two corrections yields the truthful pre-validator-calibration baseline: reasoning majority pass `34/42` (81.0%), pass/fail stability `35/42` (83.3%), and per-phase majority A1 `6/7`, A2 `5/7`, A3 `5/7`, A4 `5/7`, A5 `6/7`, A6 `7/7`. These results remain below the frozen reasoning enablement thresholds and therefore do not authorize `validated` reasoning mode.
+
 ## Deterministic selector oracle
 
 Every case contains a small oracle candidate set.
@@ -381,6 +391,7 @@ python scripts/run_analytical_engine_evals.py \
 Replicated acquisition reports stability for:
 
 - reasoning pass/fail;
+- reasoning validator completeness;
 - planning pass/fail;
 - interpreted student intent;
 - current legacy target;
