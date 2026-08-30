@@ -220,27 +220,31 @@ def test_pr4i_absent_reasoning_dimension_is_incomplete_and_cannot_pass():
     assert score["details"][0]["validator_result_missing"] is True
 
 
-PR4H_PATH_CASES = {
+PLANNING_PATH_CASES = {
     "a1-excellent-governance",
     "a1-blind-ai-agreement",
+    "a1-contradictory-governance",
     "a2-verbose-vague-confidence",
     "a3-blind-security-agreement",
     "a3-architecture-changed",
     "a4-implementation-changed-architecture",
+    "a4-ci-green-overconfidence",
     "a5-excellent-release",
+    "a5-legitimate-performance-unknown",
     "a6-excellent-operations",
+    "a6-legitimate-residual-risk-unknown",
     "a6-recovery-claim-contradiction",
 }
 
 
-def test_pr4h_planning_path_contract_is_limited_to_audited_cases():
+def test_planning_path_contract_is_limited_to_audited_cases():
     rows = load_cases()
     migrated = {
         row["id"]
         for row in rows
         if (row.get("expectations") or {}).get("acceptable_planning_paths")
     }
-    assert migrated == PR4H_PATH_CASES
+    assert migrated == PLANNING_PATH_CASES
     for row in rows:
         validate_enum_contract(row)
 
@@ -314,7 +318,7 @@ def test_pr4h_planning_path_contract_accepts_audited_pr4g_paths():
         assert score["pass"] is True, case_id
 
 
-def test_pr4h_planning_path_contract_rejects_cross_product_false_positive():
+def test_planning_path_contract_rejects_cross_product_false_positive():
     case = next(
         row for row in load_cases()
         if row["id"] == "a4-implementation-changed-architecture"
@@ -341,18 +345,67 @@ def test_pr4h_planning_path_contract_rejects_cross_product_false_positive():
     assert score["pass"] is False
 
 
+def test_pr4k_residual_calibration_accepts_observed_defensible_paths():
+    cases = {row["id"]: row for row in load_cases()}
+    samples = {
+        "a1-contradictory-governance": (
+            "CONTRADICTION_OR_STALE_STATE",
+            "RECONCILE_CONTRADICTION",
+            "CURRENT_POSITION_CLEAR",
+        ),
+        "a4-ci-green-overconfidence": (
+            "TEACHING_OR_TEACHBACK",
+            "TEACH_CONCEPT",
+            "CURRENT_POSITION_CLEAR",
+        ),
+        "a5-legitimate-performance-unknown": (
+            "UNCERTAINTY",
+            "REQUEST_MISSING_EVIDENCE",
+            "CURRENT_EVIDENCE_ASSESSED",
+        ),
+        "a6-excellent-operations": (
+            "EVIDENCE_DEFICIT",
+            "REQUEST_MISSING_EVIDENCE",
+            "EVIDENCE_BOUNDARY_CLEAR",
+        ),
+        "a6-legitimate-residual-risk-unknown": (
+            "UNCERTAINTY",
+            "REQUEST_MISSING_EVIDENCE",
+            "EVIDENCE_BOUNDARY_CLEAR",
+        ),
+    }
+
+    for case_id, (need, move, target) in samples.items():
+        score = score_planning_signal(
+            cases[case_id],
+            {
+                "status": "completed",
+                "shadow_planner": {
+                    "primary_need": need,
+                    "selected_move_type": move,
+                    "target_outcome": target,
+                    "proposed_question": "What should the engineer establish next?",
+                },
+            },
+        )
+        assert score["path_contract_active"] is True, case_id
+        assert score["path_ok"] is True, case_id
+        assert score["explicit_move_match"] is True, case_id
+        assert score["target_ok"] is True, case_id
+        assert score["pass"] is True, case_id
+
+
 def test_machine_planning_score_accepts_selector_valid_alternative_for_acceptable_target():
-    case = next(row for row in load_cases() if row["id"] == "a4-ci-green-overconfidence")
+    case = next(row for row in load_cases() if row["id"] == "a4-strong-code-weak-traceability")
     score = score_planning_signal(
         case,
         {
             "status": "completed",
             "shadow_planner": {
-                "selected_move_type": "CLARIFY_CONSEQUENCE",
-                "target_outcome": "ENGINEERING_CONSEQUENCE_CLEAR",
+                "selected_move_type": "CLARIFY_ACTION_BOUNDARY",
+                "target_outcome": "ACTION_BOUNDARY_CLEAR",
                 "proposed_question": (
-                    "What engineering consequence should we state for merging while the "
-                    "external-service failure path remains untested?"
+                    "What bounded action should the team take while traceability remains incomplete?"
                 ),
             },
         },
@@ -367,17 +420,17 @@ def test_machine_planning_score_accepts_selector_valid_alternative_for_acceptabl
 
 
 def test_machine_planning_score_still_rejects_forbidden_or_unacceptable_target():
-    case = dict(next(row for row in load_cases() if row["id"] == "a4-ci-green-overconfidence"))
+    case = dict(next(row for row in load_cases() if row["id"] == "a4-strong-code-weak-traceability"))
     case["expectations"] = dict(case["expectations"])
-    case["expectations"]["forbidden_moves"] = ["CLARIFY_CONSEQUENCE"]
+    case["expectations"]["forbidden_moves"] = ["CLARIFY_ACTION_BOUNDARY"]
     forbidden = score_planning_signal(
         case,
         {
             "status": "completed",
             "shadow_planner": {
-                "selected_move_type": "CLARIFY_CONSEQUENCE",
-                "target_outcome": "ENGINEERING_CONSEQUENCE_CLEAR",
-                "proposed_question": "What engineering consequence matters here?",
+                "selected_move_type": "CLARIFY_ACTION_BOUNDARY",
+                "target_outcome": "ACTION_BOUNDARY_CLEAR",
+                "proposed_question": "What bounded action should the team take now?",
             },
         },
     )

@@ -910,10 +910,35 @@
       ],
       "acceptable_target_outcomes": [
         "EVIDENCE_BOUNDARY_CLEAR",
+        "CURRENT_POSITION_CLEAR",
         "ACTION_BOUNDARY_CLEAR"
       ],
       "forbidden_moves": [],
-      "requires_teaching": false
+      "requires_teaching": false,
+      "acceptable_planning_paths": [
+        {
+          "primary_need": "CONTRADICTION_OR_STALE_STATE",
+          "move_type": "RECONCILE_CONTRADICTION",
+          "target_outcome": "EVIDENCE_BOUNDARY_CLEAR"
+        },
+        {
+          "primary_need": "CONTRADICTION_OR_STALE_STATE",
+          "move_type": "RECONCILE_CONTRADICTION",
+          "target_outcome": "CURRENT_POSITION_CLEAR"
+        },
+        {
+          "primary_need": "CONTRADICTION_OR_STALE_STATE",
+          "move_type": "CLARIFY_ACTION_BOUNDARY",
+          "target_outcome": "ACTION_BOUNDARY_CLEAR"
+        }
+      ],
+      "preferred_planning_paths": [
+        {
+          "primary_need": "CONTRADICTION_OR_STALE_STATE",
+          "move_type": "RECONCILE_CONTRADICTION",
+          "target_outcome": "EVIDENCE_BOUNDARY_CLEAR"
+        }
+      ]
     },
     "oracle_candidates": [
       {
@@ -3304,10 +3329,35 @@
       ],
       "acceptable_target_outcomes": [
         "EVIDENCE_BOUNDARY_CLEAR",
-        "ENGINEERING_CONSEQUENCE_CLEAR"
+        "ENGINEERING_CONSEQUENCE_CLEAR",
+        "CURRENT_POSITION_CLEAR"
       ],
       "forbidden_moves": [],
-      "requires_teaching": true
+      "requires_teaching": true,
+      "acceptable_planning_paths": [
+        {
+          "primary_need": "TEACHING_OR_TEACHBACK",
+          "move_type": "TEACH_CONCEPT",
+          "target_outcome": "EVIDENCE_BOUNDARY_CLEAR"
+        },
+        {
+          "primary_need": "TEACHING_OR_TEACHBACK",
+          "move_type": "TEACH_CONCEPT",
+          "target_outcome": "ENGINEERING_CONSEQUENCE_CLEAR"
+        },
+        {
+          "primary_need": "TEACHING_OR_TEACHBACK",
+          "move_type": "TEACH_CONCEPT",
+          "target_outcome": "CURRENT_POSITION_CLEAR"
+        }
+      ],
+      "preferred_planning_paths": [
+        {
+          "primary_need": "TEACHING_OR_TEACHBACK",
+          "move_type": "TEACH_CONCEPT",
+          "target_outcome": "EVIDENCE_BOUNDARY_CLEAR"
+        }
+      ]
     },
     "oracle_candidates": [
       {
@@ -4406,10 +4456,35 @@
       ],
       "acceptable_target_outcomes": [
         "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR",
-        "UNCERTAINTY_CLEAR"
+        "UNCERTAINTY_CLEAR",
+        "CURRENT_EVIDENCE_ASSESSED"
       ],
       "forbidden_moves": [],
-      "requires_teaching": false
+      "requires_teaching": false,
+      "acceptable_planning_paths": [
+        {
+          "primary_need": "UNCERTAINTY",
+          "move_type": "SURFACE_UNCERTAINTY",
+          "target_outcome": "UNCERTAINTY_CLEAR"
+        },
+        {
+          "primary_need": "UNCERTAINTY",
+          "move_type": "REQUEST_MISSING_EVIDENCE",
+          "target_outcome": "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR"
+        },
+        {
+          "primary_need": "UNCERTAINTY",
+          "move_type": "REQUEST_MISSING_EVIDENCE",
+          "target_outcome": "CURRENT_EVIDENCE_ASSESSED"
+        }
+      ],
+      "preferred_planning_paths": [
+        {
+          "primary_need": "UNCERTAINTY",
+          "move_type": "SURFACE_UNCERTAINTY",
+          "target_outcome": "UNCERTAINTY_CLEAR"
+        }
+      ]
     },
     "oracle_candidates": [
       {
@@ -4808,7 +4883,8 @@
       "acceptable_moves": [
         "STRESS_TEST_POSITION",
         "ESTABLISH_CHANGE_TRIGGER",
-        "TEST_EVIDENCE_BOUNDARY"
+        "TEST_EVIDENCE_BOUNDARY",
+        "REQUEST_MISSING_EVIDENCE"
       ],
       "preferred_moves": [
         "STRESS_TEST_POSITION"
@@ -4824,6 +4900,11 @@
         {
           "primary_need": "EVIDENCE_DEFICIT",
           "move_type": "TEST_EVIDENCE_BOUNDARY",
+          "target_outcome": "EVIDENCE_BOUNDARY_CLEAR"
+        },
+        {
+          "primary_need": "EVIDENCE_DEFICIT",
+          "move_type": "REQUEST_MISSING_EVIDENCE",
           "target_outcome": "EVIDENCE_BOUNDARY_CLEAR"
         },
         {
@@ -5526,17 +5607,43 @@
     "expectations": {
       "acceptable_moves": [
         "SURFACE_UNCERTAINTY",
-        "ESTABLISH_CHANGE_TRIGGER"
+        "ESTABLISH_CHANGE_TRIGGER",
+        "REQUEST_MISSING_EVIDENCE"
       ],
       "preferred_moves": [
         "SURFACE_UNCERTAINTY"
       ],
       "acceptable_target_outcomes": [
         "UNCERTAINTY_CLEAR",
-        "CHANGE_OR_CLOSURE_CONDITION_CLEAR"
+        "CHANGE_OR_CLOSURE_CONDITION_CLEAR",
+        "EVIDENCE_BOUNDARY_CLEAR"
       ],
       "forbidden_moves": [],
-      "requires_teaching": false
+      "requires_teaching": false,
+      "acceptable_planning_paths": [
+        {
+          "primary_need": "UNCERTAINTY",
+          "move_type": "SURFACE_UNCERTAINTY",
+          "target_outcome": "UNCERTAINTY_CLEAR"
+        },
+        {
+          "primary_need": "UNCERTAINTY",
+          "move_type": "ESTABLISH_CHANGE_TRIGGER",
+          "target_outcome": "CHANGE_OR_CLOSURE_CONDITION_CLEAR"
+        },
+        {
+          "primary_need": "UNCERTAINTY",
+          "move_type": "REQUEST_MISSING_EVIDENCE",
+          "target_outcome": "EVIDENCE_BOUNDARY_CLEAR"
+        }
+      ],
+      "preferred_planning_paths": [
+        {
+          "primary_need": "UNCERTAINTY",
+          "move_type": "SURFACE_UNCERTAINTY",
+          "target_outcome": "UNCERTAINTY_CLEAR"
+        }
+      ]
     },
     "oracle_candidates": [
       {
