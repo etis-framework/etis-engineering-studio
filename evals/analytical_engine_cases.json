@@ -475,7 +475,8 @@
     "expectations": {
       "acceptable_moves": [
         "ADDRESS_STUDENT_CHALLENGE",
-        "TEST_FINDING_SUPPORT"
+        "TEST_FINDING_SUPPORT",
+        "TEST_EVIDENCE_BOUNDARY"
       ],
       "preferred_moves": [
         "ADDRESS_STUDENT_CHALLENGE"
@@ -1364,14 +1365,16 @@
     "expectations": {
       "acceptable_moves": [
         "RECONCILE_CONTRADICTION",
-        "ESTABLISH_CHANGE_TRIGGER"
+        "ESTABLISH_CHANGE_TRIGGER",
+        "CLARIFY_ACTION_BOUNDARY"
       ],
       "preferred_moves": [
         "RECONCILE_CONTRADICTION"
       ],
       "acceptable_target_outcomes": [
         "EVIDENCE_BOUNDARY_CLEAR",
-        "CHANGE_OR_CLOSURE_CONDITION_CLEAR"
+        "CHANGE_OR_CLOSURE_CONDITION_CLEAR",
+        "ACTION_BOUNDARY_CLEAR"
       ],
       "forbidden_moves": [],
       "requires_teaching": false
@@ -1620,14 +1623,16 @@
     "expectations": {
       "acceptable_moves": [
         "STRESS_TEST_POSITION",
-        "TEST_TRADEOFF"
+        "TEST_TRADEOFF",
+        "CLARIFY_ACTION_BOUNDARY"
       ],
       "preferred_moves": [
         "STRESS_TEST_POSITION"
       ],
       "acceptable_target_outcomes": [
         "ENGINEERING_CONSEQUENCE_CLEAR",
-        "TRADEOFF_CLEAR"
+        "TRADEOFF_CLEAR",
+        "ACTION_BOUNDARY_CLEAR"
       ],
       "forbidden_moves": [],
       "requires_teaching": false
@@ -3140,7 +3145,7 @@
         "TEACH_CONCEPT"
       ],
       "preferred_moves": [
-        "TEST_EVIDENCE_BOUNDARY"
+        "TEACH_CONCEPT"
       ],
       "acceptable_target_outcomes": [
         "EVIDENCE_BOUNDARY_CLEAR",
@@ -3152,7 +3157,7 @@
     "oracle_candidates": [
       {
         "candidate_id": "preferred",
-        "move_type": "TEST_EVIDENCE_BOUNDARY",
+        "move_type": "TEACH_CONCEPT",
         "target_outcome": "EVIDENCE_BOUNDARY_CLEAR",
         "evidence_refs": [
           "PATH:tests/"
@@ -3424,14 +3429,18 @@
     "expectations": {
       "acceptable_moves": [
         "MAKE_POSITION_EXPLICIT",
-        "CLARIFY_ACTION_BOUNDARY"
+        "CLARIFY_ACTION_BOUNDARY",
+        "TEST_EVIDENCE_BOUNDARY",
+        "ESTABLISH_CHANGE_TRIGGER"
       ],
       "preferred_moves": [
         "MAKE_POSITION_EXPLICIT"
       ],
       "acceptable_target_outcomes": [
         "CURRENT_POSITION_CLEAR",
-        "ACTION_BOUNDARY_CLEAR"
+        "ACTION_BOUNDARY_CLEAR",
+        "EVIDENCE_BOUNDARY_CLEAR",
+        "CHANGE_OR_CLOSURE_CONDITION_CLEAR"
       ],
       "forbidden_moves": [],
       "requires_teaching": false
@@ -4892,6 +4901,7 @@
       ],
       "acceptable_target_outcomes": [
         "FOCUS_UNDERSTOOD",
+        "CURRENT_EVIDENCE_ASSESSED",
         "NEXT_IMPROVEMENT_OR_EVIDENCE_NEED_CLEAR"
       ],
       "forbidden_moves": [
