@@ -15,6 +15,7 @@ from apps.api.app.services.review_planning import (
     CandidateMoveType,
     CandidateNextMove,
     PlanningContext,
+    PlanningNeed,
     ReasoningValidationMode,
     ReviewPlanningMode,
     build_review_objective,
@@ -256,32 +257,54 @@ def score_reasoning_signal(case: Mapping[str, Any], signal: Mapping[str, Any]) -
 def score_planning_signal(case: Mapping[str, Any], signal: Mapping[str, Any]) -> dict[str, Any]:
     expected = dict(case.get("expectations") or {})
     shadow = dict(signal.get("shadow_planner") or {})
+    primary_need = str(shadow.get("primary_need") or signal.get("primary_need") or "")
     move = str(shadow.get("selected_move_type") or "")
     target = str(shadow.get("target_outcome") or "")
     question = str(shadow.get("proposed_question") or "")
     acceptable_moves = {str(value) for value in (expected.get("acceptable_moves") or ())}
     acceptable_targets = {str(value) for value in (expected.get("acceptable_target_outcomes") or ())}
     forbidden_moves = {str(value) for value in (expected.get("forbidden_moves") or ())}
+    acceptable_paths = _planning_paths(expected.get("acceptable_planning_paths") or ())
+    preferred_paths = _planning_paths(expected.get("preferred_planning_paths") or ())
+    observed_path = (primary_need, move, target)
+    path_contract_active = bool(acceptable_paths)
+    path_ok = observed_path in acceptable_paths if path_contract_active else None
+    preferred_path_match = observed_path in preferred_paths if preferred_paths else False
     status_ok = str(signal.get("status") or "") == "completed"
     target_ok = target in acceptable_targets
     explicit_move_match = move in acceptable_moves
     preferred_move_match = move in {
         str(value) for value in (expected.get("preferred_moves") or ())
     }
-    move_ok = bool(move) and move not in forbidden_moves and target_ok
+    # Backward compatibility: cases without explicit planning paths preserve the
+    # PR4A/PR4F selector-valid-target scoring contract. Migrated PR4H cases use
+    # the complete Need -> Move -> Target tuple as the semantic acceptance unit.
+    semantic_ok = bool(path_ok) if path_contract_active else target_ok
+    move_ok = bool(move) and move not in forbidden_moves and semantic_ok
     question_ok = bool(question.strip()) and question.count("?") == 1
-    move_pass = status_ok and move_ok
+    path_pass = (status_ok and move_ok) if path_contract_active else None
+    legacy_target_move_pass = status_ok and bool(move) and move not in forbidden_moves and target_ok
+    move_pass = bool(path_pass) if path_contract_active else legacy_target_move_pass
     return {
         "pass": move_pass and question_ok,
         "move_pass": move_pass,
+        "path_pass": path_pass,
+        "legacy_target_move_pass": legacy_target_move_pass,
         "status_ok": status_ok,
         "move_ok": move_ok,
         "target_ok": target_ok,
+        "path_contract_active": path_contract_active,
+        "path_ok": path_ok,
+        "preferred_path_match": preferred_path_match,
         "explicit_move_match": explicit_move_match,
         "preferred_move_match": preferred_move_match,
         "question_ok": question_ok,
+        "observed_primary_need": primary_need,
         "observed_move": move,
         "observed_target": target,
+        "observed_path": list(observed_path),
+        "acceptable_paths": [list(value) for value in sorted(acceptable_paths)],
+        "preferred_paths": [list(value) for value in sorted(preferred_paths)],
         "acceptable_moves": sorted(acceptable_moves),
         "acceptable_targets": sorted(acceptable_targets),
         "forbidden_moves": sorted(forbidden_moves),
@@ -289,16 +312,39 @@ def score_planning_signal(case: Mapping[str, Any], signal: Mapping[str, Any]) ->
     }
 
 
+def _planning_paths(values: Iterable[Mapping[str, Any]]) -> set[tuple[str, str, str]]:
+    return {
+        (
+            str(value.get("primary_need") or ""),
+            str(value.get("move_type") or ""),
+            str(value.get("target_outcome") or ""),
+        )
+        for value in values
+        if isinstance(value, Mapping)
+    }
+
+
 def validate_enum_contract(case: Mapping[str, Any]) -> None:
     from apps.api.app.services.review_planning import ObjectiveOutcome
 
     canonical_review_mode(str(case.get("review_mode") or ""))
-    for value in (case.get("expectations") or {}).get("acceptable_moves") or ():
+    expectations = dict(case.get("expectations") or {})
+    for value in expectations.get("acceptable_moves") or ():
         CandidateMoveType(str(value))
-    for value in (case.get("expectations") or {}).get("forbidden_moves") or ():
+    for value in expectations.get("forbidden_moves") or ():
         CandidateMoveType(str(value))
-    for value in (case.get("expectations") or {}).get("acceptable_target_outcomes") or ():
+    for value in expectations.get("acceptable_target_outcomes") or ():
         ObjectiveOutcome(str(value))
+    acceptable_paths = _validate_planning_paths(
+        expectations.get("acceptable_planning_paths") or (),
+        field="acceptable_planning_paths",
+    )
+    preferred_paths = _validate_planning_paths(
+        expectations.get("preferred_planning_paths") or (),
+        field="preferred_planning_paths",
+    )
+    if preferred_paths and not preferred_paths.issubset(acceptable_paths):
+        raise ValueError("preferred_planning_paths must be a subset of acceptable_planning_paths")
     updates, acceptable = reasoning_probe(case)
     valid_dimensions = {item.value for item in ReasoningDimension}
     valid_decisions = {item.value for item in ValidationDecision}
@@ -309,6 +355,28 @@ def validate_enum_contract(case: Mapping[str, Any]) -> None:
             raise ValueError(f"reasoning expectation {dimension} has no proposal")
         if not values or not values.issubset(valid_decisions):
             raise ValueError(f"invalid acceptable decisions for {dimension}: {sorted(values)}")
+
+
+def _validate_planning_paths(
+    values: Iterable[Mapping[str, Any]],
+    *,
+    field: str,
+) -> set[tuple[str, str, str]]:
+    from apps.api.app.services.review_planning import ObjectiveOutcome
+
+    result: set[tuple[str, str, str]] = set()
+    for index, raw in enumerate(values):
+        if not isinstance(raw, Mapping):
+            raise ValueError(f"{field}[{index}] must be an object")
+        required = {"primary_need", "move_type", "target_outcome"}
+        missing = required - set(raw)
+        if missing:
+            raise ValueError(f"{field}[{index}] missing fields: {sorted(missing)}")
+        need = PlanningNeed(str(raw["primary_need"])).value
+        move = CandidateMoveType(str(raw["move_type"])).value
+        target = ObjectiveOutcome(str(raw["target_outcome"])).value
+        result.add((need, move, target))
+    return result
 
 
 def _objective_outcome(value: str):
