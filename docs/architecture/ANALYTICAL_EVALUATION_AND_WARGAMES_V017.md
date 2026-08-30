@@ -175,6 +175,12 @@ Machine planning acceptance is intentionally broader than the human preference o
 
 This prevents a narrow handwritten move list from creating false negatives while preserving zero tolerance for hard authority failures, unacceptable objective targets, forbidden moves, or invalid realized questions.
 
+PR4F calibration applies that rule to the preserved post-PR4E acquisitions. In particular, a stale-state correction may defensibly advance to a bounded corrective action; an already-articulated dependency trigger may advance to the action taken when it fires; a vague merge recommendation may be stress-tested by evidence boundary or reversal-trigger questions; and teaching about independently verifying AI-assisted release behavior may target current evidence assessment. These are acceptable alternatives, not replacements for the existing preferred moves.
+
+When a corpus case explicitly requires teaching, the preferred oracle move must itself be an explicit teaching move. An ordinary analytical move such as `TEST_EVIDENCE_BOUNDARY` may remain an acceptable diagnostic alternative, but setting `teaching_required=true` on that ordinary move does not turn it into teaching authority. This keeps the evaluation oracle aligned with the application-owned assistance boundary.
+
+Correct-student-challenge hard-failure detection likewise evaluates the selected move **and target together**. A `TEST_EVIDENCE_BOUNDARY` move targeting `FINDING_EVIDENCE_TESTED` remains on the disputed REVIEW finding and is therefore challenge-responsive. A downstream action/change move that leaves the dispute unresolved is still a hard failure.
+
 ## Hard failures
 
 Some outcomes are not matters of preference. Any occurrence is a hard failure for student-visible enablement:

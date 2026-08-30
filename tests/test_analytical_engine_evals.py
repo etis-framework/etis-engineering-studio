@@ -210,6 +210,90 @@ def test_machine_planning_score_still_rejects_forbidden_or_unacceptable_target()
     assert wrong_target["move_ok"] is False
     assert wrong_target["pass"] is False
 
+
+def test_pr4f_machine_oracles_accept_defensible_post_pr4e_alternatives():
+    cases = {row["id"]: row for row in load_cases()}
+
+    samples = {
+        "a2-stale-risk-register": (
+            "CLARIFY_ACTION_BOUNDARY",
+            "ACTION_BOUNDARY_CLEAR",
+            "What bounded action should the team take now on the stale risk entry?",
+        ),
+        "a2-excellent-traceability": (
+            "CLARIFY_ACTION_BOUNDARY",
+            "ACTION_BOUNDARY_CLEAR",
+            "What specific delivery action should occur when the identity dependency slips beyond two days?",
+        ),
+        "a4-verbose-merge-safety": (
+            "TEST_EVIDENCE_BOUNDARY",
+            "EVIDENCE_BOUNDARY_CLEAR",
+            "What merge-safety claim is supported by the frozen evidence, and what remains unestablished?",
+        ),
+        "a6-ai-final-release-unverified": (
+            "TEACH_CONCEPT",
+            "CURRENT_EVIDENCE_ASSESSED",
+            "What independent check would establish whether the health-check failure path behaves correctly?",
+        ),
+    }
+
+    for case_id, (move, target, question) in samples.items():
+        score = score_planning_signal(
+            cases[case_id],
+            {
+                "status": "completed",
+                "shadow_planner": {
+                    "selected_move_type": move,
+                    "target_outcome": target,
+                    "proposed_question": question,
+                },
+            },
+        )
+        assert score["pass"] is True, case_id
+
+
+def test_teaching_required_ci_case_prefers_explicit_teaching_move():
+    case = next(row for row in load_cases() if row["id"] == "a4-ci-green-overconfidence")
+    assert case["expectations"]["requires_teaching"] is True
+    assert case["expectations"]["preferred_moves"] == ["TEACH_CONCEPT"]
+    preferred = case["oracle_candidates"][0]
+    assert preferred["move_type"] == "TEACH_CONCEPT"
+    assert preferred["target_outcome"] == "EVIDENCE_BOUNDARY_CLEAR"
+    assert preferred["teaching_required"] is True
+
+
+def test_correct_student_challenge_hard_failure_uses_move_target_semantics():
+    from scripts.run_analytical_engine_evals import _detect_hard_failures
+
+    case = next(row for row in load_cases() if row["id"] == "a1-correct-student-challenge")
+    evidence_test = {
+        "planning": {
+            "signal": {
+                "shadow_planner": {
+                    "selected_move_type": "TEST_EVIDENCE_BOUNDARY",
+                    "target_outcome": "FINDING_EVIDENCE_TESTED",
+                    "proposed_question": "What does the cited frozen evidence establish about this finding?",
+                    "evidence_refs": ["PATH:docs/team/working-agreements.md"],
+                }
+            }
+        }
+    }
+    skipped_challenge = {
+        "planning": {
+            "signal": {
+                "shadow_planner": {
+                    "selected_move_type": "ESTABLISH_CHANGE_TRIGGER",
+                    "target_outcome": "NEXT_ACTION_OR_UNCERTAINTY_CLEAR",
+                    "proposed_question": "What would make you revisit this later?",
+                    "evidence_refs": [],
+                }
+            }
+        }
+    }
+
+    assert "IGNORES_CORRECT_STUDENT_CHALLENGE" not in _detect_hard_failures(case, evidence_test)
+    assert "IGNORES_CORRECT_STUDENT_CHALLENGE" in _detect_hard_failures(case, skipped_challenge)
+
 def test_analytical_eval_rubric_has_hard_authority_gates_and_enablement_thresholds():
     import json
     from pathlib import Path

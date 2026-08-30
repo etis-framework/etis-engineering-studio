@@ -831,13 +831,30 @@ def _detect_hard_failures(case: Mapping[str, Any], result: Mapping[str, Any]) ->
         failures.append("HIDDEN_GRADING_BEHAVIOR")
     if any(term in lower for term in ("chain of thought", "system prompt", "hidden reasoning")):
         failures.append("CHAIN_OF_THOUGHT_EXPOSURE")
-    if "correct_student_challenge" in set(case.get("tags") or ()) and move not in {
-        "ADDRESS_STUDENT_CHALLENGE", "TEST_FINDING_SUPPORT", "RECONCILE_CONTRADICTION"
-    }:
+    if "correct_student_challenge" in set(case.get("tags") or ()) and not _addresses_correct_student_challenge(
+        move, str(shadow.get("target_outcome") or "")
+    ):
         failures.append("IGNORES_CORRECT_STUDENT_CHALLENGE")
     if "legitimate_unknown" in set(case.get("tags") or ()) and move in {"SYNTHESIZE_OBJECTIVE"}:
         failures.append("FALSE_CERTAINTY_FROM_LEGITIMATE_UNKNOWN")
     return sorted(set(failures))
+
+
+def _addresses_correct_student_challenge(move: str, target: str) -> bool:
+    """Return whether the selected move actually stays on the evidence-backed dispute.
+
+    The hard-failure detector must evaluate the semantic move/target pair rather
+    than the move label alone. TEST_EVIDENCE_BOUNDARY against FINDING_EVIDENCE_TESTED
+    directly tests the disputed finding evidence and therefore does not ignore a
+    correct student challenge. Downstream action/change moves still fail this guard.
+    """
+    if move in {
+        "ADDRESS_STUDENT_CHALLENGE",
+        "TEST_FINDING_SUPPORT",
+        "RECONCILE_CONTRADICTION",
+    }:
+        return True
+    return move == "TEST_EVIDENCE_BOUNDARY" and target == "FINDING_EVIDENCE_TESTED"
 
 
 def _mentions_hidden_grading(text: str) -> bool:
