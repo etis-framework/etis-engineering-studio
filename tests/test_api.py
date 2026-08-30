@@ -411,7 +411,10 @@ def test_shadow_review_planning_records_comparison_without_changing_live_questio
             planning = persisted_state["review_control"]["planning_shadow"]
             assert planning["last_plan"]["status"] == "completed"
             assert planning["last_plan"]["current_engine"]["target_move"] == "evidence_boundary_visible"
-            assert planning["last_plan"]["shadow_planner"]["selected_move_type"] == "CLARIFY_CONSEQUENCE"
+            # PR4E removes consequence as a universal tie-breaker. The student has
+            # already surfaced a consequence, so the shadow selector should continue
+            # toward an explicit engineering position rather than re-ask consequence.
+            assert planning["last_plan"]["shadow_planner"]["selected_move_type"] == "MAKE_POSITION_EXPLICIT"
             assert planning["last_plan"]["shadow_planner"]["proposed_question"].startswith("If that consequence")
             student_turn = (
                 db.query(ReviewTurn)

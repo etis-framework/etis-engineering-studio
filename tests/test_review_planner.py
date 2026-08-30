@@ -32,7 +32,7 @@ def challenge():
     }
 
 
-def planning_context(*, intent="reasoning", recent_questions=(), shadow=None):
+def planning_context(*, intent="reasoning", recent_questions=(), shadow=None, explicit_uncertainty=()):
     objective = build_review_objective(
         raw_mode="board_review",
         phase_id="A3",
@@ -75,6 +75,7 @@ def planning_context(*, intent="reasoning", recent_questions=(), shadow=None):
         recent_student_turns=("We chose this boundary because it limits coupling.",),
         latest_student_turn="The repository shows the component boundary, but not its failure behavior.",
         latest_student_evidence_refs=("PATH:docs/architecture/system.md",),
+        explicit_uncertainty=tuple(explicit_uncertainty),
         assistance_state={"interpreted_intent": intent, "teaching_needed": intent == "stuck"},
         active_reviewer_lens="chief_architect",
     )
@@ -226,9 +227,9 @@ def test_selector_rejects_invented_evidence_reference():
     assert CandidateRejectionCode.NO_FROZEN_EVIDENCE_BASIS in rejected["bad"].rejection_codes
 
 
-def test_selector_rejects_already_validated_outcome():
+def test_selector_rejects_move_that_only_reasks_an_already_validated_outcome():
     shadow = blank_reasoning_shadow()
-    shadow["dimensions"]["evidence_boundary_visible"]["status"] = "validated"
+    shadow["dimensions"]["consequence_visible"]["status"] = "validated"
     selector = NextQuestionSelector()
     context = planning_context(shadow=shadow)
     evidence = CandidateNextMove(
@@ -245,9 +246,9 @@ def test_selector_rejects_already_validated_outcome():
 
     selected, _ = selector.select(context=context, candidates=(evidence, consequence))
 
-    assert selected.selected_candidate_id == "consequence"
+    assert selected.selected_candidate_id == "evidence"
     rejected = {item.candidate_id: item for item in selected.rejected_candidates}
-    assert CandidateRejectionCode.ALREADY_ESTABLISHED in rejected["evidence"].rejection_codes
+    assert CandidateRejectionCode.ALREADY_ESTABLISHED in rejected["consequence"].rejection_codes
 
 
 def test_selector_requires_teaching_move_when_student_is_stuck():
@@ -293,6 +294,153 @@ def test_selector_prioritizes_student_challenge_before_returning_to_agenda():
 
     assert selected.selected_candidate_id == "challenge"
     assert SelectionReasonCode.ADDRESSES_STUDENT_CHALLENGE in selected.reason_codes
+
+
+def test_selector_prefers_evidence_test_over_generic_consequence_when_both_are_unresolved():
+    selector = NextQuestionSelector()
+    context = planning_context()
+    evidence = CandidateNextMove(
+        candidate_id="evidence",
+        move_type=CandidateMoveType.TEST_EVIDENCE_BOUNDARY,
+        target_outcome=ObjectiveOutcome.EVIDENCE_BOUNDARY_CLEAR,
+    )
+    consequence = CandidateNextMove(
+        candidate_id="consequence",
+        move_type=CandidateMoveType.CLARIFY_CONSEQUENCE,
+        target_outcome=ObjectiveOutcome.ENGINEERING_CONSEQUENCE_CLEAR,
+    )
+
+    selected, _ = selector.select(context=context, candidates=(consequence, evidence))
+
+    assert selected.selected_candidate_id == "evidence"
+
+
+def test_selector_prioritizes_explicit_uncertainty_over_generic_consequence():
+    selector = NextQuestionSelector()
+    context = planning_context(explicit_uncertainty=("External behavior is not yet known.",))
+    uncertainty = CandidateNextMove(
+        candidate_id="uncertainty",
+        move_type=CandidateMoveType.SURFACE_UNCERTAINTY,
+        target_outcome=ObjectiveOutcome.UNCERTAINTY_CLEAR,
+    )
+    consequence = CandidateNextMove(
+        candidate_id="consequence",
+        move_type=CandidateMoveType.CLARIFY_CONSEQUENCE,
+        target_outcome=ObjectiveOutcome.ENGINEERING_CONSEQUENCE_CLEAR,
+    )
+
+    selected, _ = selector.select(context=context, candidates=(consequence, uncertainty))
+
+    assert selected.selected_candidate_id == "uncertainty"
+    assert SelectionReasonCode.PRESERVES_VALID_UNCERTAINTY in selected.reason_codes
+
+
+def test_selector_respects_planner_teaching_signal_even_when_upstream_intent_is_reasoning():
+    selector = NextQuestionSelector()
+    context = planning_context(intent="reasoning")
+    teach = CandidateNextMove(
+        candidate_id="teach",
+        move_type=CandidateMoveType.TEACH_CONCEPT,
+        target_outcome=ObjectiveOutcome.CURRENT_POSITION_CLEAR,
+        teaching_required=True,
+    )
+    consequence = CandidateNextMove(
+        candidate_id="consequence",
+        move_type=CandidateMoveType.CLARIFY_CONSEQUENCE,
+        target_outcome=ObjectiveOutcome.ENGINEERING_CONSEQUENCE_CLEAR,
+    )
+
+    selected, _ = selector.select(context=context, candidates=(consequence, teach))
+
+    assert selected.selected_candidate_id == "teach"
+    assert SelectionReasonCode.MATCHES_ASSISTANCE_LEVEL in selected.reason_codes
+
+
+def test_selector_allows_evidence_testing_to_deepen_validated_reasoning_without_reasking_it():
+    selector = NextQuestionSelector()
+    shadow = blank_reasoning_shadow()
+    shadow["dimensions"]["evidence_boundary_visible"]["status"] = "validated"
+    context = planning_context(shadow=shadow)
+    evidence = CandidateNextMove(
+        candidate_id="evidence",
+        move_type=CandidateMoveType.TEST_EVIDENCE_BOUNDARY,
+        target_outcome=ObjectiveOutcome.EVIDENCE_BOUNDARY_CLEAR,
+        evidence_refs=("PATH:docs/architecture/system.md",),
+    )
+
+    selected, rejected = selector.select(context=context, candidates=(evidence,))
+
+    assert selected is not None
+    assert selected.selected_candidate_id == "evidence"
+    assert not rejected
+
+
+def test_planner_adds_bounded_teaching_fallback_when_required_and_model_omits_one():
+    ai = FakePlannerAI(
+        plan_payload={
+            "candidates": [
+                {
+                    "candidate_id": "ordinary",
+                    "move_type": "CLARIFY_CONSEQUENCE",
+                    "target_outcome": "ENGINEERING_CONSEQUENCE_CLEAR",
+                    "evidence_refs": [],
+                    "preferred_reviewer_lens": "chief_architect",
+                    "teaching_required": False,
+                    "reason_codes": [],
+                }
+            ],
+            "_usage": {"purpose": "review_planning_shadow"},
+        },
+        realization_payload={
+            "lead_in": "A boundary is only defensible if you can explain the reasoning behind it.",
+            "question": "In your own words, what makes this boundary defensible?",
+        },
+    )
+    outcome = ReviewPlanner(ai=ai).plan_turn(
+        context=planning_context(intent="stuck"),
+        shadow_state=None,
+        current_engine={},
+        turn_sequence=3,
+        client_turn_id="turn-3",
+        operation="respond",
+    )
+
+    assert outcome.signal["status"] == "completed"
+    shadow = outcome.signal["shadow_planner"]
+    assert shadow["selected_candidate_id"] == "app-bounded-teaching-fallback"
+    assert shadow["selected_move_type"] == "TEACH_CONCEPT"
+    assert shadow["teaching_required"] is True
+
+
+def test_planning_signal_records_candidate_moves_for_post_run_diagnosis():
+    outcome = ReviewPlanner(ai=FakePlannerAI()).plan_turn(
+        context=planning_context(),
+        shadow_state=None,
+        current_engine={},
+        turn_sequence=3,
+        client_turn_id="turn-3",
+        operation="respond",
+    )
+
+    candidates = outcome.signal["shadow_planner"]["candidate_moves"]
+    assert [item["candidate_id"] for item in candidates] == ["evidence", "consequence"]
+    assert candidates[0]["move_type"] == "TEST_EVIDENCE_BOUNDARY"
+
+
+def test_planner_prompt_prioritizes_first_order_defects_over_checklist_coverage():
+    ai = FakePlannerAI()
+    ReviewPlanner(ai=ai).plan_turn(
+        context=planning_context(),
+        shadow_state=None,
+        current_engine={},
+        turn_sequence=3,
+        client_turn_id="turn-3",
+        operation="respond",
+    )
+
+    assert "already states a meaningful consequence" in ai.last_plan_system
+    assert "first-order defects" in ai.last_plan_system
+    assert "not a checklist order" in ai.last_plan_system
 
 
 def test_realizer_rejects_future_phase_question_after_selection():

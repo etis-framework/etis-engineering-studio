@@ -302,6 +302,18 @@ Candidates must be rejected before ranking when they demand future-phase evidenc
 
 The selector persists structured reason codes rather than hidden model chain-of-thought.
 
+### PR4E conversational-priority calibration
+
+PR4D replicated evaluation showed that poor planning was primarily structural rather than random: the stable failures clustered around four first-order analytical defects—unsupported evidence claims, stale or contradictory state, legitimate uncertainty, and missing independent understanding. PR4E therefore calibrates planning around the student's immediate engineering need rather than around generic completion of unresolved objective outcomes.
+
+The semantic planner is instructed to continue from what the student has already established and to treat those first-order defects as higher-value than generic consequence elaboration. In particular, `CLARIFY_CONSEQUENCE` no longer receives an unconditional selector bonus merely because consequence is important. A consequence question remains eligible when consequence is genuinely the best unresolved issue, but it must win on the actual context rather than on a universal weighting advantage.
+
+The selector also distinguishes **reasoning demonstrated** from **objective exhausted**. Independent validation that a student can articulate an evidence boundary does not necessarily mean the evidence question is finished; a `TEST_EVIDENCE_BOUNDARY`, contradiction-reconciliation, student-challenge, missing-evidence, or stress-test move may legitimately deepen that reasoning. Moves that merely re-ask an already validated outcome remain rejectable as `ALREADY_ESTABLISHED`. This preserves the conversation-engine rule to remember before asking without turning validated dimensions into hidden objective-completion checkboxes.
+
+When the bounded assistance state requires direct teaching but the semantic planner omits every teaching candidate, the application adds one narrow `TEACH_CONCEPT` fallback inside the locked Review Objective. The fallback invents no evidence, changes no engineering decision, and exists only to prevent a student who needs help from receiving no usable analytical move. Ordinary candidate generation remains semantic-model responsibility.
+
+Internal shadow telemetry now records the bounded candidate move set as well as the selected/rejected result. This is not student-visible and contains no chain-of-thought; it exists so replicated evaluation can distinguish candidate-generation defects from selector-priority defects before selected planning is ever enabled.
+
 ## Reviewer persona boundary
 
 Reviewer personas provide expertise, professional perspective, and conversational voice.

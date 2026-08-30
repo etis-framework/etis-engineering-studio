@@ -4,6 +4,8 @@
 
 ### Added
 
+- Calibrates PR4E shadow planning around conversational continuity and first-order analytical defects: unsupported evidence claims, stale/contradictory state, legitimate uncertainty, and missing independent understanding now outrank generic consequence elaboration when present. Removes the unconditional consequence ranking bonus, permits evidence/challenge/stress-test moves to deepen already-articulated reasoning without simply re-asking it, adds a bounded application-owned teaching fallback when direct teaching is required but omitted by the semantic planner, and records candidate move sets in internal shadow telemetry for post-run diagnosis.
+
 - Adds PR4D analytical-evaluation repeatability infrastructure: immutable content-hashed live acquisition artifacts, deterministic zero-model-call replay against captured or current corpus oracles, multi-replicate acquisition, and run-to-run stability reporting for semantic intent/target, validator decisions, planner status/move/target, realized-question validity, hard failures, and cost.
 - Records acquisition provenance including repository commit, corpus/runner/support hashes, selected cases, stage configuration, Python version, UTC acquisition time, and model identities when existing usage telemetry reports them; blind human packets remain tied to one explicitly chosen acquisition.
 

@@ -20,6 +20,7 @@ from .review_planning import (
 from .next_question_selector import (
     NextQuestionSelector,
     allowed_evidence_refs,
+    context_requires_teaching,
     reasoning_dimension_for_outcome,
 )
 
@@ -134,6 +135,7 @@ class ReviewPlanner:
         _append_usage(usage_events, planned)
 
         candidates = _normalize_planner_result(planned)
+        candidates = _ensure_bounded_fallback_candidates(context, candidates)
         selection, rejected = self.selector.select(context=context, candidates=candidates)
         if selection is None:
             signal = {
@@ -145,6 +147,7 @@ class ReviewPlanner:
                 "client_turn_id": client_turn_id,
                 "operation": operation,
                 "candidate_count": len(candidates),
+                "candidate_moves": [item.to_dict() for item in candidates],
                 "rejected_candidates": [item.to_dict() for item in rejected],
             }
             return PlanningShadowOutcome(
@@ -211,6 +214,7 @@ class ReviewPlanner:
                 "client_turn_id": client_turn_id,
                 "operation": operation,
                 "candidate_count": len(candidates),
+                "candidate_moves": [item.to_dict() for item in candidates],
                 "selected_candidate_id": selection.selected_candidate_id,
                 "selected_move_type": selection.selected_move_type.value,
                 "target_outcome": selection.target_outcome.value,
@@ -250,6 +254,7 @@ class ReviewPlanner:
             },
             "shadow_planner": {
                 "candidate_count": len(candidates),
+                "candidate_moves": [item.to_dict() for item in candidates],
                 "selected_candidate_id": selection.selected_candidate_id,
                 "selected_move_type": selection.selected_move_type.value,
                 "target_outcome": selection.target_outcome.value,
@@ -294,16 +299,33 @@ Authority rules:
 3. Validated shadow reasoning is context; prior-session reasoning is not current proof.
 4. Respect evidence-backed student disagreement and reviewer fallibility.
 5. Legitimate uncertainty is a valid engineering state. Do not force false certainty.
-6. Prefer consequential, evidence-grounded, novel moves over terminology trivia or artifact theater.
-7. Do not ask for future-phase deliverables.
-8. If the student needs direct teaching, propose TEACH_CONCEPT or REQUEST_TEACH_BACK before
+6. Continue from what the student has already established. Do not propose CLARIFY_CONSEQUENCE
+   as the leading move when the newest student turn already states a meaningful consequence or
+   decision risk. Resolve the more immediate analytical defect instead.
+7. Treat these first-order defects as higher-value than generic consequence elaboration when they
+   are present in the student's newest turn:
+   - unsupported/broad claim or missing proof -> TEST_EVIDENCE_BOUNDARY or REQUEST_MISSING_EVIDENCE;
+   - stale/conflicting artifacts or self-correction -> RECONCILE_CONTRADICTION,
+     CLARIFY_ACTION_BOUNDARY, or ESTABLISH_CHANGE_TRIGGER;
+   - legitimate unknown -> SURFACE_UNCERTAINTY, REQUEST_MISSING_EVIDENCE, or
+     ESTABLISH_CHANGE_TRIGGER without forcing certainty;
+   - blind deference to reviewer/AI or inability to explain AI-assisted work ->
+     MAKE_POSITION_EXPLICIT, TEACH_CONCEPT, or REQUEST_TEACH_BACK as appropriate.
+8. Evidence-testing candidates should cite the relevant supplied frozen evidence refs when the
+   move depends on known evidence. Do not omit a valid ref merely to make a generic candidate.
+9. Required Review Objective outcomes are boundaries, not a checklist order. Do not propose a move
+   merely because an outcome is still unresolved if it would repeat or skip over the student's
+   actual reasoning need.
+10. Prefer consequential, evidence-grounded, novel moves over terminology trivia or artifact theater.
+11. Do not ask for future-phase deliverables.
+12. If the student needs direct teaching, propose TEACH_CONCEPT or REQUEST_TEACH_BACK before
    continuing ordinary challenge moves.
-9. Return 2-4 distinct candidates when possible. Each candidate targets exactly one listed
-   objective outcome and uses only allowed move types.
-10. Do NOT draft the student-facing question. A separate realizer runs only after the
+13. Return 2-4 genuinely distinct candidates when possible, ordered from highest to lowest value.
+   Each candidate targets exactly one listed objective outcome and uses only allowed move types.
+14. Do NOT draft the student-facing question. A separate realizer runs only after the
     application selector locks one move.
-11. Candidate reason codes are descriptive hints only; the application independently selects.
-12. Do not reveal chain-of-thought. Return only the required structured output.
+15. Candidate reason codes are descriptive hints only; the application independently selects.
+16. Do not reveal chain-of-thought. Return only the required structured output.
 """.strip()
 
 
@@ -392,6 +414,54 @@ def _realizer_user_prompt(
     return sanitize_model_text(
         json.dumps(payload, ensure_ascii=False, separators=(",", ":"))[:12000]
     ).text
+
+
+def _ensure_bounded_fallback_candidates(
+    context: PlanningContext,
+    candidates: Sequence[CandidateNextMove],
+) -> tuple[CandidateNextMove, ...]:
+    """Add a safe teaching fallback only when the context requires teaching.
+
+    The semantic planner remains responsible for ordinary candidate generation. The
+    application supplies this fallback solely to prevent a student who clearly needs
+    teaching from receiving no usable next move because the planner omitted every
+    teaching candidate. The fallback never invents evidence and stays inside the
+    locked Review Objective.
+    """
+    result = list(candidates)
+    if not context_requires_teaching(context):
+        return tuple(result)
+    if any(
+        item.teaching_required
+        or item.move_type in {CandidateMoveType.TEACH_CONCEPT, CandidateMoveType.REQUEST_TEACH_BACK}
+        for item in result
+    ):
+        return tuple(result)
+
+    allowed = set(context.objective.required_outcomes) | set(context.objective.optional_outcomes)
+    preferred_targets = (
+        ObjectiveOutcome.FOCUS_UNDERSTOOD,
+        ObjectiveOutcome.FINDING_CLAIM_CLEAR,
+        ObjectiveOutcome.CURRENT_POSITION_CLEAR,
+        ObjectiveOutcome.CURRENT_EVIDENCE_ASSESSED,
+        ObjectiveOutcome.EVIDENCE_BOUNDARY_CLEAR,
+    )
+    target = next((item for item in preferred_targets if item in allowed), None)
+    if target is None:
+        return tuple(result)
+
+    result.append(
+        CandidateNextMove(
+            candidate_id="app-bounded-teaching-fallback",
+            move_type=CandidateMoveType.TEACH_CONCEPT,
+            target_outcome=target,
+            evidence_refs=(),
+            preferred_reviewer_lens=context.active_reviewer_lens or None,
+            teaching_required=True,
+            reason_codes=(SelectionReasonCode.MATCHES_ASSISTANCE_LEVEL,),
+        )
+    )
+    return tuple(result)
 
 
 def _normalize_planner_result(parsed: Mapping[str, Any] | None) -> tuple[CandidateNextMove, ...]:
@@ -662,6 +732,7 @@ def _failed_after_selection(
         "client_turn_id": client_turn_id,
         "operation": operation,
         "candidate_count": len(candidates),
+        "candidate_moves": [item.to_dict() for item in candidates],
         "selected_candidate_id": selection.selected_candidate_id,
         "selected_move_type": selection.selected_move_type.value,
         "target_outcome": selection.target_outcome.value,

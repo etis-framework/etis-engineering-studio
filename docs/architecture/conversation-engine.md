@@ -34,6 +34,8 @@ The full contract is defined in `docs/architecture/ANALYTICAL_CONTROL_PLANE_V017
 9. **Productive mistakes are allowed; unchallenged mistakes are not.** A weak or unsafe judgment can be stated. The Studio prevents commitment until material reasoning gaps have been confronted.
 10. **Evidence remains bounded.** Reviewers never invent repository evidence or treat artifact presence as proof.
 
+PR4E applies these principles directly to shadow next-question planning. The planner must first resolve the student's immediate analytical defect—such as an unsupported claim, contradiction, legitimate unknown, or missing independent understanding—before falling back to generic consequence elaboration. Required Review Objective outcomes remain boundaries on the conversation, not a prescribed question order. A validated reasoning dimension may be deepened through evidence testing or stress-testing, but a reviewer should not merely ask the student to restate an already established point.
+
 ## Conversation memory
 
 Each review session preserves:
