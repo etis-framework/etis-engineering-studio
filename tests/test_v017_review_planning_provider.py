@@ -8,6 +8,7 @@ from apps.api.app.services.ai_provider import (
 from apps.api.app.services.review_planning import (
     CandidateMoveType,
     ObjectiveOutcome,
+    PlanningNeed,
     SelectionReasonCode,
 )
 
@@ -77,5 +78,7 @@ def test_planner_schema_stays_aligned_with_contract_enums_and_has_no_question_fi
     assert set(candidate["properties"]["move_type"]["enum"]) == {item.value for item in CandidateMoveType}
     assert set(candidate["properties"]["target_outcome"]["enum"]) == {item.value for item in ObjectiveOutcome}
     assert set(candidate["properties"]["reason_codes"]["items"]["enum"]) == {item.value for item in SelectionReasonCode}
+    assert set(REVIEW_PLANNER_SCHEMA["properties"]["primary_need"]["enum"]) == {item.value for item in PlanningNeed}
+    assert set(REVIEW_PLANNER_SCHEMA["required"]) == {"primary_need", "candidates"}
     assert "question" not in candidate["properties"]
     assert "question_drafts" not in REVIEW_PLANNER_SCHEMA["properties"]

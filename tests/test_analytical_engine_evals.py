@@ -775,7 +775,17 @@ def test_stability_report_separates_raw_stage_variance_from_scoring_variance():
     second.pop("content_sha256", None)
     second["acquisition_id"] = "AE-TEST-0002"
     second["cases"][0]["current"]["target_move"] = "ownership_visible"
-    second["cases"][0]["planning"]["signal"]["shadow_planner"]["selected_move_type"] = "CLARIFY_CONSEQUENCE"
+    second_shadow = second["cases"][0]["planning"]["signal"]["shadow_planner"]
+    second_shadow["selected_move_type"] = "CLARIFY_CONSEQUENCE"
+    second_shadow["primary_need"] = "CONSEQUENCE"
+    second_shadow["primary_need_source"] = "semantic"
+    second_shadow["semantic_primary_need"] = "CONSEQUENCE"
+    second_shadow["realization_repair"] = {
+        "attempted": True,
+        "succeeded": True,
+        "initial_rejection_codes": ["FUTURE_PHASE_DEMAND"],
+        "final_rejection_codes": [],
+    }
     second = _seal_payload(second)
 
     first_report = _score_acquisition(first, oracle_source="captured")
@@ -785,5 +795,9 @@ def test_stability_report_separates_raw_stage_variance_from_scoring_variance():
     assert stability["acquisition_count"] == 2
     assert stability["metrics"]["legacy_target"]["changed_case_count"] == 1
     assert stability["metrics"]["selected_move"]["changed_case_count"] == 1
+    assert stability["metrics"]["primary_need"]["changed_case_count"] == 1
+    assert stability["metrics"]["primary_need_source"]["changed_case_count"] == 1
+    assert stability["metrics"]["semantic_primary_need"]["changed_case_count"] == 1
+    assert stability["metrics"]["realization_repair"]["changed_case_count"] == 1
     assert stability["metrics"]["validator_signature"]["changed_case_count"] == 0
     assert stability["metrics"]["reasoning_pass"]["changed_case_count"] == 0

@@ -179,6 +179,8 @@ PR4F calibration applies that rule to the preserved post-PR4E acquisitions. In p
 
 When a corpus case explicitly requires teaching, the preferred oracle move must itself be an explicit teaching move. An ordinary analytical move such as `TEST_EVIDENCE_BOUNDARY` may remain an acceptable diagnostic alternative, but setting `teaching_required=true` on that ordinary move does not turn it into teaching authority. This keeps the evaluation oracle aligned with the application-owned assistance boundary.
 
+PR4G adds stability telemetry for the semantic and effective `primary_need`, its application/semantic source, and same-move realization repair. These metrics are diagnostic rather than new authority gates: they show whether variance comes from identifying the student's current reasoning need, choosing among moves within that need, or wording the already-selected move.
+
 Correct-student-challenge hard-failure detection likewise evaluates the selected move **and target together**. A `TEST_EVIDENCE_BOUNDARY` move targeting `FINDING_EVIDENCE_TESTED` remains on the disputed REVIEW finding and is therefore challenge-responsive. A downstream action/change move that leaves the dispute unresolved is still a hard failure.
 
 ## Hard failures
