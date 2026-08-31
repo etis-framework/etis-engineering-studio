@@ -33,3 +33,25 @@ def test_successful_review_turn_cannot_be_recast_as_failed_by_ui_error():
     assert "Your response was saved, but Studio could not refresh part of the review." in block
     assert "Studio could not confirm that turn. Your draft is preserved." in block
     assert "I could not complete that turn." not in block
+
+
+def _add_turn_block() -> str:
+    start = JS.index("function addTurn(")
+    end = JS.index("\nfunction renderStrengths(", start)
+    return JS[start:end]
+
+
+def test_live_reviewer_response_is_brought_into_view():
+    block = _add_turn_block()
+
+    transcript_scroll = block.index(
+        "els.transcript.scrollTop=els.transcript.scrollHeight;"
+    )
+    live_reviewer_guard = block.index(
+        "if(actor!=='student'&&pending&&turnElement){"
+    )
+    viewport_scroll = block.index(
+        "turnElement.scrollIntoView({behavior:'smooth',block:'nearest'})"
+    )
+
+    assert transcript_scroll < live_reviewer_guard < viewport_scroll
