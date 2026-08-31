@@ -332,7 +332,7 @@ function addTurn(actor,lens,text,meta={}){
   }
   els.transcript.scrollTop=els.transcript.scrollHeight;
   if(actor!=='student'&&pending&&turnElement){
-    requestAnimationFrame(()=>turnElement.scrollIntoView({behavior:'smooth',block:'nearest'}));
+    requestAnimationFrame(()=>els.transcript.scrollIntoView({behavior:'smooth',block:'center'}));
   }
 }
 function renderStrengths(ev){if(!ev?.strengths?.length&&!ev?.longitudinal?.has_prior_snapshot)return;const d=document.createElement('div');d.className='strengths-strip';const strengths=(ev?.strengths||[]).slice(0,4);let html='<b>What the board found working</b>';html+=strengths.length?'<ul>'+strengths.map(x=>`<li>${escapeHtml(x)}</li>`).join('')+'</ul>':'<p class="quiet">The board did not manufacture praise; it will stay specific about what the snapshot actually supports.</p>';const l=ev?.longitudinal;if(l?.has_prior_snapshot){const delta=Number(l.coverage_change||0),improved=(l.improved_evidence||[]).length,regressed=(l.regressed_evidence||[]).length;html+=`<div class="longitudinal-note"><b>Since ${escapeHtml(l.previous_phase||'the prior review')}</b> · ${delta>=0?'+':''}${delta} evidence points · ${improved} improved · ${regressed} regressed</div>`}d.innerHTML=html;els.transcript.appendChild(d)}

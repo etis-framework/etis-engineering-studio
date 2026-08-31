@@ -51,7 +51,7 @@ def test_live_reviewer_response_is_brought_into_view():
         "if(actor!=='student'&&pending&&turnElement){"
     )
     viewport_scroll = block.index(
-        "turnElement.scrollIntoView({behavior:'smooth',block:'nearest'})"
+        "els.transcript.scrollIntoView({behavior:'smooth',block:'center'})"
     )
 
     assert transcript_scroll < live_reviewer_guard < viewport_scroll
