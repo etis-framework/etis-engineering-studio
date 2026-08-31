@@ -316,7 +316,25 @@ function setPending(on,status='Reviewing your answer and the frozen evidence…'
 }
 function addGuidance(refs=[]){if(!refs.length)return;const box=$('#relatedGuidance');if(box.querySelector('.quiet'))box.innerHTML='';refs.forEach(r=>{if(box.querySelector(`[data-guidance="${CSS.escape(r.id||r.title)}"]`))return;const a=document.createElement('a');a.className='guidance-link';a.dataset.guidance=r.id||r.title;a.href=r.website_url||'#';a.target='_blank';a.rel='noopener noreferrer';a.innerHTML=`<span>${escapeHtml(r.stage||'ETIS guidance')}</span><b>${escapeHtml(r.title)}</b><p>${escapeHtml(r.student_hint||r.why||'Open the related Engineering Platform guidance.')}</p>`;box.appendChild(a)})}
 function reviewerCard(lens,text,meta={}){const d=document.createElement('div');d.className='reviewer-card coaching-message';const reviewer=meta.reviewer||{name:lensLabels[lens]||'Reviewer',role:lensLabels[lens]||'Reviewer'};const mode=meta.provider==='openai'?'<span class="semantic-badge">semantic coaching</span>':'';d.innerHTML=`<div class="reviewer-meta"><span class="lens-badge">${escapeHtml(reviewer.name)} · ${escapeHtml(reviewer.role)}</span>${meta.kind?`<span>${escapeHtml(String(meta.kind).replaceAll('_',' '))}</span>`:''}${mode}</div><div class="reviewer-copy"></div>`;d.querySelector('.reviewer-copy').textContent=text;addGuidance(meta.guidance_refs||[]);return d}
-function addTurn(actor,lens,text,meta={}){if(actor==='student'){const d=document.createElement('div');d.className='turn student';d.innerHTML='<div class="who">You</div><div class="bubble"></div>';d.querySelector('.bubble').textContent=text;els.transcript.appendChild(d)}else{els.transcript.appendChild(reviewerCard(lens,text,meta));if(meta.reviewer)showActiveReviewer(meta.reviewer)}els.transcript.scrollTop=els.transcript.scrollHeight}
+function addTurn(actor,lens,text,meta={}){
+  let turnElement=null;
+  if(actor==='student'){
+    const d=document.createElement('div');
+    d.className='turn student';
+    d.innerHTML='<div class="who">You</div><div class="bubble"></div>';
+    d.querySelector('.bubble').textContent=text;
+    els.transcript.appendChild(d);
+    turnElement=d;
+  }else{
+    turnElement=reviewerCard(lens,text,meta);
+    els.transcript.appendChild(turnElement);
+    if(meta.reviewer)showActiveReviewer(meta.reviewer);
+  }
+  els.transcript.scrollTop=els.transcript.scrollHeight;
+  if(actor!=='student'&&pending&&turnElement){
+    requestAnimationFrame(()=>turnElement.scrollIntoView({behavior:'smooth',block:'nearest'}));
+  }
+}
 function renderStrengths(ev){if(!ev?.strengths?.length&&!ev?.longitudinal?.has_prior_snapshot)return;const d=document.createElement('div');d.className='strengths-strip';const strengths=(ev?.strengths||[]).slice(0,4);let html='<b>What the board found working</b>';html+=strengths.length?'<ul>'+strengths.map(x=>`<li>${escapeHtml(x)}</li>`).join('')+'</ul>':'<p class="quiet">The board did not manufacture praise; it will stay specific about what the snapshot actually supports.</p>';const l=ev?.longitudinal;if(l?.has_prior_snapshot){const delta=Number(l.coverage_change||0),improved=(l.improved_evidence||[]).length,regressed=(l.regressed_evidence||[]).length;html+=`<div class="longitudinal-note"><b>Since ${escapeHtml(l.previous_phase||'the prior review')}</b> · ${delta>=0?'+':''}${delta} evidence points · ${improved} improved · ${regressed} regressed</div>`}d.innerHTML=html;els.transcript.appendChild(d)}
 function renderChallengeBrief(c){currentChallenge=c;$('#noticedText').textContent=c.noticed||'The board identified a condition that deserves engineering review.';$('#significanceText').textContent=c.significance||c.why_now;$('#decisionQuestionText').textContent=c.decision_question||c.prompt;$('#challengeBrief').classList.remove('hidden');if(c.reviewer)showActiveReviewer(c.reviewer)}
 function renderEvidenceSummary(ev){const box=$('#evidenceSummary');if(!ev){box.innerHTML='<div><b>—</b><small>Team evidence</small></div><div><b>—</b><small>Needs review</small></div><div><b>—</b><small>Snapshot</small></div>';return}const team=ev.items.filter(i=>i.status==='present').length,needs=ev.items.filter(i=>i.status!=='present').length;box.innerHTML=`<div><b>${team}</b><small>Team evidence</small></div><div><b>${needs}</b><small>Needs review</small></div><div><b>${ev.snapshot_kind==='demo'?'Demo':'Frozen'}</b><small>Snapshot</small></div>`}
