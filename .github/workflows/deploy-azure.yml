@@ -108,7 +108,8 @@ jobs:
             -e ENTRA_CLIENT_ID=ci-entra-client \
             -e ENTRA_CLIENT_SECRET=ci-entra-secret \
             -e ENTRA_REDIRECT_URI=https://studio.example.edu/auth/entra/callback \
-            -e ENTRA_TENANT=11111111-2222-3333-4444-555555555555 \
+            -e ENTRA_AUTHORITY=organizations \
+            -e ENTRA_ALLOWED_TENANT_ID=11111111-2222-3333-4444-555555555555 \
             -e GITHUB_APP_ID=12345 \
             -e GITHUB_APP_PRIVATE_KEY=ci-placeholder-private-key \
             -e GITHUB_APP_SLUG=ci-github-app \
@@ -167,8 +168,12 @@ jobs:
 
       ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
       ENTRA_CLIENT_SECRET: ${{ secrets.ENTRA_CLIENT_SECRET }}
-      ENTRA_TENANT: ${{ secrets.AZURE_TENANT_ID }}
+      ENTRA_AUTHORITY: organizations
+      ENTRA_ALLOWED_TENANT_ID: ${{ vars.ENTRA_ALLOWED_TENANT_ID }}
+      ENTRA_LEGACY_PROVIDER_TENANT_ID: ${{ vars.ENTRA_LEGACY_PROVIDER_TENANT_ID }}
+      ENTRA_LEGACY_REBIND_EMAILS: ${{ vars.ENTRA_LEGACY_REBIND_EMAILS }}
 
+      ETIS_PRODUCTION_TEST_STUDENT_TENANT_ID: ${{ vars.ETIS_PRODUCTION_TEST_STUDENT_TENANT_ID }}
       ETIS_PRODUCTION_TEST_STUDENT_OID: ${{ vars.ETIS_PRODUCTION_TEST_STUDENT_OID }}
       ETIS_PRODUCTION_TEST_STUDENT_EMAIL: ${{ vars.ETIS_PRODUCTION_TEST_STUDENT_EMAIL }}
       ETIS_PRODUCTION_TEST_STUDENT_ID: ${{ vars.ETIS_PRODUCTION_TEST_STUDENT_ID }}
@@ -212,7 +217,10 @@ jobs:
             ETIS_SESSION_SECRET
             ENTRA_CLIENT_ID
             ENTRA_CLIENT_SECRET
-            ENTRA_TENANT
+            ENTRA_AUTHORITY
+            ENTRA_ALLOWED_TENANT_ID
+            ENTRA_LEGACY_PROVIDER_TENANT_ID
+            ETIS_PRODUCTION_TEST_STUDENT_TENANT_ID
             ETIS_PRODUCTION_TEST_STUDENT_OID
             ETIS_PRODUCTION_TEST_STUDENT_EMAIL
             ETIS_PRODUCTION_TEST_STUDENT_ID
@@ -330,6 +338,8 @@ jobs:
             --parameters \
               location="${AZURE_LOCATION}" \
               containerImage="${{ steps.image.outputs.image }}" \
+              entraLegacyProviderTenantId="${ENTRA_LEGACY_PROVIDER_TENANT_ID}" \
+              entraLegacyRebindEmails="${ENTRA_LEGACY_REBIND_EMAILS}" \
             --only-show-errors \
             --output none
 
@@ -412,8 +422,10 @@ jobs:
               customDomainName="${ETIS_CUSTOM_DOMAIN_NAME}" \
               managedCertificateName="${ETIS_MANAGED_CERTIFICATE_NAME}" \
               entraClientId="${ENTRA_CLIENT_ID}" \
-              entraTenant="${ENTRA_TENANT}" \
+              entraAuthority="${ENTRA_AUTHORITY}" \
+              entraAllowedTenantId="${ENTRA_ALLOWED_TENANT_ID}" \
               entraRedirectUri="${ENTRA_REDIRECT_URI}" \
+              productionTestStudentTenantId="${ETIS_PRODUCTION_TEST_STUDENT_TENANT_ID}" \
               productionTestStudentOid="${ETIS_PRODUCTION_TEST_STUDENT_OID}" \
               productionTestStudentEmail="${ETIS_PRODUCTION_TEST_STUDENT_EMAIL}" \
               productionTestStudentId="${ETIS_PRODUCTION_TEST_STUDENT_ID}" \

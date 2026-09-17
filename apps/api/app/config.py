@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     # intentionally exact-principal scoped; it never broadens the normal
     # Loyola student-domain rule.
     etis_production_test_student_oid: str = ""
+    etis_production_test_student_tenant_id: str = ""
     etis_production_test_student_email: str = ""
     etis_production_test_student_id: str = ""
     etis_production_test_section_key: str = "PRODUCTION-TEST"
@@ -60,7 +61,11 @@ class Settings(BaseSettings):
     entra_client_id: str = ""
     entra_client_secret: str = ""
     entra_redirect_uri: str = "http://localhost:8000/auth/entra/callback"
-    entra_tenant: str = "organizations"
+    # Microsoft performs authentication through the organizational
+    # multitenant authority. Studio separately decides which verified tenant
+    # may enter the application.
+    entra_authority: str = "organizations"
+    entra_allowed_tenant_id: str = ""
     entra_allowed_domain: str = "luc.edu"
 
     openai_api_key: str = ""
@@ -90,6 +95,28 @@ class Settings(BaseSettings):
         self.etis_reasoning_validation_mode = reasoning_mode
         self.etis_review_planning_mode = planning_mode
 
+        entra_authority = self.entra_authority.strip().lower().strip("/")
+        if entra_authority != "organizations":
+            raise ValueError(
+                "ENTRA_AUTHORITY must be organizations"
+            )
+        self.entra_authority = entra_authority
+
+        test_tenant_id = self.etis_production_test_student_tenant_id.strip()
+        test_oid = self.etis_production_test_student_oid.strip()
+        test_email = self.etis_production_test_student_email.strip()
+        if any((test_tenant_id, test_oid, test_email)):
+            if not all((test_tenant_id, test_oid, test_email)):
+                raise ValueError(
+                    "ETIS production-test identity requires tenant ID, object ID, and email"
+                )
+            try:
+                UUID(test_tenant_id)
+            except (ValueError, AttributeError):
+                raise ValueError(
+                    "ETIS_PRODUCTION_TEST_STUDENT_TENANT_ID must be a UUID"
+                )
+
         if self.etis_env.strip().lower() == "production":
             session_secret = self.etis_session_secret.strip()
             if (
@@ -107,12 +134,12 @@ class Settings(BaseSettings):
                     "ETIS_DATABASE_URL must use PostgreSQL in production"
                 )
 
-            entra_tenant = self.entra_tenant.strip()
+            entra_allowed_tenant_id = self.entra_allowed_tenant_id.strip()
             try:
-                UUID(entra_tenant)
+                UUID(entra_allowed_tenant_id)
             except (ValueError, AttributeError):
                 raise ValueError(
-                    "ENTRA_TENANT must be an explicit tenant UUID in production"
+                    "ENTRA_ALLOWED_TENANT_ID must be an explicit tenant UUID in production"
                 )
 
             if not self.entra_client_id.strip():

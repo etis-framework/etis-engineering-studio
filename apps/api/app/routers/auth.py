@@ -1,4 +1,5 @@
 from __future__ import annotations
+import secrets
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func, or_
@@ -10,7 +11,7 @@ from ..models import User, InstitutionalIdentity, SectionEnrollment, GitHubIdent
 from ..services.auth import (github_authorize_url, github_exchange, entra_authorize_url, entra_exchange, resolve_entra_identity,
     create_session_token, request_identity, auth_context, COOKIE_NAME, highest_staff_role,
     create_flow_state, parse_flow_state, request_session_token,
-    revoke_session_token, csrf_token_for_session)
+    revoke_session_token, csrf_token_for_session, ENTRA_FLOW_COOKIE_NAME)
 from ..services.course_admin import ensure_term, ensure_section, generate_schedule
 
 router=APIRouter(prefix="/auth",tags=["auth"])
@@ -23,16 +24,39 @@ def _set_session(response:RedirectResponse,user:User,login:str):
 def entra_login():
     s=get_settings()
     if not s.entra_client_id or not s.entra_client_secret: raise HTTPException(503,"Loyola Microsoft SSO is not configured")
-    state=create_flow_state("entra")
+    flow_binding=secrets.token_urlsafe(32)
+    state=create_flow_state("entra", {"flow_binding":flow_binding})
     flow=parse_flow_state(state,"entra")
-    return RedirectResponse(entra_authorize_url(state,flow["nonce"]))
+    response=RedirectResponse(entra_authorize_url(state,flow["nonce"]))
+    response.set_cookie(
+        ENTRA_FLOW_COOKIE_NAME,
+        flow_binding,
+        httponly=True,
+        secure=s.etis_env!="development",
+        samesite="lax",
+        max_age=600,
+        path="/auth/entra",
+    )
+    return response
 
 @router.get("/entra/callback")
-def entra_callback(code:str,state:str,db:Session=Depends(get_db)):
+def entra_callback(code:str,state:str,request:Request,db:Session=Depends(get_db)):
     pending=parse_flow_state(state,"entra")
+    state_binding=str(pending.get("flow_binding") or "")
+    cookie_binding=str(request.cookies.get(ENTRA_FLOW_COOKIE_NAME) or "")
+    if (
+        not state_binding
+        or not cookie_binding
+        or not secrets.compare_digest(state_binding,cookie_binding)
+    ):
+        raise HTTPException(
+            400,
+            "Microsoft sign-in does not match the browser that started it",
+        )
     claims=entra_exchange(code,pending.get("nonce",""))
     resolved=resolve_entra_identity(claims)
     email=resolved["email"]
+    tenant_id=resolved["tenant_id"]
     oid=resolved["oid"]
     production_test_student=resolved["is_production_test_student"]
     s=get_settings()
@@ -42,7 +66,8 @@ def entra_callback(code:str,state:str,db:Session=Depends(get_db)):
         else email.split("@",1)[0]
     )
     oid_matches = db.query(InstitutionalIdentity).filter(
-        InstitutionalIdentity.provider_subject == oid
+        InstitutionalIdentity.provider_tenant_id == tenant_id,
+        InstitutionalIdentity.provider_subject == oid,
     ).all()
     if len(oid_matches) > 1:
         raise HTTPException(
@@ -68,8 +93,13 @@ def entra_callback(code:str,state:str,db:Session=Depends(get_db)):
 
         if (
             ident
-            and ident.provider_subject
-            and ident.provider_subject.casefold() != oid.casefold()
+            and (ident.provider_tenant_id or ident.provider_subject)
+            and (
+                not ident.provider_tenant_id
+                or not ident.provider_subject
+                or ident.provider_tenant_id.casefold() != tenant_id.casefold()
+                or ident.provider_subject.casefold() != oid.casefold()
+            )
         ):
             raise HTTPException(
                 409,
@@ -78,9 +108,9 @@ def entra_callback(code:str,state:str,db:Session=Depends(get_db)):
             )
     if not ident and s.etis_bootstrap_owner_email and email==s.etis_bootstrap_owner_email.lower():
         user=User(github_login=f"staff:{email}",display_name=claims.get("name") or email.split("@")[0],role="instructor")
-        db.add(user); db.flush(); ident=InstitutionalIdentity(user_id=user.id,student_id=f"staff:{sid}",institutional_email=email,provider_subject=oid); db.add(ident); db.flush()
+        db.add(user); db.flush(); ident=InstitutionalIdentity(user_id=user.id,student_id=f"staff:{sid}",institutional_email=email,provider_tenant_id=tenant_id,provider_subject=oid); db.add(ident); db.flush()
         term=ensure_term(db,s.etis_course_namespace); section=ensure_section(db,term); generate_schedule(db,section,term.starts_on or "2026-08-25")
-        db.add(SectionStaff(section_id=section.id,user_id=user.id,staff_role="course_owner",is_active=True)); db.commit()
+        db.add(SectionStaff(section_id=section.id,user_id=user.id,staff_role="course_owner",is_active=True)); db.flush()
     if not ident: raise HTTPException(403,"This Loyola identity is not on an active Engineering Studio roster or teaching-staff list")
     active=db.query(SectionEnrollment).filter_by(user_id=ident.user_id,status="active").first()
     staff_rows=db.query(SectionStaff).filter_by(user_id=ident.user_id,is_active=True).all()
@@ -88,12 +118,27 @@ def entra_callback(code:str,state:str,db:Session=Depends(get_db)):
     user=db.get(User,ident.user_id)
     effective_role=highest_staff_role([x.staff_role for x in staff_rows]) or "student"
     user.role="instructor" if effective_role in {"course_owner","instructor"} else effective_role
+    ident.provider_tenant_id=tenant_id
     ident.provider_subject=oid
     from datetime import datetime,timezone
     ident.last_verified_at=datetime.now(timezone.utc)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            409,
+            "Microsoft Entra identity binding conflicts with another Studio identity",
+        ) from exc
     response=RedirectResponse("/")
     _set_session(response,user,email)
+    response.delete_cookie(
+        ENTRA_FLOW_COOKIE_NAME,
+        path="/auth/entra",
+        secure=s.etis_env!="development",
+        httponly=True,
+        samesite="lax",
+    )
     return response
 
 @router.get("/github/link")

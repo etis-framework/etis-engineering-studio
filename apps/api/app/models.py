@@ -212,9 +212,24 @@ class InstitutionalIdentity(Base):
     student_id: Mapped[str] = mapped_column(String(120), unique=True, index=True)
     institutional_email: Mapped[str] = mapped_column(String(240), unique=True, index=True)
     identity_provider: Mapped[str] = mapped_column(String(40), default="loyola_entra")
+    provider_tenant_id: Mapped[str] = mapped_column(String(80), default="", index=True)
     provider_subject: Mapped[str] = mapped_column(String(240), default="", index=True)
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     user = relationship("User")
+    __table_args__ = (
+        Index(
+            "uq_institutional_identity_provider_principal",
+            "provider_tenant_id",
+            "provider_subject",
+            unique=True,
+            sqlite_where=text(
+                "provider_tenant_id <> '' AND provider_subject <> ''"
+            ),
+            postgresql_where=text(
+                "provider_tenant_id <> '' AND provider_subject <> ''"
+            ),
+        ),
+    )
 
 
 class SectionEnrollment(Base):

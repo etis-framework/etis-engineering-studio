@@ -27,7 +27,11 @@ retention period merely because a semester has ended.
 - Production repository access uses a scoped GitHub App rather than student
   personal access tokens.
 - Students never paste GitHub personal access tokens into the Studio UI.
-- Loyola Microsoft Entra authentication establishes the primary human identity.
+- Microsoft Entra `/organizations` authentication establishes the primary
+  human identity; Studio separately requires the exact trusted Loyola tenant
+  and domain for normal institutional admission.
+- Institutional identity is bound to the immutable tenant-scoped pair
+  `(tid, oid)` and is never silently reassigned.
 - Course enrollment and staff assignments determine current Studio
   authorization.
 - GitHub identity is a secondary engineering identity used for repository and

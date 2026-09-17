@@ -1253,7 +1253,8 @@ def test_entra_exchange_rejects_identity_from_wrong_tenant(monkeypatch):
         auth_service,
         "get_settings",
         lambda: SimpleNamespace(
-            entra_tenant=expected_tenant,
+            entra_authority="organizations",
+            entra_allowed_tenant_id=expected_tenant,
             entra_client_id="test-client-id",
             entra_client_secret="test-client-secret",
             entra_redirect_uri="https://studio.example.test/auth/entra/callback",
@@ -1352,13 +1353,16 @@ def test_entra_exchange_accepts_identity_from_configured_tenant(monkeypatch):
         auth_service,
         "get_settings",
         lambda: SimpleNamespace(
-            entra_tenant=configured_tenant,
+            entra_authority="organizations",
+            entra_allowed_tenant_id=configured_tenant,
             entra_client_id="test-client-id",
             entra_client_secret="test-client-secret",
             entra_redirect_uri="https://studio.example.test/auth/entra/callback",
             entra_allowed_domain="luc.edu",
         ),
     )
+
+    token_urls = []
 
     class FakeTokenResponse:
         def raise_for_status(self):
@@ -1377,12 +1381,16 @@ def test_entra_exchange_accepts_identity_from_configured_tenant(monkeypatch):
         def __exit__(self, exc_type, exc, tb):
             return False
 
-        def post(self, *args, **kwargs):
+        def post(self, url, *args, **kwargs):
+            token_urls.append(url)
             return FakeTokenResponse()
 
     monkeypatch.setattr(auth_service.httpx, "Client", FakeHttpClient)
 
+    decode_calls = []
+
     def fake_decode(token, *args, **kwargs):
+        decode_calls.append(kwargs)
         # Unverified tenant discovery.
         if kwargs.get("options") is not None:
             return {
@@ -1420,6 +1428,12 @@ def test_entra_exchange_accepts_identity_from_configured_tenant(monkeypatch):
     assert claims["tid"] == configured_tenant
     assert claims["preferred_username"] == "student@luc.edu"
     assert claims["sub"] == "configured-tenant-subject"
+    assert token_urls == [
+        "https://login.microsoftonline.com/organizations/oauth2/v2.0/token"
+    ]
+    assert decode_calls[-1]["issuer"] == (
+        f"https://login.microsoftonline.com/{configured_tenant}/v2.0"
+    )
 
 
 def test_revoked_staff_assignment_invalidates_existing_staff_session():
@@ -3807,7 +3821,7 @@ def _set_valid_production_environment(monkeypatch):
         "https://studio.example.edu/auth/entra/callback",
     )
     monkeypatch.setenv(
-        "ENTRA_TENANT",
+        "ENTRA_ALLOWED_TENANT_ID",
         "11111111-2222-3333-4444-555555555555",
     )
 
@@ -3998,7 +4012,8 @@ def test_session_cookie_policy_is_centralized_in_auth_router():
         "apps/api/app/routers/auth.py"
     ).read_text(encoding="utf-8")
 
-    assert auth_router.count("response.set_cookie(") == 1
+    assert auth_router.count("response.set_cookie(COOKIE_NAME") == 1
+    assert auth_router.count("ENTRA_FLOW_COOKIE_NAME") >= 3
 
 
 
@@ -4059,4 +4074,3 @@ def test_studio_production_bootstrap_fails_closed_before_authentication():
     assert auth_check < course_load
     assert auth_check < shell_reveal
     assert course_load < shell_reveal
-

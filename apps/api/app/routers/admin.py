@@ -178,12 +178,13 @@ def add_student(section_id:int,req:StudentAdd,db:Session=Depends(get_db),ctx:dic
     )
 
     if production_test_student:
+        test_tenant_id=s.etis_production_test_student_tenant_id.strip()
         test_oid=s.etis_production_test_student_oid.strip()
         test_email=s.etis_production_test_student_email.strip().lower()
         test_section_key=s.etis_production_test_section_key.strip()
         test_team_key=s.etis_production_test_team_key.strip()
 
-        if not test_oid or not test_email:
+        if not test_tenant_id or not test_oid or not test_email:
             raise HTTPException(
                 409,
                 "Production test student identity is not fully configured",
@@ -219,7 +220,10 @@ def add_student(section_id:int,req:StudentAdd,db:Session=Depends(get_db),ctx:dic
         ident=(
             db.query(InstitutionalIdentity)
             .filter(
-                (InstitutionalIdentity.provider_subject==test_oid)
+                (
+                    (InstitutionalIdentity.provider_tenant_id==test_tenant_id)
+                    & (InstitutionalIdentity.provider_subject==test_oid)
+                )
                 | (InstitutionalIdentity.institutional_email==test_email)
                 | (InstitutionalIdentity.student_id==sid)
             )
@@ -228,8 +232,13 @@ def add_student(section_id:int,req:StudentAdd,db:Session=Depends(get_db),ctx:dic
 
         if ident:
             if (
-                ident.provider_subject
-                and ident.provider_subject.casefold()!=test_oid.casefold()
+                (ident.provider_tenant_id or ident.provider_subject)
+                and (
+                    not ident.provider_tenant_id
+                    or not ident.provider_subject
+                    or ident.provider_tenant_id.casefold()!=test_tenant_id.casefold()
+                    or ident.provider_subject.casefold()!=test_oid.casefold()
+                )
             ):
                 raise HTTPException(
                     409,
@@ -240,6 +249,7 @@ def add_student(section_id:int,req:StudentAdd,db:Session=Depends(get_db),ctx:dic
             ident.student_id=sid
             ident.institutional_email=test_email
             ident.identity_provider="entra_production_test_guest"
+            ident.provider_tenant_id=test_tenant_id
             ident.provider_subject=test_oid
         else:
             user=User(
@@ -254,6 +264,7 @@ def add_student(section_id:int,req:StudentAdd,db:Session=Depends(get_db),ctx:dic
                 student_id=sid,
                 institutional_email=test_email,
                 identity_provider="entra_production_test_guest",
+                provider_tenant_id=test_tenant_id,
                 provider_subject=test_oid,
             )
             db.add(ident)

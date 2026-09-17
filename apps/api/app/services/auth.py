@@ -11,6 +11,7 @@ from ..config import get_settings
 from ..db import SessionLocal, get_db
 
 COOKIE_NAME="etis_session"
+ENTRA_FLOW_COOKIE_NAME="etis_entra_flow"
 
 def _sign(payload: str) -> str:
     secret=get_settings().etis_session_secret.encode()
@@ -302,9 +303,10 @@ def resolve_entra_identity(claims: dict) -> dict:
     Normal students must use the configured institutional domain.
 
     A production-acceptance test student may be admitted only when the verified
-    tenant-scoped Entra Object ID (oid) exactly matches the configured test
-    principal. The configured test email is then used as the canonical Studio
-    identity. This never permits an external email domain generally.
+    tenant ID and tenant-scoped Entra Object ID (oid) exactly match the
+    configured test principal. The configured test email is then used as the
+    canonical Studio identity. This never permits an external email domain
+    generally.
     """
     s = get_settings()
 
@@ -315,24 +317,52 @@ def resolve_entra_identity(claims: dict) -> dict:
             detail="Microsoft identity is missing its object identifier",
         )
 
+    tenant_id = str(claims.get("tid") or "").strip()
+    if not tenant_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Microsoft identity is missing tenant information",
+        )
+
     configured_test_oid = str(
         s.etis_production_test_student_oid or ""
+    ).strip()
+    configured_test_tenant_id = str(
+        getattr(s, "etis_production_test_student_tenant_id", "") or ""
     ).strip()
     configured_test_email = str(
         s.etis_production_test_student_email or ""
     ).strip().lower()
 
-    if configured_test_oid and oid.casefold() == configured_test_oid.casefold():
+    if (
+        configured_test_tenant_id
+        and configured_test_oid
+        and tenant_id.casefold() == configured_test_tenant_id.casefold()
+        and oid.casefold() == configured_test_oid.casefold()
+    ):
         if not configured_test_email:
             raise HTTPException(
                 status_code=403,
                 detail="Production test student identity is not fully configured",
             )
         return {
+            "tenant_id": tenant_id,
             "oid": oid,
             "email": configured_test_email,
             "is_production_test_student": True,
         }
+
+    allowed_tenant_id = str(
+        getattr(s, "entra_allowed_tenant_id", "") or ""
+    ).strip()
+    if (
+        not allowed_tenant_id
+        or tenant_id.casefold() != allowed_tenant_id.casefold()
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Microsoft identity tenant is not authorized",
+        )
 
     email = str(
         claims.get("preferred_username")
@@ -352,6 +382,7 @@ def resolve_entra_identity(claims: dict) -> dict:
         )
 
     return {
+        "tenant_id": tenant_id,
         "oid": oid,
         "email": email,
         "is_production_test_student": False,
@@ -360,10 +391,22 @@ def resolve_entra_identity(claims: dict) -> dict:
 
 def entra_authorize_url(state:str,nonce:str) -> str:
     s=get_settings(); q=urlencode({"client_id":s.entra_client_id,"response_type":"code","redirect_uri":s.entra_redirect_uri,"response_mode":"query","scope":"openid profile email","state":state,"nonce":nonce,"prompt":"select_account"})
-    return f"https://login.microsoftonline.com/{s.entra_tenant}/oauth2/v2.0/authorize?{q}"
+    return f"https://login.microsoftonline.com/{s.entra_authority}/oauth2/v2.0/authorize?{q}"
+
+
+def _entra_tenant_is_admissible(tenant_id: str) -> bool:
+    s = get_settings()
+    configured = {
+        str(getattr(s, "entra_allowed_tenant_id", "") or "").strip().casefold(),
+        str(
+            getattr(s, "etis_production_test_student_tenant_id", "") or ""
+        ).strip().casefold(),
+    }
+    configured.discard("")
+    return tenant_id.strip().casefold() in configured
 
 def entra_exchange(code:str,expected_nonce:str) -> dict:
-    s=get_settings(); token_url=f"https://login.microsoftonline.com/{s.entra_tenant}/oauth2/v2.0/token"
+    s=get_settings(); token_url=f"https://login.microsoftonline.com/{s.entra_authority}/oauth2/v2.0/token"
     with httpx.Client(timeout=25) as c:
         r=c.post(token_url,data={"client_id":s.entra_client_id,"client_secret":s.entra_client_secret,"grant_type":"authorization_code","code":code,"redirect_uri":s.entra_redirect_uri,"scope":"openid profile email"}); r.raise_for_status(); payload=r.json()
     id_token=payload.get("id_token")
@@ -373,19 +416,22 @@ def entra_exchange(code:str,expected_nonce:str) -> dict:
     if not tid:
         raise HTTPException(401,"Microsoft identity is missing tenant information")
 
-    configured_tenant=str(s.entra_tenant or "").strip()
-    if not configured_tenant or tid.casefold()!=configured_tenant.casefold():
+    if not _entra_tenant_is_admissible(tid):
         raise HTTPException(
             status_code=403,
             detail="Microsoft identity tenant is not authorized",
         )
 
-    issuer=f"https://login.microsoftonline.com/{configured_tenant}/v2.0"
+    issuer=f"https://login.microsoftonline.com/{tid}/v2.0"
     jwk=PyJWKClient("https://login.microsoftonline.com/common/discovery/v2.0/keys").get_signing_key_from_jwt(id_token)
     claims=jwt.decode(id_token,jwk.key,algorithms=["RS256"],audience=s.entra_client_id,issuer=issuer)
 
     verified_tid=str(claims.get("tid") or "").strip()
-    if not verified_tid or verified_tid.casefold()!=configured_tenant.casefold():
+    if (
+        not verified_tid
+        or verified_tid.casefold()!=tid.casefold()
+        or not _entra_tenant_is_admissible(verified_tid)
+    ):
         raise HTTPException(
             status_code=403,
             detail="Microsoft identity tenant is not authorized",

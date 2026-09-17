@@ -9,7 +9,8 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect
+import pytest
+from sqlalchemy import create_engine, inspect, text
 
 from apps.api.app.models import Base
 
@@ -148,6 +149,78 @@ def test_alembic_head_has_no_model_drift(tmp_path):
     command.check(config)
 
 
+@pytest.mark.parametrize(
+    ("rebind_emails", "expected_tenant", "expected_subject"),
+    [
+        ("", "11111111-2222-3333-4444-555555555555", "legacy-object-id"),
+        ("legacy@luc.edu", "", ""),
+    ],
+)
+def test_tenant_scope_migration_handles_legacy_identity_explicitly(
+    tmp_path,
+    monkeypatch,
+    rebind_emails,
+    expected_tenant,
+    expected_subject,
+):
+    database_path = tmp_path / "legacy-identity.db"
+    database_url = f"sqlite:///{database_path}"
+    legacy_tenant_id = "11111111-2222-3333-4444-555555555555"
+
+    config = Config(str(ALEMBIC_INI))
+    config.set_main_option("sqlalchemy.url", database_url)
+    command.upgrade(config, "d42b8f5ae201")
+
+    engine = create_engine(database_url)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO users "
+                    "(github_login, display_name, role, is_active, created_at) "
+                    "VALUES "
+                    "('luc:legacy', 'Legacy User', 'student', 1, CURRENT_TIMESTAMP)"
+                )
+            )
+            user_id = connection.execute(
+                text("SELECT id FROM users WHERE github_login='luc:legacy'")
+            ).scalar_one()
+            connection.execute(
+                text(
+                    "INSERT INTO institutional_identities "
+                    "(user_id, student_id, institutional_email, identity_provider, "
+                    "provider_subject, last_verified_at) "
+                    "VALUES (:user_id, 'legacy', 'legacy@luc.edu', "
+                    "'loyola_entra', 'legacy-object-id', NULL)"
+                ),
+                {"user_id": user_id},
+            )
+    finally:
+        engine.dispose()
+
+    monkeypatch.setenv(
+        "ENTRA_LEGACY_PROVIDER_TENANT_ID",
+        legacy_tenant_id,
+    )
+    monkeypatch.setenv("ENTRA_LEGACY_REBIND_EMAILS", rebind_emails)
+    command.upgrade(config, "head")
+
+    engine = create_engine(database_url)
+    try:
+        with engine.connect() as connection:
+            binding = connection.execute(
+                text(
+                    "SELECT provider_tenant_id, provider_subject "
+                    "FROM institutional_identities "
+                    "WHERE student_id='legacy'"
+                )
+            ).one()
+    finally:
+        engine.dispose()
+
+    assert tuple(binding) == (expected_tenant, expected_subject)
+
+
 def test_postgresql_alembic_head_matches_model_metadata():
     """
     Validate the production migration history against a real PostgreSQL
@@ -157,8 +230,6 @@ def test_postgresql_alembic_head_matches_model_metadata():
     production-dialect migration proof.
     """
     import os
-
-    import pytest
 
     database_url = os.getenv("ETIS_TEST_POSTGRES_URL", "").strip()
     if not database_url:

@@ -59,7 +59,8 @@ This separation is the primary fail-closed boundary when model output, GitHub st
 ## 4. Identity and course authority
 
 ```text
-Microsoft Entra → authenticated Studio user
+Microsoft /organizations → verified (tenant ID, object ID)
+Trusted Loyola tenant + domain → authenticated Studio user
 Course/Term/Section → current course authority
 TeamMembership → current team authority
 StaffAssignment → current role-scoped staff authority

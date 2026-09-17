@@ -76,13 +76,15 @@ Production Acceptance exercised the deployed system with the deliberately
 bounded, nonprivileged production-test student configured by the operator.
 The configuration contract is:
 
+- `ETIS_PRODUCTION_TEST_STUDENT_TENANT_ID`
 - `ETIS_PRODUCTION_TEST_STUDENT_OID`
 - `ETIS_PRODUCTION_TEST_STUDENT_EMAIL`
 - `ETIS_PRODUCTION_TEST_STUDENT_ID`
 - `ETIS_PRODUCTION_TEST_SECTION_KEY`
 - `ETIS_PRODUCTION_TEST_TEAM_KEY`
 
-The exception is bound to the configured **exact Entra Object ID**, roster
+The exception is bound to the configured exact **Entra tenant ID + Object ID
+pair**, roster
 identity, the **designated production-test section**, and the **designated
 production-test team**. It does not allow gmail.com generally or create a
 second general external-student authentication path.

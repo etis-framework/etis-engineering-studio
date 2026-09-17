@@ -23,7 +23,7 @@ def test_production_settings_reject_default_session_secret():
             entra_client_id="entra-client",
             entra_client_secret="entra-secret",
             entra_redirect_uri="https://studio.example.edu/auth/entra/callback",
-            entra_tenant="11111111-2222-3333-4444-555555555555",
+            entra_allowed_tenant_id="11111111-2222-3333-4444-555555555555",
             openai_api_key="sk-proj-ETISGATE9AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         )
 
@@ -46,13 +46,13 @@ def test_production_settings_reject_sqlite_database():
             entra_client_id="entra-client",
             entra_client_secret="entra-secret",
             entra_redirect_uri="https://studio.example.edu/auth/entra/callback",
-            entra_tenant="11111111-2222-3333-4444-555555555555",
+            entra_allowed_tenant_id="11111111-2222-3333-4444-555555555555",
             openai_api_key="sk-proj-ETISGATE9BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
         )
 
 
 def test_production_settings_reject_generic_entra_organizations_tenant():
-    with pytest.raises(ValueError, match="ENTRA_TENANT"):
+    with pytest.raises(ValueError, match="ENTRA_ALLOWED_TENANT_ID"):
         Settings(
             _env_file=None,
             etis_env="production",
@@ -69,8 +69,27 @@ def test_production_settings_reject_generic_entra_organizations_tenant():
             entra_client_id="entra-client",
             entra_client_secret="entra-secret",
             entra_redirect_uri="https://studio.example.edu/auth/entra/callback",
-            entra_tenant="organizations",
+            entra_allowed_tenant_id="organizations",
             openai_api_key="sk-proj-ETISGATE9CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+        )
+
+
+def test_production_settings_require_organizational_entra_authority():
+    with pytest.raises(ValueError, match="ENTRA_AUTHORITY"):
+        Settings(
+            _env_file=None,
+            entra_authority="common",
+        )
+
+
+def test_production_test_identity_requires_tenant_object_and_email():
+    with pytest.raises(ValueError, match="tenant ID, object ID, and email"):
+        Settings(
+            _env_file=None,
+            etis_production_test_student_oid=(
+                "11111111-2222-3333-4444-555555555555"
+            ),
+            etis_production_test_student_email="test-student@example.net",
         )
 
 
@@ -92,7 +111,7 @@ def test_production_settings_reject_dev_login():
             entra_client_id="entra-client",
             entra_client_secret="entra-secret",
             entra_redirect_uri="https://studio.example.edu/auth/entra/callback",
-            entra_tenant="11111111-2222-3333-4444-555555555555",
+            entra_allowed_tenant_id="11111111-2222-3333-4444-555555555555",
             openai_api_key="sk-proj-ETISGATE9DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
         )
 
@@ -115,13 +134,13 @@ def test_production_settings_reject_non_https_web_origin():
             entra_client_id="entra-client",
             entra_client_secret="entra-secret",
             entra_redirect_uri="https://studio.example.edu/auth/entra/callback",
-            entra_tenant="11111111-2222-3333-4444-555555555555",
+            entra_allowed_tenant_id="11111111-2222-3333-4444-555555555555",
             openai_api_key="sk-proj-ETISGATE9EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
         )
 
 
-def test_production_settings_reject_non_uuid_entra_tenant():
-    with pytest.raises(ValueError, match="ENTRA_TENANT"):
+def test_production_settings_reject_non_uuid_entra_allowed_tenant():
+    with pytest.raises(ValueError, match="ENTRA_ALLOWED_TENANT_ID"):
         Settings(
             _env_file=None,
             etis_env="production",
@@ -138,7 +157,7 @@ def test_production_settings_reject_non_uuid_entra_tenant():
             entra_client_id="entra-client",
             entra_client_secret="entra-secret",
             entra_redirect_uri="https://studio.example.edu/auth/entra/callback",
-            entra_tenant="not-a-real-tenant-uuid",
+            entra_allowed_tenant_id="not-a-real-tenant-uuid",
             openai_api_key="sk-proj-ETISGATE9FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
         )
 
@@ -161,7 +180,7 @@ def test_production_settings_reject_short_session_secret():
             entra_client_id="entra-client",
             entra_client_secret="entra-secret",
             entra_redirect_uri="https://studio.example.edu/auth/entra/callback",
-            entra_tenant="11111111-2222-3333-4444-555555555555",
+            entra_allowed_tenant_id="11111111-2222-3333-4444-555555555555",
             openai_api_key="sk-proj-ETISGATE9GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
         )
 
@@ -194,7 +213,7 @@ def test_production_settings_require_entra_client_credentials(
             entra_client_id=client_id,
             entra_client_secret=client_secret,
             entra_redirect_uri="https://studio.example.edu/auth/entra/callback",
-            entra_tenant="11111111-2222-3333-4444-555555555555",
+            entra_allowed_tenant_id="11111111-2222-3333-4444-555555555555",
             openai_api_key="sk-proj-ETISGATE9HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH",
         )
 
@@ -227,7 +246,7 @@ def test_production_settings_require_github_app_credentials(
             entra_client_id="entra-client",
             entra_client_secret="entra-secret",
             entra_redirect_uri="https://studio.example.edu/auth/entra/callback",
-            entra_tenant="11111111-2222-3333-4444-555555555555",
+            entra_allowed_tenant_id="11111111-2222-3333-4444-555555555555",
             openai_api_key="sk-proj-ETISGATE9IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
         )
 
@@ -250,7 +269,7 @@ def test_production_settings_require_github_app_slug():
             entra_client_id="entra-client",
             entra_client_secret="entra-secret",
             entra_redirect_uri="https://studio.example.edu/auth/entra/callback",
-            entra_tenant="11111111-2222-3333-4444-555555555555",
+            entra_allowed_tenant_id="11111111-2222-3333-4444-555555555555",
             openai_api_key="sk-proj-ETISGATE9SLUGAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         )
 
@@ -274,7 +293,7 @@ def test_production_settings_require_openai_key_when_ai_enabled():
             entra_client_id="entra-client",
             entra_client_secret="entra-secret",
             entra_redirect_uri="https://studio.example.edu/auth/entra/callback",
-            entra_tenant="11111111-2222-3333-4444-555555555555",
+            entra_allowed_tenant_id="11111111-2222-3333-4444-555555555555",
             openai_api_key="",
         )
 
@@ -308,7 +327,7 @@ def test_production_settings_require_github_oauth_credentials(
             entra_client_id="entra-client",
             entra_client_secret="entra-secret",
             entra_redirect_uri="https://studio.example.edu/auth/entra/callback",
-            entra_tenant="11111111-2222-3333-4444-555555555555",
+            entra_allowed_tenant_id="11111111-2222-3333-4444-555555555555",
             openai_api_key="sk-proj-ETISGATE9JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
         )
 

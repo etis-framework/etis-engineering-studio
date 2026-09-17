@@ -316,6 +316,9 @@ Required configuration includes:
 - `AZURE_RESOURCE_GROUP`
 - `AZURE_LOCATION`
 - `ETIS_WEB_ORIGIN`
+- `ENTRA_ALLOWED_TENANT_ID`
+- `ENTRA_LEGACY_PROVIDER_TENANT_ID`
+- optional `ENTRA_LEGACY_REBIND_EMAILS` reviewed as an exact one-time list
 - `OPERATIONS_ALERT_EMAIL`
 
 - `ETIS_GITHUB_APP_ID`
@@ -360,13 +363,15 @@ before Azure provisioning is authorized.
 
 Required operator-configured values are:
 
+- `ETIS_PRODUCTION_TEST_STUDENT_TENANT_ID`
 - `ETIS_PRODUCTION_TEST_STUDENT_OID`
 - `ETIS_PRODUCTION_TEST_STUDENT_EMAIL`
 - `ETIS_PRODUCTION_TEST_STUDENT_ID`
 - `ETIS_PRODUCTION_TEST_SECTION_KEY`
 - `ETIS_PRODUCTION_TEST_TEAM_KEY`
 
-The configured principal must be bound by its **exact Entra Object ID**.
+The configured principal must be bound by its exact **Entra tenant ID + Object
+ID pair**.
 
 The configured student may only be enrolled in the **designated
 production-test section** and assigned to the **designated production-test
@@ -387,7 +392,8 @@ Before Gate 17 GO, verify the intended Microsoft Entra production identity
 configuration:
 
 - `ENTRA_CLIENT_ID`;
-- tenant authority;
+- `ENTRA_AUTHORITY=organizations`;
+- exact Loyola `ENTRA_ALLOWED_TENANT_ID` admission boundary;
 - intended Loyola identity boundary;
 - production redirect/callback plan;
 - least-privilege application configuration;
@@ -625,4 +631,3 @@ Gate 17 GO does not authorize student production use.
 
 The next lifecycle stage is controlled Azure bootstrap and deployment followed
 by production acceptance testing.
-

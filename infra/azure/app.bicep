@@ -30,8 +30,14 @@ param instructorGithub string = 'woconnell1'
 @description('Microsoft Entra application client ID.')
 param entraClientId string
 
-@description('Microsoft Entra tenant UUID.')
-param entraTenant string
+@allowed([
+  'organizations'
+])
+@description('Microsoft Entra organizational authentication authority.')
+param entraAuthority string = 'organizations'
+
+@description('Microsoft Entra tenant UUID trusted for normal institutional users.')
+param entraAllowedTenantId string
 
 @description('Microsoft Entra OAuth redirect URI.')
 param entraRedirectUri string
@@ -41,6 +47,9 @@ param entraAllowedDomain string = 'luc.edu'
 
 @description('Exact Microsoft Entra Object ID for the designated production-acceptance test student.')
 param productionTestStudentOid string
+
+@description('Exact Microsoft Entra tenant ID for the designated production-acceptance test student.')
+param productionTestStudentTenantId string
 
 @description('Canonical email for the designated production-acceptance test student.')
 param productionTestStudentEmail string
@@ -290,8 +299,12 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = {
               value: entraRedirectUri
             }
             {
-              name: 'ENTRA_TENANT'
-              value: entraTenant
+              name: 'ENTRA_AUTHORITY'
+              value: entraAuthority
+            }
+            {
+              name: 'ENTRA_ALLOWED_TENANT_ID'
+              value: entraAllowedTenantId
             }
             {
               name: 'ENTRA_ALLOWED_DOMAIN'
@@ -300,6 +313,10 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = {
             {
               name: 'ETIS_PRODUCTION_TEST_STUDENT_OID'
               value: productionTestStudentOid
+            }
+            {
+              name: 'ETIS_PRODUCTION_TEST_STUDENT_TENANT_ID'
+              value: productionTestStudentTenantId
             }
             {
               name: 'ETIS_PRODUCTION_TEST_STUDENT_EMAIL'
