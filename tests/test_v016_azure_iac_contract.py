@@ -107,7 +107,9 @@ def test_application_wires_complete_fail_closed_production_configuration():
             "ENTRA_CLIENT_ID",
             "ENTRA_CLIENT_SECRET",
             "ENTRA_REDIRECT_URI",
-            "ENTRA_TENANT",
+            "ENTRA_AUTHORITY",
+            "ENTRA_ALLOWED_TENANT_ID",
+            "ETIS_PRODUCTION_TEST_STUDENT_TENANT_ID",
             "GITHUB_APP_ID",
             "GITHUB_APP_PRIVATE_KEY",
             "GITHUB_OAUTH_CLIENT_ID",
@@ -116,6 +118,43 @@ def test_application_wires_complete_fail_closed_production_configuration():
             "OPENAI_API_KEY",
         ],
     )
+
+
+def test_identity_authority_is_separate_from_azure_deployment_tenant():
+    workflow = read_required(WORKFLOW)
+    application = read_required(APPLICATION)
+    migration = read_required(MIGRATION)
+
+    require_all(
+        workflow,
+        [
+            "ENTRA_AUTHORITY: organizations",
+            "ENTRA_ALLOWED_TENANT_ID: ${{ vars.ENTRA_ALLOWED_TENANT_ID }}",
+            "ENTRA_LEGACY_PROVIDER_TENANT_ID: ${{ vars.ENTRA_LEGACY_PROVIDER_TENANT_ID }}",
+            "ENTRA_LEGACY_REBIND_EMAILS: ${{ vars.ENTRA_LEGACY_REBIND_EMAILS }}",
+            "ETIS_PRODUCTION_TEST_STUDENT_TENANT_ID",
+        ],
+    )
+    require_all(
+        application,
+        [
+            "param entraAuthority string = 'organizations'",
+            "param entraAllowedTenantId string",
+            "param productionTestStudentTenantId string",
+        ],
+    )
+    require_all(
+        migration,
+        [
+            "param entraLegacyProviderTenantId string",
+            "param entraLegacyRebindEmails string = ''",
+            "ENTRA_LEGACY_PROVIDER_TENANT_ID",
+            "ENTRA_LEGACY_REBIND_EMAILS",
+        ],
+    )
+
+    assert "ENTRA_TENANT" not in workflow
+    assert "ENTRA_TENANT: ${{ secrets.AZURE_TENANT_ID }}" not in workflow
 
 
 

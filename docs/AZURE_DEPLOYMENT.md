@@ -129,7 +129,12 @@ Required production families include:
 - sufficiently strong `ETIS_SESSION_SECRET`;
 - HTTPS `ETIS_WEB_ORIGIN`;
 - `ETIS_DEV_LOGIN=false`;
-- explicit `ENTRA_TENANT` UUID;
+- `ENTRA_AUTHORITY=organizations` for organizational multitenant sign-in;
+- explicit Loyola `ENTRA_ALLOWED_TENANT_ID` UUID for application admission;
+- explicit `ENTRA_LEGACY_PROVIDER_TENANT_ID` during the tenant-scoped identity migration;
+- optional `ENTRA_LEGACY_REBIND_EMAILS` containing only exact roster emails
+  approved for the one-time move from legacy guest identities to home-tenant
+  identities;
 - Entra client ID/secret/redirect URI;
 - GitHub OAuth client ID/secret/redirect URI;
 - GitHub App ID/private key/slug;
@@ -143,7 +148,14 @@ Production identity rules:
 
 - institutional users authenticate with Microsoft Entra;
 - normal allowed domain is `luc.edu`;
-- production uses an explicit tenant UUID rather than a broad organizations/common tenant selector;
+- Microsoft authentication uses the `/organizations` authority so Loyola users
+  authenticate in their home tenant;
+- Studio separately permits normal institutional access only from the exact
+  configured Loyola tenant UUID and allowed `luc.edu` domain;
+- the verified immutable Microsoft identity is the pair `(tid, oid)`;
+- existing bindings are preserved with their legacy tenant context; only exact
+  operator-approved emails in `ENTRA_LEGACY_REBIND_EMAILS` are cleared for a
+  one-time verified home-tenant rebind;
 - Studio stores no user password;
 - course authorization is database-derived after authentication.
 
@@ -153,13 +165,17 @@ The controlled external production-test student is an exact configured identity 
 
 The bounded production-test identity is configured through these operator-owned values:
 
-- `ETIS_PRODUCTION_TEST_STUDENT_OID` — exact Entra Object ID;
+- `ETIS_PRODUCTION_TEST_STUDENT_TENANT_ID` — exact Entra tenant ID;
+- `ETIS_PRODUCTION_TEST_STUDENT_OID` — exact tenant-scoped Entra Object ID;
 - `ETIS_PRODUCTION_TEST_STUDENT_EMAIL` — exact roster/email identity;
 - `ETIS_PRODUCTION_TEST_STUDENT_ID` — exact course student identifier;
 - `ETIS_PRODUCTION_TEST_SECTION_KEY` — designated production-test section;
 - `ETIS_PRODUCTION_TEST_TEAM_KEY` — designated production-test team.
 
-The exception must match the **exact Entra Object ID**, the **designated production-test section**, and the **designated production-test team**. It **does not allow gmail.com generally** and does not create a generic external-domain student login path.
+The exception must match the exact **Entra tenant ID + Object ID pair**, the
+**designated production-test section**, and the **designated production-test
+team**. It **does not allow gmail.com generally** and does not create a generic
+external-domain student login path.
 
 Do not publish the operator-selected principal values in public deployment documentation. Institution adopters must create their own bounded test identity and values.
 

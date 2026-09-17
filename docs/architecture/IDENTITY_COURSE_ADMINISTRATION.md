@@ -1,6 +1,7 @@
 # Identity, Course Administration, and Team Onboarding
 
-> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+> **Status:** Current design contract. The 2026-09-17 multitenant Entra repair
+> remains subject to CI and controlled live acceptance.
 
 ## Governing model
 
@@ -12,6 +13,28 @@ Engineering Studio deliberately separates four concerns that are often conflated
 4. **GitHub App repository authorization** allows ETIS to read only the verified team repository using short-lived installation tokens.
 
 The Studio never stores a separate student, TA, reviewer, or instructor password.
+
+## Microsoft authority and Studio admission
+
+Microsoft authentication authority and Studio tenant admission are separate
+controls:
+
+- the browser uses Microsoft's `/organizations` authority so Loyola users can
+  authenticate in the Loyola home tenant;
+- the signed token's issuer, audience, nonce, `tid`, and `oid` are verified;
+- normal institutional admission requires the exact configured Loyola tenant
+  ID plus the configured institutional email domain;
+- the immutable external identity is `(tid, oid)`, because an Entra Object ID
+  is tenant-scoped;
+- the bounded production-test identity requires its own exact `(tid, oid)`
+  pair and does not create a general external-domain path;
+- the OIDC callback must present the short-lived HttpOnly browser-flow cookie
+  created when that browser initiated sign-in.
+
+Legacy bindings are assigned their historical tenant context during migration.
+Moving a legacy guest identity to a home-tenant identity requires an explicit
+operator-approved roster-email reset; application code never silently rebinds
+an existing institutional identity.
 
 ## Data hierarchy
 

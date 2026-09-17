@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
+from starlette.requests import Request
 
 from apps.api.app.config import Settings
 from apps.api.app.services import auth as auth_service
@@ -16,6 +17,8 @@ DEPLOY = ROOT / ".github" / "workflows" / "deploy-azure.yml"
 
 
 TEST_OID = "11111111-2222-3333-4444-555555555555"
+TEST_TENANT_ID = "aaaaaaaa-2222-3333-4444-555555555555"
+LOYOLA_TENANT_ID = "bbbbbbbb-2222-3333-4444-555555555555"
 TEST_EMAIL = "production-student@example.net"
 TEST_STUDENT_ID = "production-test-student"
 TEST_SECTION_KEY = "PRODUCTION-TEST"
@@ -24,6 +27,7 @@ TEST_TEAM_KEY = "production-test-team"
 
 def test_settings_define_exact_production_test_student_contract():
     required = {
+        "etis_production_test_student_tenant_id",
         "etis_production_test_student_oid",
         "etis_production_test_student_email",
         "etis_production_test_student_id",
@@ -42,7 +46,9 @@ def test_entra_identity_resolution_allows_loyola_and_only_exact_test_oid(
     )
 
     settings = SimpleNamespace(
+        entra_allowed_tenant_id=LOYOLA_TENANT_ID,
         entra_allowed_domain="luc.edu",
+        etis_production_test_student_tenant_id=TEST_TENANT_ID,
         etis_production_test_student_oid=TEST_OID,
         etis_production_test_student_email=TEST_EMAIL,
     )
@@ -52,11 +58,13 @@ def test_entra_identity_resolution_allows_loyola_and_only_exact_test_oid(
 
     loyola = resolve(
         {
+            "tid": LOYOLA_TENANT_ID,
             "oid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
             "preferred_username": "student1@luc.edu",
         }
     )
     assert loyola == {
+        "tenant_id": LOYOLA_TENANT_ID,
         "oid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
         "email": "student1@luc.edu",
         "is_production_test_student": False,
@@ -68,6 +76,7 @@ def test_entra_identity_resolution_allows_loyola_and_only_exact_test_oid(
     # Studio identity for that exact test principal.
     guest = resolve(
         {
+            "tid": TEST_TENANT_ID,
             "oid": TEST_OID,
             "preferred_username": (
                 "production-student_example.net"
@@ -76,6 +85,7 @@ def test_entra_identity_resolution_allows_loyola_and_only_exact_test_oid(
         }
     )
     assert guest == {
+        "tenant_id": TEST_TENANT_ID,
         "oid": TEST_OID,
         "email": TEST_EMAIL,
         "is_production_test_student": True,
@@ -85,6 +95,7 @@ def test_entra_identity_resolution_allows_loyola_and_only_exact_test_oid(
     with pytest.raises(HTTPException) as exc:
         resolve(
             {
+                "tid": TEST_TENANT_ID,
                 "oid": "99999999-8888-7777-6666-555555555555",
                 "email": TEST_EMAIL,
             }
@@ -96,7 +107,9 @@ def test_entra_identity_resolution_requires_verified_oid(monkeypatch):
     assert hasattr(auth_service, "resolve_entra_identity")
 
     settings = SimpleNamespace(
+        entra_allowed_tenant_id=LOYOLA_TENANT_ID,
         entra_allowed_domain="luc.edu",
+        etis_production_test_student_tenant_id=TEST_TENANT_ID,
         etis_production_test_student_oid=TEST_OID,
         etis_production_test_student_email=TEST_EMAIL,
     )
@@ -116,8 +129,11 @@ def test_entra_callback_uses_oid_as_provider_binding():
     # Claim interpretation is centralized in resolve_entra_identity(); the
     # router consumes the verified canonical oid returned by that function.
     assert "resolve_entra_identity" in text
+    assert 'tenant_id=resolved["tenant_id"]' in text
     assert 'oid=resolved["oid"]' in text
+    assert "provider_tenant_id=tenant_id" in text
     assert "provider_subject=oid" in text
+    assert "ident.provider_tenant_id=tenant_id" in text
     assert "ident.provider_subject=oid" in text
     assert "production_test_student" in text
 
@@ -132,6 +148,7 @@ def test_manual_test_student_is_scoped_to_designated_section_and_team():
 
     for token in (
         "etis_production_test_student_oid",
+        "etis_production_test_student_tenant_id",
         "etis_production_test_student_email",
         "etis_production_test_student_id",
         "etis_production_test_section_key",
@@ -150,6 +167,7 @@ def test_azure_deployment_wires_exact_test_identity_without_hardcoding_it():
     bicep = APP_BICEP.read_text(encoding="utf-8")
 
     required_env = (
+        "ETIS_PRODUCTION_TEST_STUDENT_TENANT_ID",
         "ETIS_PRODUCTION_TEST_STUDENT_OID",
         "ETIS_PRODUCTION_TEST_STUDENT_EMAIL",
         "ETIS_PRODUCTION_TEST_STUDENT_ID",
@@ -195,6 +213,7 @@ def test_production_test_student_is_documented_as_operator_configuration():
     ).read_text(encoding="utf-8")
 
     required = (
+        "ETIS_PRODUCTION_TEST_STUDENT_TENANT_ID",
         "ETIS_PRODUCTION_TEST_STUDENT_OID",
         "ETIS_PRODUCTION_TEST_STUDENT_EMAIL",
         "ETIS_PRODUCTION_TEST_STUDENT_ID",
@@ -273,6 +292,7 @@ def test_entra_callback_rejects_silent_rebind_of_existing_oid(monkeypatch):
             user_id=user.id,
             student_id="student1",
             institutional_email="student1@luc.edu",
+            provider_tenant_id=LOYOLA_TENANT_ID,
             provider_subject=old_oid,
         )
         db.add(ident)
@@ -289,12 +309,16 @@ def test_entra_callback_rejects_silent_rebind_of_existing_oid(monkeypatch):
         monkeypatch.setattr(
             auth_router,
             "parse_flow_state",
-            lambda state, expected_kind: {"nonce": "expected-nonce"},
+            lambda state, expected_kind: {
+                "nonce": "expected-nonce",
+                "flow_binding": "browser-flow-binding",
+            },
         )
         monkeypatch.setattr(
             auth_router,
             "entra_exchange",
             lambda code, expected_nonce: {
+                "tid": LOYOLA_TENANT_ID,
                 "oid": new_oid,
                 "preferred_username": "student1@luc.edu",
                 "name": "Student One",
@@ -307,13 +331,44 @@ def test_entra_callback_rejects_silent_rebind_of_existing_oid(monkeypatch):
                 etis_production_test_student_id="",
                 etis_bootstrap_owner_email="",
                 etis_env="development",
+                entra_allowed_tenant_id=LOYOLA_TENANT_ID,
+                entra_allowed_domain="luc.edu",
+                etis_production_test_student_tenant_id="",
+                etis_production_test_student_oid="",
+                etis_production_test_student_email="",
             ),
+        )
+        monkeypatch.setattr(
+            auth_service,
+            "get_settings",
+            lambda: SimpleNamespace(
+                entra_allowed_tenant_id=LOYOLA_TENANT_ID,
+                entra_allowed_domain="luc.edu",
+                etis_production_test_student_tenant_id="",
+                etis_production_test_student_oid="",
+                etis_production_test_student_email="",
+            ),
+        )
+
+        request = Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": "/auth/entra/callback",
+                "headers": [
+                    (
+                        b"cookie",
+                        b"etis_entra_flow=browser-flow-binding",
+                    )
+                ],
+            }
         )
 
         with pytest.raises(HTTPException) as exc:
             auth_router.entra_callback(
                 code="authorization-code",
                 state="signed-state",
+                request=request,
                 db=db,
             )
 

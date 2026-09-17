@@ -104,7 +104,8 @@ jobs:
             -e ENTRA_CLIENT_ID=ci-entra-client \
             -e ENTRA_CLIENT_SECRET=ci-entra-secret \
             -e ENTRA_REDIRECT_URI=https://studio.example.edu/auth/entra/callback \
-            -e ENTRA_TENANT=11111111-2222-3333-4444-555555555555 \
+            -e ENTRA_AUTHORITY=organizations \
+            -e ENTRA_ALLOWED_TENANT_ID=11111111-2222-3333-4444-555555555555 \
             -e GITHUB_APP_ID=12345 \
             -e GITHUB_APP_PRIVATE_KEY=ci-placeholder-private-key \
             -e GITHUB_APP_SLUG=ci-github-app \

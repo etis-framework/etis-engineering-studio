@@ -12,6 +12,12 @@ param environment string = 'prod'
 @description('Immutable production image to run, normally the ACR image tagged with the validated Git commit SHA.')
 param containerImage string
 
+@description('Tenant UUID that owns institutional identity bindings created before tenant-scoped persistence.')
+param entraLegacyProviderTenantId string
+
+@description('Optional comma-separated roster emails explicitly approved for one-time home-tenant rebinding.')
+param entraLegacyRebindEmails string = ''
+
 @description('Key Vault secret containing the PostgreSQL SQLAlchemy connection URL.')
 param databaseUrlSecretName string = 'etis-database-url'
 
@@ -103,6 +109,14 @@ resource migrationJob 'Microsoft.App/jobs@2025-07-01' = {
             {
               name: 'ETIS_DATABASE_URL'
               secretRef: 'database-url'
+            }
+            {
+              name: 'ENTRA_LEGACY_PROVIDER_TENANT_ID'
+              value: entraLegacyProviderTenantId
+            }
+            {
+              name: 'ENTRA_LEGACY_REBIND_EMAILS'
+              value: entraLegacyRebindEmails
             }
           ]
 
