@@ -312,12 +312,13 @@ def test_entra_callback_rejects_silent_rebind_of_existing_oid(monkeypatch):
             lambda state, expected_kind: {
                 "nonce": "expected-nonce",
                 "flow_binding": "browser-flow-binding",
+                "token_authority": "organizations",
             },
         )
         monkeypatch.setattr(
             auth_router,
             "entra_exchange",
-            lambda code, expected_nonce: {
+            lambda code, expected_nonce, authority: {
                 "tid": LOYOLA_TENANT_ID,
                 "oid": new_oid,
                 "preferred_username": "student1@luc.edu",

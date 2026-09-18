@@ -27,7 +27,10 @@ controls:
 - the immutable external identity is `(tid, oid)`, because an Entra Object ID
   is tenant-scoped;
 - the bounded production-test identity requires its own exact `(tid, oid)`
-  pair and does not create a general external-domain path;
+  pair and does not create a general external-domain path; its acceptance-only
+  `/auth/entra/production-test` entry point uses that exact guest tenant because
+  Microsoft's `/organizations` endpoint rejects personal-account credentials
+  before ETIS can validate the guest object;
 - the OIDC callback must present the short-lived HttpOnly browser-flow cookie
   created when that browser initiated sign-in.
 

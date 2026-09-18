@@ -89,6 +89,12 @@ identity, the **designated production-test section**, and the **designated
 production-test team**. It does not allow gmail.com generally or create a
 second general external-student authentication path.
 
+Start this controlled identity at `/auth/entra/production-test`. That route
+uses only the configured production-test tenant for Microsoft authorization
+and token exchange. The normal `/auth/entra` route remains on
+`/organizations` for institutional users, and the callback still rejects every
+test-tenant principal except the configured exact Object ID.
+
 Acceptance verified that the test principal remained nonprivileged, followed
 normal Studio course/team authorization, and could not use the exception to
 obtain staff authority or substitute unrelated team/repository access.

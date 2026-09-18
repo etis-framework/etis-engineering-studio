@@ -24,10 +24,35 @@ def _set_session(response:RedirectResponse,user:User,login:str):
 def entra_login():
     s=get_settings()
     if not s.entra_client_id or not s.entra_client_secret: raise HTTPException(503,"Loyola Microsoft SSO is not configured")
+    return _start_entra_login(s.entra_authority)
+
+
+@router.get("/entra/production-test")
+def entra_production_test_login():
+    """Start the exact-principal production acceptance flow in its guest tenant."""
+    s=get_settings()
+    if not s.entra_client_id or not s.entra_client_secret:
+        raise HTTPException(503,"Loyola Microsoft SSO is not configured")
+    if not (
+        s.etis_production_test_student_tenant_id.strip()
+        and s.etis_production_test_student_oid.strip()
+        and s.etis_production_test_student_email.strip()
+    ):
+        raise HTTPException(404,"Production test sign-in is not configured")
+    return _start_entra_login(s.etis_production_test_student_tenant_id)
+
+
+def _start_entra_login(authority:str):
+    s=get_settings()
     flow_binding=secrets.token_urlsafe(32)
-    state=create_flow_state("entra", {"flow_binding":flow_binding})
+    state=create_flow_state(
+        "entra",
+        {"flow_binding":flow_binding,"token_authority":authority},
+    )
     flow=parse_flow_state(state,"entra")
-    response=RedirectResponse(entra_authorize_url(state,flow["nonce"]))
+    response=RedirectResponse(
+        entra_authorize_url(state,flow["nonce"],flow["token_authority"])
+    )
     response.set_cookie(
         ENTRA_FLOW_COOKIE_NAME,
         flow_binding,
@@ -53,7 +78,11 @@ def entra_callback(code:str,state:str,request:Request,db:Session=Depends(get_db)
             400,
             "Microsoft sign-in does not match the browser that started it",
         )
-    claims=entra_exchange(code,pending.get("nonce",""))
+    claims=entra_exchange(
+        code,
+        pending.get("nonce",""),
+        pending.get("token_authority"),
+    )
     resolved=resolve_entra_identity(claims)
     email=resolved["email"]
     tenant_id=resolved["tenant_id"]
