@@ -74,6 +74,32 @@ def test_entra_authorization_uses_organizations_not_trusted_tenant(monkeypatch):
     assert query["nonce"] == ["nonce-value"]
 
 
+def test_production_test_authorization_uses_exact_guest_tenant(monkeypatch):
+    monkeypatch.setattr(auth_service, "get_settings", _settings)
+
+    url = auth_service.entra_authorize_url(
+        "signed-state",
+        "nonce-value",
+        TEST_TENANT_ID,
+    )
+    parsed = urlparse(url)
+
+    assert parsed.path == f"/{TEST_TENANT_ID}/oauth2/v2.0/authorize"
+
+
+def test_entra_authorization_rejects_unconfigured_authority(monkeypatch):
+    monkeypatch.setattr(auth_service, "get_settings", _settings)
+
+    with pytest.raises(HTTPException) as exc:
+        auth_service.entra_authorize_url(
+            "signed-state",
+            "nonce-value",
+            "99999999-9999-9999-9999-999999999999",
+        )
+
+    assert exc.value.status_code == 400
+
+
 def test_entra_login_sets_short_lived_browser_binding_cookie(monkeypatch):
     captured = {}
     monkeypatch.setattr(auth_router, "get_settings", _settings)
@@ -92,19 +118,28 @@ def test_entra_login_sets_short_lived_browser_binding_cookie(monkeypatch):
     monkeypatch.setattr(
         auth_router,
         "parse_flow_state",
-        lambda state, kind: {"nonce": "nonce-value"},
+        lambda state, kind: {
+            "nonce": "nonce-value",
+            "token_authority": "organizations",
+        },
     )
     monkeypatch.setattr(
         auth_router,
         "entra_authorize_url",
-        lambda state, nonce: "https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize",
+        lambda state, nonce, authority: (
+            "https://login.microsoftonline.com/"
+            f"{authority}/oauth2/v2.0/authorize"
+        ),
     )
 
     response = auth_router.entra_login()
 
     assert captured == {
         "kind": "entra",
-        "payload": {"flow_binding": "browser-flow-binding"},
+        "payload": {
+            "flow_binding": "browser-flow-binding",
+            "token_authority": "organizations",
+        },
     }
     cookie = response.headers["set-cookie"].lower()
     assert "etis_entra_flow=browser-flow-binding" in cookie
@@ -113,6 +148,53 @@ def test_entra_login_sets_short_lived_browser_binding_cookie(monkeypatch):
     assert "samesite=lax" in cookie
     assert "max-age=600" in cookie
     assert "path=/auth/entra" in cookie
+
+
+def test_production_test_login_signs_exact_guest_tenant_into_flow(monkeypatch):
+    captured = {}
+    settings = _settings()
+    monkeypatch.setattr(auth_router, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        auth_router.secrets,
+        "token_urlsafe",
+        lambda size: "browser-flow-binding",
+    )
+    monkeypatch.setattr(
+        auth_router,
+        "create_flow_state",
+        lambda kind, payload: captured.update(
+            {"kind": kind, "payload": payload}
+        ) or "signed-state",
+    )
+    monkeypatch.setattr(
+        auth_router,
+        "parse_flow_state",
+        lambda state, kind: {
+            "nonce": "nonce-value",
+            "token_authority": TEST_TENANT_ID,
+        },
+    )
+    monkeypatch.setattr(
+        auth_router,
+        "entra_authorize_url",
+        lambda state, nonce, authority: (
+            "https://login.microsoftonline.com/"
+            f"{authority}/oauth2/v2.0/authorize"
+        ),
+    )
+
+    response = auth_router.entra_production_test_login()
+
+    assert captured == {
+        "kind": "entra",
+        "payload": {
+            "flow_binding": "browser-flow-binding",
+            "token_authority": TEST_TENANT_ID,
+        },
+    }
+    assert response.headers["location"].startswith(
+        f"https://login.microsoftonline.com/{TEST_TENANT_ID}/"
+    )
 
 
 @pytest.mark.parametrize("cookie_value", [None, "different-browser"])
@@ -274,12 +356,13 @@ def test_successful_loyola_callback_binds_tenant_and_object_id(monkeypatch):
             lambda state, kind: {
                 "nonce": "expected-nonce",
                 "flow_binding": "initiating-browser",
+                "token_authority": "organizations",
             },
         )
         monkeypatch.setattr(
             auth_router,
             "entra_exchange",
-            lambda code, nonce: {
+            lambda code, nonce, authority: {
                 "tid": LOYOLA_TENANT_ID,
                 "oid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
                 "preferred_username": "sam@luc.edu",

@@ -389,9 +389,48 @@ def resolve_entra_identity(claims: dict) -> dict:
     }
 
 
-def entra_authorize_url(state:str,nonce:str) -> str:
-    s=get_settings(); q=urlencode({"client_id":s.entra_client_id,"response_type":"code","redirect_uri":s.entra_redirect_uri,"response_mode":"query","scope":"openid profile email","state":state,"nonce":nonce,"prompt":"select_account"})
-    return f"https://login.microsoftonline.com/{s.entra_authority}/oauth2/v2.0/authorize?{q}"
+def _validated_entra_flow_authority(authority: str | None = None) -> str:
+    """Restrict an OIDC flow to one of the two configured tenant boundaries."""
+    s = get_settings()
+    requested = str(authority or s.entra_authority or "").strip().strip("/")
+    allowed = {
+        str(s.entra_authority or "").strip().strip("/").casefold(),
+        str(
+            getattr(s, "etis_production_test_student_tenant_id", "") or ""
+        ).strip().casefold(),
+    }
+    allowed.discard("")
+    if not requested or requested.casefold() not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail="Microsoft sign-in authority is not configured",
+        )
+    return requested
+
+
+def entra_authorize_url(
+    state: str,
+    nonce: str,
+    authority: str | None = None,
+) -> str:
+    s = get_settings()
+    flow_authority = _validated_entra_flow_authority(authority)
+    q = urlencode(
+        {
+            "client_id": s.entra_client_id,
+            "response_type": "code",
+            "redirect_uri": s.entra_redirect_uri,
+            "response_mode": "query",
+            "scope": "openid profile email",
+            "state": state,
+            "nonce": nonce,
+            "prompt": "select_account",
+        }
+    )
+    return (
+        "https://login.microsoftonline.com/"
+        f"{flow_authority}/oauth2/v2.0/authorize?{q}"
+    )
 
 
 def _entra_tenant_is_admissible(tenant_id: str) -> bool:
@@ -405,8 +444,17 @@ def _entra_tenant_is_admissible(tenant_id: str) -> bool:
     configured.discard("")
     return tenant_id.strip().casefold() in configured
 
-def entra_exchange(code:str,expected_nonce:str) -> dict:
-    s=get_settings(); token_url=f"https://login.microsoftonline.com/{s.entra_authority}/oauth2/v2.0/token"
+def entra_exchange(
+    code: str,
+    expected_nonce: str,
+    authority: str | None = None,
+) -> dict:
+    s=get_settings()
+    flow_authority = _validated_entra_flow_authority(authority)
+    token_url=(
+        "https://login.microsoftonline.com/"
+        f"{flow_authority}/oauth2/v2.0/token"
+    )
     with httpx.Client(timeout=25) as c:
         r=c.post(token_url,data={"client_id":s.entra_client_id,"client_secret":s.entra_client_secret,"grant_type":"authorization_code","code":code,"redirect_uri":s.entra_redirect_uri,"scope":"openid profile email"}); r.raise_for_status(); payload=r.json()
     id_token=payload.get("id_token")
