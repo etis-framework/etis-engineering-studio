@@ -38,6 +38,7 @@ from ..services.semester_lifecycle import (
 from ..services.evidence import GitHubEvidenceProvider
 from ..services.github_app import (
     GitHubOwnerResolutionError,
+    GitHubRepositoryAuthorizationIncomplete,
     repository_owner_identity,
 )
 from ..services.repository_policy import (
@@ -867,6 +868,11 @@ def verify_repository(team_id:int,request:Request,db:Session=Depends(get_db)):
 
     try:
         GitHubEvidenceProvider().head_sha(candidate_repo)
+    except GitHubRepositoryAuthorizationIncomplete as e:
+        raise HTTPException(
+            409,
+            detail=f"Repository authorization is incomplete: {e}",
+        ) from e
     except Exception as e:
         raise HTTPException(
             502,

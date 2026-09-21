@@ -47,7 +47,8 @@ def test_github_setup_completion_route_is_informational_not_verification():
         "/github/setup-complete?installation_id=999999&setup_action=update"
     )
     assert response.status_code == 200
-    assert "GITHUB AUTHORIZATION COMPLETE" in response.text
+    assert "RETURN TO ETIS" in response.text
+    assert "repository access is not confirmed yet" in response.text
     assert "complete Step 2 to verify the exact nominated repository" in response.text
     assert "/assets/github-setup-complete.js" in response.text
     assert "999999" not in response.text

@@ -15,6 +15,10 @@ class GitHubOwnerResolutionError(RuntimeError):
     pass
 
 
+class GitHubRepositoryAuthorizationIncomplete(RuntimeError):
+    """The owner has not granted the required exact-repository App access."""
+
+
 @dataclass(frozen=True)
 class GitHubRepositoryOwner:
     login: str
@@ -116,7 +120,7 @@ class GitHubAppTokenManager:
             r=c.get(f"/repos/{repo_full_name}/installation")
 
             if r.status_code==404:
-                raise RuntimeError(
+                raise GitHubRepositoryAuthorizationIncomplete(
                     "ETIS Engineering Studio GitHub App is not installed "
                     "for this repository"
                 )
@@ -128,7 +132,7 @@ class GitHubAppTokenManager:
             str(data.get("repository_selection") or "").casefold()
             != "selected"
         ):
-            raise RuntimeError(
+            raise GitHubRepositoryAuthorizationIncomplete(
                 "ETIS GitHub App access must use Only select repositories; "
                 "All repositories is not accepted"
             )
@@ -178,7 +182,7 @@ class GitHubAppTokenManager:
             str(data.get("repository_selection") or "").casefold()
             != "selected"
         ):
-            raise RuntimeError(
+            raise GitHubRepositoryAuthorizationIncomplete(
                 "GitHub did not issue a selected-repository "
                 "installation token"
             )
@@ -192,7 +196,7 @@ class GitHubAppTokenManager:
         } if isinstance(granted,list) else set()
 
         if granted_full_names != {repo_full_name.casefold()}:
-            raise RuntimeError(
+            raise GitHubRepositoryAuthorizationIncomplete(
                 "GitHub installation token scope did not match the "
                 "exact team repository"
             )
