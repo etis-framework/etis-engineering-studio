@@ -19,6 +19,9 @@ from apps.api.app.models import (
     REPOSITORY_STATUS_OWNER_AUTHORIZATION_REQUIRED,
 )
 from apps.api.app.services.auth import create_session_token
+from apps.api.app.services.github_app import (
+    GitHubRepositoryAuthorizationIncomplete,
+)
 
 
 client = TestClient(app)
@@ -256,7 +259,7 @@ def test_alice_bob_carol_personal_repository_lifecycle_wargame(monkeypatch):
     # Step 2 before GitHub access exists fails closed and preserves candidate.
     def unavailable(self, repo_full_name):
         assert repo_full_name == repo
-        raise RuntimeError(
+        raise GitHubRepositoryAuthorizationIncomplete(
             "ETIS Engineering Studio GitHub App is not installed for this repository"
         )
 
@@ -269,8 +272,8 @@ def test_alice_bob_carol_personal_repository_lifecycle_wargame(monkeypatch):
         f"/api/v1/onboarding/teams/{team_id}/repository/verify",
         headers=_headers(alice),
     )
-    assert not_ready.status_code == 502
-    assert "Repository access is not ready" in not_ready.json()["detail"]
+    assert not_ready.status_code == 409
+    assert "Repository authorization is incomplete" in not_ready.json()["detail"]
 
     db = SessionLocal()
     try:
@@ -287,6 +290,24 @@ def test_alice_bob_carol_personal_repository_lifecycle_wargame(monkeypatch):
         )
     finally:
         db.close()
+
+    # A genuine GitHub/service failure remains a 5xx so operations monitoring
+    # still detects infrastructure and upstream availability incidents.
+    def github_unavailable(self, repo_full_name):
+        assert repo_full_name == repo
+        raise RuntimeError("GitHub API temporarily unavailable")
+
+    monkeypatch.setattr(
+        "apps.api.app.routers.onboarding.GitHubEvidenceProvider.head_sha",
+        github_unavailable,
+    )
+
+    upstream_failure = client.post(
+        f"/api/v1/onboarding/teams/{team_id}/repository/verify",
+        headers=_headers(alice),
+    )
+    assert upstream_failure.status_code == 502
+    assert "Repository access is not ready" in upstream_failure.json()["detail"]
 
     # Once GitHub grants exact-repository access, Alice can verify it.
     reads = []
