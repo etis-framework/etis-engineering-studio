@@ -23,7 +23,57 @@ class CompactEvidencePackage:
         return asdict(self)
 
     def to_prompt_text(self, max_chars: int = 14000) -> str:
-        return json.dumps(self.to_dict(), ensure_ascii=False, separators=(",", ":"))[:max_chars]
+        data = self.to_dict()
+        rendered = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+        if len(rendered) <= max_chars:
+            return rendered
+
+        # Preserve valid structured evidence under the prompt budget. Artifact
+        # bodies are the expandable portion; metadata and frozen-snapshot
+        # identity remain intact.
+        artifacts = data.get("relevant_artifacts") or []
+        while len(rendered) > max_chars:
+            candidates = [
+                artifact
+                for artifact in artifacts
+                if artifact.get("content_excerpt")
+            ]
+            if not candidates:
+                break
+
+            artifact = max(
+                candidates,
+                key=lambda item: len(item.get("content_excerpt") or ""),
+            )
+            content = artifact.get("content_excerpt") or ""
+            excess = len(rendered) - max_chars
+            trim_by = max(excess, max(1, len(content) // 4))
+            keep = max(0, len(content) - trim_by)
+            artifact["content_excerpt"] = content[:keep]
+
+            rendered = json.dumps(
+                data,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+
+        if len(rendered) > max_chars:
+            # Extremely small caller budgets cannot carry the full package.
+            # Return a minimal but still valid statement of the evidence
+            # boundary rather than malformed JSON.
+            minimal = {
+                "phase_id": self.phase_id,
+                "repo_full_name": self.repo_full_name,
+                "commit_sha": self.commit_sha,
+                "evidence_boundary": self.evidence_boundary,
+            }
+            rendered = json.dumps(
+                minimal,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+
+        return rendered
 
 
 class EvidencePackageBuilder:
@@ -35,11 +85,15 @@ class EvidencePackageBuilder:
     """
 
     @staticmethod
-    def _model_safe_artifact(artifact: dict, max_chars: int) -> dict:
+    def _model_safe_artifact(
+        artifact: dict,
+        max_chars: int,
+        content_field: str = "content_excerpt",
+    ) -> dict:
         path = artifact.get("path") or ""
         disclosure = sanitize_model_artifact(
             path,
-            (artifact.get("content_excerpt") or "")[:max_chars],
+            (artifact.get(content_field) or artifact.get("content_excerpt") or "")[:max_chars],
         )
 
         if "sensitive_file" in disclosure.redactions:
@@ -58,6 +112,49 @@ class EvidencePackageBuilder:
             "disclosure_status": disclosure_status,
             "disclosure_reasons": list(disclosure.redactions),
         }
+
+    def build_for_turn(
+        self,
+        evidence: dict,
+        challenge: dict,
+        evidence_refs: list[str] | tuple[str, ...],
+    ) -> CompactEvidencePackage:
+        """Build model context for an explicit student evidence selection.
+
+        Selected PATH references are resolved only against the supplied frozen
+        evidence snapshot. They receive the larger review_content representation;
+        unrelated repository artifacts are not added.
+        """
+        selected_paths = []
+        for ref in evidence_refs or []:
+            if isinstance(ref, str) and ref.startswith("PATH:"):
+                path = ref[5:]
+                if path and path not in selected_paths:
+                    selected_paths.append(path)
+
+        if not selected_paths:
+            return self.build(evidence, challenge)
+
+        selected = []
+        by_path = {
+            artifact.get("path"): artifact
+            for artifact in evidence.get("artifacts", [])
+            if artifact.get("path")
+        }
+        for path in selected_paths:
+            artifact = by_path.get(path)
+            if artifact is not None:
+                selected.append(
+                    self._model_safe_artifact(
+                        artifact,
+                        max_chars=8000,
+                        content_field="review_content",
+                    )
+                )
+
+        base = self.build(evidence, challenge)
+        base.relevant_artifacts = selected
+        return base
 
     def build(self, evidence: dict, challenge: dict) -> CompactEvidencePackage:
         refs = set(challenge.get("evidence_refs") or [])

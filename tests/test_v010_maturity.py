@@ -1,3 +1,5 @@
+import json
+
 from pathlib import Path
 
 from apps.api.app.services.ai_telemetry import estimate_cost, merge_usage, RATE_CARD_VERSION
@@ -58,3 +60,97 @@ def test_semantic_prompt_explicitly_handles_combative_and_poor_language():
     assert 'slang' in prompt.lower()
     assert 'secret phrase' in prompt.lower()
     assert 'ramble' in prompt.lower()
+
+
+def test_turn_evidence_package_expands_explicitly_selected_frozen_artifact():
+    evidence = {
+        'phase_id': 'A2',
+        'repo_full_name': 'x/y',
+        'commit_sha': 'frozen123',
+        'strengths': [],
+        'items': [],
+        'artifacts': [
+            {
+                'path': 'docs/planning/README.md',
+                'provenance': 'TEAM_ADAPTED',
+                'quality': 'reviewable',
+                'summary': 'planning guide',
+                'content_excerpt': 'SHORT EXCERPT',
+                'review_content': 'README START\n' + ('planning detail\n' * 250) + 'README END',
+            },
+            {
+                'path': 'docs/planning/other.md',
+                'provenance': 'TEAM_ADAPTED',
+                'quality': 'reviewable',
+                'summary': 'unrelated planning artifact',
+                'content_excerpt': 'UNRELATED EXCERPT',
+                'review_content': 'UNRELATED FULL CONTENT',
+            },
+        ],
+        'repository_metrics': {},
+        'longitudinal': {},
+    }
+    challenge = {
+        'title': 'Planning evidence',
+        'evidence_refs': [],
+        'finding': {'category': 'planning'},
+        'decision_question': 'Is the plan defensible?',
+        'why_now': 'A2',
+    }
+
+    pkg = EvidencePackageBuilder().build_for_turn(
+        evidence,
+        challenge,
+        ['PATH:docs/planning/README.md'],
+    )
+
+    assert pkg.commit_sha == 'frozen123'
+    assert len(pkg.relevant_artifacts) == 1
+
+    artifact = pkg.relevant_artifacts[0]
+    assert artifact['path'] == 'docs/planning/README.md'
+    assert artifact['content_excerpt'].startswith('README START')
+    assert 'README END' in artifact['content_excerpt']
+    assert 'UNRELATED FULL CONTENT' not in pkg.to_prompt_text()
+
+
+def test_prompt_text_remains_valid_json_when_package_exceeds_budget():
+    evidence = {
+        'phase_id': 'A2',
+        'repo_full_name': 'x/y',
+        'commit_sha': 'frozen123',
+        'strengths': [],
+        'items': [],
+        'artifacts': [
+            {
+                'path': 'docs/planning/README.md',
+                'provenance': 'TEAM_ADAPTED',
+                'quality': 'reviewable',
+                'summary': 'planning guide',
+                'content_excerpt': 'short',
+                'review_content': 'planning evidence\n' * 1000,
+            },
+        ],
+        'repository_metrics': {},
+        'longitudinal': {},
+    }
+    challenge = {
+        'title': 'Planning evidence',
+        'evidence_refs': [],
+        'finding': {'category': 'planning'},
+        'decision_question': 'Is the plan defensible?',
+        'why_now': 'A2',
+    }
+
+    pkg = EvidencePackageBuilder().build_for_turn(
+        evidence,
+        challenge,
+        ['PATH:docs/planning/README.md'],
+    )
+
+    text = pkg.to_prompt_text(max_chars=2000)
+
+    assert len(text) <= 2000
+    parsed = json.loads(text)
+    assert parsed['commit_sha'] == 'frozen123'
+    assert parsed['relevant_artifacts'][0]['path'] == 'docs/planning/README.md'

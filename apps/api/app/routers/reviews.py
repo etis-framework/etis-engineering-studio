@@ -399,11 +399,31 @@ def _student_for_session(db: Session, session: ReviewSession):
     return db.get(User, session.user_id)
 
 
-def _evidence_context(db: Session, state: dict):
+def _evidence_context(
+    db: Session,
+    state: dict,
+    evidence_refs: list[str] | tuple[str, ...] = (),
+):
+    snapshot_id = state.get("evidence_snapshot_id")
+
+    # An explicit evidence selection gets a turn-specific package built only
+    # from the persisted frozen snapshot. This lets the reviewer inspect the
+    # selected artifact in depth without consulting live repository state.
+    if evidence_refs and snapshot_id:
+        snapshot = db.get(EvidenceSnapshot, snapshot_id)
+        if snapshot:
+            evidence = snapshot_from_dict(_safe_json(snapshot.summary_json, {}))
+            challenge = _challenge_from_state(state)
+            package = evidence_package_builder.build_for_turn(
+                evidence.to_dict(),
+                challenge.to_dict(),
+                evidence_refs,
+            )
+            return package.to_prompt_text()
+
     compact = state.get("compact_evidence_package")
     if compact:
         return json.dumps(compact, ensure_ascii=False)
-    snapshot_id = state.get("evidence_snapshot_id")
     if not snapshot_id:
         return ""
     snapshot = db.get(EvidenceSnapshot, snapshot_id)
@@ -1766,7 +1786,7 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
         follow_up, merged, evaluation = engine.converse(
             challenge, req.response, prior, intent=req.intent, decision=req.decision,
             evidence_refs=req.evidence_refs, coaching_level=state.get("coaching_level", 0),
-            evidence_context=_evidence_context(db, state), conversation_history=history_payload,
+            evidence_context=_evidence_context(db, state, req.evidence_refs), conversation_history=history_payload,
             conversation_memory=state.get("conversation_memory") or {},
             student_name=student.display_name if student else "",
         )

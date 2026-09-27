@@ -949,7 +949,10 @@ If the draft fails any of these, set acceptable=false and write a complete revis
             for turn in (conversation_history or [])[-20:]
         )
         system = self._semantic_system_prompt(challenge, prior, memory, decision, student_name, target, guidance)
-        safe_evidence_context = sanitize_model_text(evidence_context[:9000]).text
+        review_context_chars = get_settings().etis_review_context_chars
+        safe_evidence_context = sanitize_model_text(
+            evidence_context[:review_context_chars]
+        ).text
         user = f"""
 Challenge context: {challenge.prompt}
 Why now: {challenge.why_now}
