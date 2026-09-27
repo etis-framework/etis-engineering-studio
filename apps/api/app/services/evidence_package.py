@@ -61,6 +61,12 @@ class EvidencePackageBuilder:
 
     def build(self, evidence: dict, challenge: dict) -> CompactEvidencePackage:
         refs = set(challenge.get("evidence_refs") or [])
+        # Board Review is intentionally steerable. Include bounded evidence for the
+        # executive agenda, not only the first issue, so a student can say "I want
+        # to discuss the security finding instead" without leaving the frozen snapshot.
+        readout = challenge.get("board_readout") or {}
+        for agenda_item in readout.get("agenda", [])[:6]:
+            refs.update(agenda_item.get("evidence_refs") or [])
         paths = {r[5:] for r in refs if isinstance(r, str) and r.startswith("PATH:")}
         items = []
         for item in evidence.get("items", []):
@@ -108,6 +114,7 @@ class EvidencePackageBuilder:
                 "finding": challenge.get("finding"),
                 "decision_question": challenge.get("decision_question"),
                 "why_now": challenge.get("why_now"),
+                "board_readout": challenge.get("board_readout"),
             },
             relevant_items=items[:10],
             relevant_artifacts=artifacts[:8],

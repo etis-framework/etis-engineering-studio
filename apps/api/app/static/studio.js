@@ -336,7 +336,37 @@ function addTurn(actor,lens,text,meta={}){
   }
 }
 function renderStrengths(ev){if(!ev?.strengths?.length&&!ev?.longitudinal?.has_prior_snapshot)return;const d=document.createElement('div');d.className='strengths-strip';const strengths=(ev?.strengths||[]).slice(0,4);let html='<b>What the board found working</b>';html+=strengths.length?'<ul>'+strengths.map(x=>`<li>${escapeHtml(x)}</li>`).join('')+'</ul>':'<p class="quiet">The board did not manufacture praise; it will stay specific about what the snapshot actually supports.</p>';const l=ev?.longitudinal;if(l?.has_prior_snapshot){const delta=Number(l.coverage_change||0),improved=(l.improved_evidence||[]).length,regressed=(l.regressed_evidence||[]).length;html+=`<div class="longitudinal-note"><b>Since ${escapeHtml(l.previous_phase||'the prior review')}</b> · ${delta>=0?'+':''}${delta} evidence points · ${improved} improved · ${regressed} regressed</div>`}d.innerHTML=html;els.transcript.appendChild(d)}
-function renderChallengeBrief(c){currentChallenge=c;$('#noticedText').textContent=c.noticed||'The board identified a condition that deserves engineering review.';$('#significanceText').textContent=c.significance||c.why_now;$('#decisionQuestionText').textContent=c.decision_question||c.prompt;$('#challengeBrief').classList.remove('hidden');if(c.reviewer)showActiveReviewer(c.reviewer)}
+function renderChallengeBrief(c){
+  currentChallenge=c;
+  const ro=c.board_readout||null;
+  const panel=$('#boardReadout');
+  if(ro&&panel){
+    $('#boardReadoutTitle').textContent=`${ro.phase_id} · ${ro.phase_title}`;
+    $('#boardAssessment').textContent=ro.assessment||'';
+    const counts=ro.counts||{};
+    $('#boardCounts').innerHTML=`<span><b>${counts.major||0}</b> Major</span><span><b>${counts.issue||0}</b> Issues</span><span><b>${counts.observation||0}</b> Observations</span>`;
+    const ch=ro.since_last_review||null;
+    const changes=$('#boardChanges');
+    if(ch&&ch.has_prior_snapshot){
+      const bits=[];
+      if((ch.no_longer_detected||[]).length)bits.push(`${ch.no_longer_detected.length} no longer detected`);
+      if((ch.continuing_findings||[]).length)bits.push(`${ch.continuing_findings.length} continuing`);
+      if((ch.new_findings||[]).length)bits.push(`${ch.new_findings.length} new`);
+      changes.textContent=`Since the last evidence snapshot: ${bits.join(' · ')||'no material finding change detected'}.`;
+      changes.classList.remove('hidden');
+    }else if(changes){changes.classList.add('hidden')}
+    $('#boardAgenda').innerHTML=(ro.agenda||[]).slice(0,6).map((x,i)=>`<div class="agenda-row"><b>${i+1}. ${escapeHtml(x.title||'Review issue')}</b><span>${escapeHtml(x.level||'issue')}</span></div>`).join('')||'<div class="agenda-row"><b>No material repository gap ranked above the review threshold.</b></div>';
+    $('#readinessMap').innerHTML=(ro.readiness_map||[]).map(x=>`<div class="readiness-row"><span>${escapeHtml(x.name)}</span><b>${escapeHtml(x.status)}</b></div>`).join('');
+    $('#boardSteering').textContent=ro.steering_note||'';
+    $('#submissionBaseline').textContent=ro.submission_baseline?.message||'';
+    panel.classList.remove('hidden');
+  }else if(panel){panel.classList.add('hidden')}
+  $('#noticedText').textContent=c.noticed||'The board identified a condition that deserves engineering review.';
+  $('#significanceText').textContent=c.significance||c.why_now;
+  $('#decisionQuestionText').textContent=c.decision_question||c.prompt;
+  $('#challengeBrief').classList.remove('hidden');
+  if(c.reviewer)showActiveReviewer(c.reviewer)
+}
 function renderEvidenceSummary(ev){const box=$('#evidenceSummary');if(!ev){box.innerHTML='<div><b>—</b><small>Team evidence</small></div><div><b>—</b><small>Needs review</small></div><div><b>—</b><small>Snapshot</small></div>';return}const team=ev.items.filter(i=>i.status==='present').length,needs=ev.items.filter(i=>i.status!=='present').length;box.innerHTML=`<div><b>${team}</b><small>Team evidence</small></div><div><b>${needs}</b><small>Needs review</small></div><div><b>${ev.snapshot_kind==='demo'?'Demo':'Frozen'}</b><small>Snapshot</small></div>`}
 function findingStatus(f){return f?.lifecycle?.status||'open'}
 function renderFindingPicker(fs){const box=$('#findingPicker');if(!box)return;box.innerHTML='';const open=fs.filter(f=>!['corrected','resolved'].includes(findingStatus(f))).slice(0,8);if(!open.length){box.innerHTML='<p class="quiet">No open findings are available for this snapshot. Start a Board or Focused Review instead.</p>';return}open.forEach(f=>{const l=document.createElement('label');l.className='finding-pick'+(selectedFindingIds.has(f.id)?' selected':'');l.innerHTML=`<input type="checkbox" value="${escapeHtml(f.id)}" ${selectedFindingIds.has(f.id)?'checked':''}><div><b>${escapeHtml(f.title)}</b><span>${escapeHtml(f.statement)}</span></div>`;l.querySelector('input').onchange=e=>{if(e.target.checked&&selectedFindingIds.size>=3){e.target.checked=false;toast('Choose up to three related findings so the conversation stays coherent.');return}e.target.checked?selectedFindingIds.add(f.id):selectedFindingIds.delete(f.id);renderFindingPicker(fs);renderFindings(fs===currentEvidence?.findings?currentEvidence:{findings:fs});updateReviewModeSummary()};box.appendChild(l)})}

@@ -11,6 +11,7 @@ from ..db import get_db
 from ..models import EvidenceSnapshot, ReviewSession, ReviewTurn, Team, User, TeamSection, TeamMembership, ReviewFindingState
 from ..schemas import ReviewStartRequest, ReviewResponseRequest, ReviewClarifyRequest, ReviewCoachRequest, EvidenceDisputeRequest, FindingDispositionRequest
 from ..services.challenge_engine import ChallengeEngine, Challenge, reviewer_profile, default_memory
+from ..services.board_readiness import build_board_readout
 from ..services.review_orchestrator import ReviewOrchestrator
 from ..services.review_planning import (
     PlanningContext,
@@ -78,6 +79,8 @@ def _planner_finding_projection(value: dict) -> dict:
             "suggested_lens",
             "phase_relevance",
             "educational_value",
+            "review_scope",
+            "reasoning_pattern",
         )
         if value.get(key) is not None
     }
@@ -862,6 +865,11 @@ def _longitudinal_summary(previous: dict | None, current: dict) -> dict:
     cur_items = {x.get("title"): x.get("status") for x in current.get("items", [])}
     improved = [k for k, v in cur_items.items() if prev_items.get(k) and prev_items.get(k) != "present" and v == "present"]
     regressed = [k for k, v in cur_items.items() if prev_items.get(k) == "present" and v != "present"]
+    prev_findings = {str(x.get("id")): x for x in previous.get("findings", []) if isinstance(x, dict) and x.get("id")}
+    cur_findings = {str(x.get("id")): x for x in current.get("findings", []) if isinstance(x, dict) and x.get("id")}
+    continuing = [cur_findings[k].get("title") for k in cur_findings.keys() & prev_findings.keys()]
+    new_findings = [cur_findings[k].get("title") for k in cur_findings.keys() - prev_findings.keys()]
+    no_longer_detected = [prev_findings[k].get("title") for k in prev_findings.keys() - cur_findings.keys()]
     return {
         "has_prior_snapshot": True,
         "previous_phase": previous.get("phase_id"),
@@ -869,7 +877,10 @@ def _longitudinal_summary(previous: dict | None, current: dict) -> dict:
         "coverage_change": int(current.get("coverage", 0)) - int(previous.get("coverage", 0)),
         "improved_evidence": improved[:12],
         "regressed_evidence": regressed[:12],
-        "message": "The current review can compare this phase with the team's previously frozen engineering evidence.",
+        "continuing_findings": [x for x in continuing if x][:8],
+        "new_findings": [x for x in new_findings if x][:8],
+        "no_longer_detected": [x for x in no_longer_detected if x][:8],
+        "message": "The current review can compare this phase with the team's previously frozen engineering evidence. A finding that is no longer detected is not automatically treated as formally resolved; closure still requires evidence.",
     }
 
 
@@ -1185,6 +1196,13 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
     except RuntimeError as exc:
         raise HTTPException(502, str(exc)) from exc
     evidence.longitudinal = _longitudinal_summary(previous_data, evidence.to_dict())
+    # The executive Board readout is built after longitudinal comparison so repeat
+    # Studio use can orient the student to what changed while preserving the same
+    # phase-specific professional standard.
+    if req.mode == 'board_review':
+        challenge.board_readout = build_board_readout(req.phase_id, evidence)
+        if evidence.longitudinal.get("has_prior_snapshot"):
+            challenge.board_readout["since_last_review"] = evidence.longitudinal
     # Reuse the exact same frozen snapshot when the repository commit and phase have not changed.
     # This preserves team-level finding corrections/disputes across multiple student sessions and
     # prevents duplicate snapshot rows for identical evidence.

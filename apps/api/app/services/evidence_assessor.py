@@ -69,6 +69,14 @@ AUTHORITY RULES
 - A materially adapted file may still be weak; judge whether the supplied excerpt supports the phase claim.
 - Prefer substantive engineering findings over cosmetic documentation observations.
 - Strong repositories still deserve engineering-tradeoff questions when there is no material defect.
+- Reason ACROSS artifacts, not just within files. Surface material contradictions, status mismatches, and places where one artifact assumes a decision another still marks proposed/open.
+- Treat consequential assumptions and uncertainty as first-class evidence. An estimate, architecture choice, verification claim, or operational promise may be defensible only if its assumptions are visible and bounded.
+- When artifacts conflict, ask whether the repository establishes an authoritative source of truth or supersession relationship. Do not arbitrarily choose a winner.
+- Distinguish a control being DEFINED, DEMONSTRATED, CONSISTENTLY APPLIED, and EFFECTIVE. A written policy alone does not prove the control operated.
+- Calibrate claim strength to evidence. Flag material cases where a team claim (for example complete, accepted, verified, release-ready, production-ready) is stronger than the supplied evidence.
+- Distinguish mechanisms from demonstrated outcomes: backup is not restore evidence; logging is not demonstrated observability; CI presence is not proof of meaningful verification; a runbook is not proof of recoverability.
+- Distinguish current course phase-gate readiness concerns from broader professional engineering challenges when possible; do not imply every professional observation is a course requirement.
+- Studio is used DURING preparation. Absence of a phase-gate submission tag is not itself a defect. A required tag should identify the exact intended submission commit only when the package is submitted for final instructor review.
 - Only cite evidence_paths that appear in the supplied artifact list. If no supplied evidence supports a statement, do not cite a path.
 - Equivalent evidence is allowed: if the expected concept is credibly addressed in another supplied artifact, identify it rather than insisting on one filename.
 - Keep strengths factual and specific. Do not praise template structure as if it were team-authored work.
@@ -90,6 +98,7 @@ Artifacts and bounded excerpts:
 {json.dumps(artifact_context)[:28000]}
 
 Identify no more than 4 strong positive observations and 6 high-value REVIEW findings. Avoid duplicating obvious exact-path findings unless semantic interpretation materially adds something.
+For every finding, classify review_scope as course_readiness, professional_challenge, or both, and identify the dominant reasoning_pattern. A professional_challenge may teach industry judgment without implying that the course phase requires remediation.
 """.strip()
         raw = self.ai.repository_assessment(system, user)
 
@@ -118,6 +127,8 @@ Identify no more than 4 strong positive observations and 6 high-value REVIEW fin
                 'positive': False,
                 'rank_score': int(f.get('severity', 2)) * 3 + 16,
                 'semantic': True,
+                'review_scope': f.get('review_scope', 'both'),
+                'reasoning_pattern': f.get('reasoning_pattern', 'other'),
             })
 
         equivalent: list[dict] = []

@@ -55,9 +55,11 @@ def test_later_phase_controls_are_phase_specific(tmp_path):
     a1 = analyze_local_repository(tmp_path, 'A1')
     assert not any(f['category'] in {'release_control', 'operational_gap'} for f in a1['findings'])
 
-    # A5 should care about a stable release baseline.
+    # Studio is a preparation tool: an A5 submission tag is not required merely
+    # to obtain coaching. The tag becomes authoritative when the package is
+    # submitted for final instructor review.
     a5 = analyze_local_repository(tmp_path, 'A5', metrics={'tag_count': 0})
-    assert any(f['category'] == 'release_control' for f in a5['findings'])
+    assert not any(f['id'] == 'release-baseline-missing' for f in a5['findings'])
 
     # A6 adds operational maturity signals.
     a6 = analyze_local_repository(tmp_path, 'A6', metrics={'tag_count': 1, 'actions_runs': 0})

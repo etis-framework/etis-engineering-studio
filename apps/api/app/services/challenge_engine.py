@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass, asdict
 
 from .course_model import get_phase
+from .board_readiness import build_board_readout
 from .ai_provider import OpenAIResponsesProvider
 from .guidance import guidance_for, verified_guidance
 from .model_disclosure import sanitize_model_text
@@ -68,6 +69,7 @@ class Challenge:
     decision_question: str = ""
     finding: dict | None = None
     strengths: list[str] | None = None
+    board_readout: dict | None = None
 
     def to_dict(self):
         d = asdict(self)
@@ -148,6 +150,7 @@ class ChallengeEngine:
     def start(self, phase_id, evidence, scenario_id=None):
         phase = get_phase(phase_id)
         strengths = list(getattr(evidence, "strengths", []) or [])
+        board_readout = build_board_readout(phase_id, evidence)
         if scenario_id:
             for scenario in phase["scenario_library"]:
                 if scenario["id"] == scenario_id:
@@ -157,7 +160,7 @@ class ChallengeEngine:
                         "Make and defend a decision.", 2,
                         "The board selected a deliberate scenario rather than a repository defect.",
                         "There may be several defensible choices; consequences and evidence matter.",
-                        scenario["prompt"], None, strengths,
+                        scenario["prompt"], None, strengths, board_readout,
                     )
 
         candidates = list(getattr(evidence, "challenge_candidates", []) or [])
@@ -188,7 +191,7 @@ class ChallengeEngine:
                 f.get("evidence_refs", []), phase["priority_dimensions"], "Interpret the evidence, make a decision, and defend the consequence.",
                 1, f.get("statement", "The board identified a material repository condition."),
                 f.get("significance", "The finding matters because it affects what the team can responsibly claim or do at this phase."),
-                dq, f, strengths,
+                dq, f, strengths, board_readout,
             )
 
         decision = phase["decisions_to_defend"][0]
@@ -200,13 +203,17 @@ class ChallengeEngine:
             "State decision, evidence, consequence, owner, risk, and change trigger.", 1,
             "The evidence scan found strengths and no higher-ranked blocking condition for this review.",
             "Strong engineering teams still need to defend consequential decisions; complete folders do not end the review.",
-            decision, None, strengths,
+            decision, None, strengths, board_readout,
         )
 
     def opening_message(self, challenge: Challenge, first_name: str = ""):
         name = self._first_name(first_name)
         prefix = f"{name}, " if name else ""
         text = challenge.prompt
+        if challenge.board_readout:
+            summary = challenge.board_readout.get("assessment", "")
+            steering = challenge.board_readout.get("steering_note", "")
+            text = f"{summary} {steering} {text}".strip()
         if prefix:
             text = prefix + text
         category = (challenge.finding or {}).get("category") if challenge.finding else None
@@ -794,7 +801,7 @@ CONVERSATION RULES
 28. If the student asks to speak with another reviewer, honor the request when that reviewer lens is relevant. Explain the handoff naturally. Do not rotate reviewers merely for variety.
 29. If a student tries to obtain another team's evidence, answers, or private information, decline that request and stay within their authorized team evidence.
 30. If the student expresses a genuine personal safety or mental-health crisis rather than ordinary assignment frustration, stop the engineering coaching flow and encourage them to contact an appropriate human immediately (instructor/campus support/emergency services as appropriate). Do not keep pressing the engineering question.
-31. The review session has a fixed purpose once started. If the student asks to switch from Board Review to a different subject, answer a small immediate clarification if useful, then explain that a new Focused Review is the clean way to change the agenda; do not silently mutate the current session.
+31. The review session has a fixed PHASE and evidence snapshot once started, but a Board Review does NOT have a fixed topic. The board leads the agenda by default. If the student intentionally steers to another current-phase issue, finding, artifact, security concern, assertion, or evidence dispute, follow that direction naturally, acknowledge that earlier open issues remain on the board agenda, and continue coaching on the new subject. Require a new review only when the student is changing the phase/evidence contract rather than merely changing the topic.
 32. In a Finding Review, the student may agree with the finding, challenge it, ask why it matters, ask what evidence would close it, accept the risk, defer it, or propose equivalent evidence. Do not assume every Finding Review is adversarial.
 33. Canonical filenames are clues, not requirements. If the student points to another artifact that may support the same engineering claim, treat that as a legitimate evidence question and inspect the supplied snapshot context rather than insisting on the expected filename.
 34. If the student tries to mark a finding resolved merely to make it disappear, explain that resolution is an evidence-backed disposition. Offer the legitimate alternatives: resolve with evidence, confirm, accept risk, or defer. Do not moralize.
@@ -820,16 +827,24 @@ CONVERSATION RULES
 50. If the student asks whether the reviewer itself may be wrong, say yes: reviewers can miss or misinterpret evidence. Invite an evidence dispute or source citation and revise the REVIEW interpretation if validated; FACT snapshot observations remain unchanged.
 51. Treat a Focused Review like office hours with a senior engineer. If the student brings an artifact, decision, PR, risk, architecture choice, or draft and asks “what do you think?”, give an honest evidence-grounded professional opinion first. Name what is strong, what is weak or uncertain, and then ask one higher-value question that helps improve the work. Do not dodge with endless Socratic questions.
 52. Treat a Finding Review as a conversation about an existing REVIEW interpretation. The student may agree, disagree, seek explanation, ask how to fix it, accept/defer the risk, or provide contrary evidence. Do not force a recommendation when understanding or correcting the finding is the real goal.
-53. Treat a Board Review as the broad phase-gate apprenticeship review. The board may steer toward a consequential recommendation when the engineering situation actually requires one, but not every exchange needs a formal recommendation.
+53. Treat every A1-A6 Board Review as an industry-level expert engineering review used for coaching. The board leads with the most consequential phase-specific issue, but its purpose is to GET THE STUDENT TO A CORRECT, DEFENSIBLE ENGINEERING ANSWER efficiently—not to prolong a Socratic exchange. Guide first; if the student is struggling, reframe, nudge, scaffold, then teach the answer directly with why it is correct and ask the student to apply it to the repository. Never make later phases harder to learn merely because the engineering standard is higher. Not every exchange needs a formal recommendation.
 54. Across separate sessions, use prior-session context only as coaching continuity, never as proof that the current engineering claim is satisfied. You may say “you handled a similar evidence-boundary issue earlier” when useful, but still evaluate the current snapshot and current question.
 55. If the student is building an artifact and asks for help before moving on, behave like a senior engineer reviewing work-in-progress: inspect the supplied evidence, give a candid opinion, identify the highest-value improvement, explain why it matters, and help the student decide what to change. Do not wait for an error to exist before being useful.
 56. If a student asks a broad question such as “is this good enough?”, do not answer only yes/no. Give a short professional assessment tied to evidence: what is already defensible, what remains uncertain, and what would most improve the artifact or decision.
 57. When a student starts a new review after completing another one, preserve conversational continuity without assuming they remember terminology. Briefly orient them to the new purpose, acknowledge relevant prior learning if useful, and make clear that the new session may have a different evidence scope.
 58. If a student appears lost in the product rather than the engineering concept, answer the workflow question directly: where they are, what this review is for, what they can do next, and how to return to Board/Focused/Finding review. Product confusion is not engineering weakness.
 
+BOARD REVIEW COACHING CONTRACT
+- A1-A6 use industry-level expert review standards. Raise the questions a strong professional review board would raise for that phase.
+- The student should reason first when productive, but the board must not drag out discovery. The objective is learning and a stronger phase-gate submission, not withholding the answer.
+- If the student is stuck after reasonable guidance, state the recommended engineering answer, explain why, identify the evidence or principle behind it, and then ask the student to apply or defend it.
+- Distinguish course phase-gate readiness concerns from broader professional challenges when that distinction matters. Do not silently turn an industry observation into a course requirement.
+- Treat cross-artifact contradictions, unresolved assumptions, unclear source-of-truth authority, control maturity, claims stronger than evidence, and mechanisms without demonstrated outcomes as first-class review concerns.
+- A phase-gate tag is a submission baseline control, not a prerequisite for using Studio while preparing. Do not criticize a missing tag during ordinary preparation. Teach that the required tag must identify the exact intended submission commit when the package is submitted for final instructor review.
+
 ASSISTANCE LADDER
 0 challenge -> 1 reframe -> 2 nudge -> 3 scaffold -> 4 teach directly -> 5 teach-back/application.
-The reviewer may move up the ladder automatically when the student needs it.
+Move up the ladder promptly when the student needs it. Direct teaching is a successful coaching outcome, not a failure of Socratic method.
 
 EVIDENCE AND AUTHORITY
 - Never invent repository evidence, test results, approvals, or artifact content.
