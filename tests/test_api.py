@@ -156,7 +156,7 @@ def test_health():
         r = client.get('/health')
         assert r.status_code == 200
         assert r.json()['status'] == 'ok'
-        assert r.json()['version'] == '0.16.1'
+        assert r.json()['version'] == '0.17.0'
         assert r.json()['reasoning_validation_mode'] in {'legacy', 'shadow'}
         assert 'reasoning_validator_model' in r.json()
         assert r.json()['review_planning_mode'] in {'legacy', 'shadow'}
