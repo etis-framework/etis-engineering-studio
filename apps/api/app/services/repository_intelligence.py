@@ -243,9 +243,11 @@ def build_findings(phase_id: str, artifacts: list[ArtifactFact], metrics: dict, 
     if phase_id in {'A4','A5','A6'} and ci and ci.provenance == 'BASELINE':
         findings.append(ReviewFinding('ci-placeholder', 'unsupported_claim', 'Starter CI workflow is not project CI', 'The CI workflow is still identical to the intentionally unconfigured starter-kit workflow.', 'A green or present workflow file is not evidence that the project builds or tests successfully.', 5, 'high', evidence_refs=['PATH:.github/workflows/ci.yml'], suggested_lens='evidence_auditor'))
 
-    # Later-phase release/operations workflow signals.
-    if phase_id in {'A5','A6'} and metrics.get('tag_count', 0) == 0:
-        findings.append(ReviewFinding('release-baseline-missing', 'release_control', 'No release/tag baseline was visible', 'No repository tag was visible for the reviewed repository.', 'Release claims should point to a stable repository baseline that another reviewer can inspect.', 4, 'high', evidence_refs=['GITHUB:tags'], suggested_lens='chief_architect'))
+    # A phase-gate/release tag is intentionally NOT required while students use Studio
+    # to prepare an evolving repository. The required tag becomes the authoritative
+    # point-in-time baseline when the team submits the package for final instructor
+    # review. Existing release claims may still be challenged semantically when they
+    # outrun the evidence, but absence of a tag during preparation is not a defect.
     if phase_id == 'A6' and metrics.get('actions_runs', 0) == 0:
         findings.append(ReviewFinding('ops-automation-gap', 'operational_gap', 'No recent automation runs were visible', 'No recent GitHub Actions runs were visible in the repository evidence gathered for the final maturity review.', 'Operational and release maturity should include inspectable automation or a documented reason why automation is not applicable.', 3, 'moderate', evidence_refs=['GITHUB:actions'], suggested_lens='delivery'))
 

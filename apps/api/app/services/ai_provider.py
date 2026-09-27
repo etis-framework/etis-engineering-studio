@@ -262,7 +262,8 @@ REPOSITORY_ASSESSMENT_SCHEMA = {
                     "category": {"type": "string", "enum": [
                         "weak_evidence", "contradiction", "traceability_break", "unsupported_claim",
                         "risk_blindness", "ownership_ambiguity", "ai_governance_gap", "artifact_theater",
-                        "engineering_tradeoff", "workflow_gap", "release_control", "operational_gap"
+                        "engineering_tradeoff", "workflow_gap", "release_control", "operational_gap",
+                        "assumption_gap", "authority_conflict", "control_effectiveness"
                     ]},
                     "title": {"type": "string"},
                     "statement": {"type": "string"},
@@ -271,8 +272,10 @@ REPOSITORY_ASSESSMENT_SCHEMA = {
                     "confidence": {"type": "string", "enum": ["low", "moderate", "high"]},
                     "evidence_paths": {"type": "array", "items": {"type": "string"}},
                     "suggested_lens": {"type": "string", "enum": ["evidence_auditor", "chief_architect", "delivery", "red_team"]},
+                    "review_scope": {"type": "string", "enum": ["course_readiness", "professional_challenge", "both"]},
+                    "reasoning_pattern": {"type": "string", "enum": ["cross_artifact", "assumption", "authority", "control_maturity", "claim_strength", "mechanism_outcome", "other"]},
                 },
-                "required": ["category", "title", "statement", "significance", "severity", "confidence", "evidence_paths", "suggested_lens"],
+                "required": ["category", "title", "statement", "significance", "severity", "confidence", "evidence_paths", "suggested_lens", "review_scope", "reasoning_pattern"],
                 "additionalProperties": False,
             },
         },
