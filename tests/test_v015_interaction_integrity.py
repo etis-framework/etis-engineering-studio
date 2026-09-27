@@ -141,3 +141,105 @@ def test_wargame_corpora_cover_product_interaction_and_language_outliers():
         'student-help-resolve-no-idea',
     }:
         assert expected in student_ids
+
+
+def test_respond_expands_selected_artifact_from_frozen_snapshot(monkeypatch):
+    from apps.api.app.db import SessionLocal
+    from apps.api.app.models import EvidenceSnapshot, ReviewSession
+    from apps.api.app.routers import reviews as reviews_router
+
+    started = _start(phase_id="A2")
+    session_id = started["session_id"]
+
+    db = SessionLocal()
+    try:
+        session = db.get(ReviewSession, session_id)
+        state = json.loads(session.challenge_state_json)
+        snapshot = db.get(EvidenceSnapshot, state["evidence_snapshot_id"])
+
+        frozen = json.loads(snapshot.summary_json)
+        frozen["artifacts"] = [
+            {
+                "path": "docs/planning/README.md",
+                "provenance": "TEAM_ADAPTED",
+                "quality": "reviewable",
+                "summary": "Planning README.",
+                "content_excerpt": "SHORT EXCERPT",
+                "review_content": (
+                    "README START\n"
+                    + ("authoritative planning detail\n" * 150)
+                    + "README END"
+                ),
+            },
+            {
+                "path": "docs/planning/other.md",
+                "provenance": "TEAM_ADAPTED",
+                "quality": "reviewable",
+                "summary": "Other planning artifact.",
+                "content_excerpt": "UNRELATED EXCERPT",
+                "review_content": "UNRELATED FULL CONTENT",
+            },
+        ]
+        snapshot.summary_json = json.dumps(frozen)
+        db.commit()
+    finally:
+        db.close()
+
+    captured = {}
+
+    def fake_converse(*args, **kwargs):
+        captured["evidence_context"] = kwargs.get("evidence_context", "")
+        return (
+            {
+                "text": "I reviewed the selected frozen artifact.",
+                "lens": "evidence_auditor",
+                "provider": "deterministic-test",
+                "kind": "coaching",
+                "reviewer": {"name": "Maya Chen", "role": "Evidence Auditor"},
+                "target_move": "evidence_traceable",
+                "guidance_refs": [],
+                "teach_back": False,
+            },
+            {},
+            {"signals": {}, "ready_to_commit": False},
+        )
+
+    monkeypatch.setattr(reviews_router.engine, "converse", fake_converse)
+
+    response = client.post(
+        f"/api/v1/reviews/{session_id}/respond",
+        json={
+            "response": "What is strong, weak, or missing from this README?",
+            "evidence_refs": ["PATH:docs/planning/README.md"],
+            "decision": None,
+            "intent": "discuss",
+            "client_turn_id": "selected-artifact-regression-001",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+
+    context = captured["evidence_context"]
+    assert "docs/planning/README.md" in context
+    assert "README START" in context
+    assert "README END" in context
+    assert "authoritative planning detail" in context
+    assert "UNRELATED FULL CONTENT" not in context
+
+
+def test_evidence_ask_board_submits_immediately_in_active_review():
+    js = (ROOT / 'apps/api/app/static/studio.js').read_text()
+    compact = ''.join(js.split())
+
+    # "Ask the Board" is an action, not merely a composer prefill.
+    assert (
+        "if(sessionId){switchView('studio');setMode('ask');"
+        "if(path)setComposerContext({kind:'evidence',path,label:path,"
+        "detail:'SelectedfromEngineeringEvidence'});"
+        "els.response.value=`Iwantyourhonestsenior-engineeropinionabout"
+        "${path||focus}.Whatisstrong,weak,unclear,orworthimproving"
+        "beforewemoveon?`;updateDraftHint();send();return}"
+    ) in compact
+
+    # Explicit artifact attachment remains a manual next-message action.
+    assert "Evidenceattachedtoyournextmessage." in compact

@@ -64,3 +64,16 @@ def test_later_phase_controls_are_phase_specific(tmp_path):
     # A6 adds operational maturity signals.
     a6 = analyze_local_repository(tmp_path, 'A6', metrics={'tag_count': 1, 'actions_runs': 0})
     assert any(f['category'] == 'operational_gap' for f in a6['findings'])
+
+def test_artifact_preserves_bounded_review_content_for_explicit_review():
+    text = "".join(f"section-{i:04d}: engineering planning evidence\n" for i in range(500))
+    artifact = artifact_from_bytes("docs/planning/README.md", text.encode("utf-8"))
+
+    # Normal repository analysis remains deliberately compact.
+    assert len(artifact.content_excerpt) <= 1203
+
+    # Explicit artifact review gets substantially more frozen evidence,
+    # while still respecting a bounded model-review representation.
+    assert artifact.review_content.startswith("section-0000:")
+    assert len(artifact.review_content) <= 8000
+    assert len(artifact.review_content) > len(artifact.content_excerpt)

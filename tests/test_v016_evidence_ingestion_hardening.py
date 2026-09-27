@@ -419,3 +419,52 @@ def test_model_disclosure_redacts_github_fine_grained_personal_access_token():
     assert "github_token" in result.redactions
     assert secret not in result.text
     assert "[REDACTED:github_token]" in result.text
+
+
+def test_turn_evidence_package_quarantines_selected_review_content():
+    secret = "SelectedArtifactSecretThatMustNeverReachTheModel987654"
+
+    evidence = {
+        "phase_id": "A2",
+        "repo_full_name": "owner/repo",
+        "commit_sha": "frozen123",
+        "strengths": [],
+        "items": [],
+        "artifacts": [
+            {
+                "path": ".env.production",
+                "provenance": "TEAM_ADAPTED",
+                "quality": "reviewable",
+                "summary": "Production environment configuration.",
+                "content_excerpt": "short metadata",
+                "review_content": f"INTERNAL_PASSWORD={secret}",
+            }
+        ],
+        "repository_metrics": {},
+        "longitudinal": {},
+    }
+
+    challenge = {
+        "title": "Review selected evidence",
+        "finding": {},
+        "decision_question": "What does this artifact demonstrate?",
+        "why_now": "Student explicitly selected it.",
+        "evidence_refs": [],
+    }
+
+    package = EvidencePackageBuilder().build_for_turn(
+        evidence,
+        challenge,
+        ["PATH:.env.production"],
+    )
+
+    # Frozen evidence is immutable.
+    assert secret in evidence["artifacts"][0]["review_content"]
+
+    # Model-bound selected-artifact content is quarantined.
+    artifact = package.relevant_artifacts[0]
+    assert artifact["path"] == ".env.production"
+    assert secret not in artifact["content_excerpt"]
+    assert artifact["content_excerpt"] == "[QUARANTINED:sensitive_file]"
+    assert artifact["disclosure_status"] == "quarantined"
+    assert artifact["disclosure_reasons"] == ["sensitive_file"]

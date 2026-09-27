@@ -43,6 +43,7 @@ class ArtifactFact:
     quality: str = 'unknown'
     summary: str = ''
     content_excerpt: str = ''
+    review_content: str = ''
     url: str = ''
     phase_scope: str = 'CURRENT_PHASE'
     scope_reason: str = ''
@@ -120,9 +121,22 @@ def artifact_from_bytes(path: str, data: bytes, url: str = '') -> ArtifactFact:
     if text:
         compact = re.sub(r'\s+', ' ', text).strip()
         excerpt = compact if len(compact) <= 1200 else f"{compact[:600]} … {compact[-600:]}"
+        review_content = text[:8000]
     else:
         excerpt = ''
-    return ArtifactFact(path=path, exists=True, sha256=digest, size=len(data), provenance=provenance, quality=quality, summary=summary, content_excerpt=excerpt, url=url)
+        review_content = ''
+    return ArtifactFact(
+        path=path,
+        exists=True,
+        sha256=digest,
+        size=len(data),
+        provenance=provenance,
+        quality=quality,
+        summary=summary,
+        content_excerpt=excerpt,
+        review_content=review_content,
+        url=url,
+    )
 
 
 def expected_paths_for_phase(phase_id: str) -> list[str]:
