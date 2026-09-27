@@ -39,8 +39,12 @@ The current implementation is optimized for Microsoft Azure, Microsoft Entra, Gi
 - Exact-repository GitHub App installation tokens; no PATs and no retained GitHub OAuth access tokens.
 - Frozen repository evidence snapshots with starter-kit provenance and FACT/REVIEW separation.
 - Board Review, Focused Review, and Review Findings workflows.
+- A1-A6 phase-specific Board executive summaries, prioritized Board Agendas, and non-numeric readiness maps that distinguish Strong, Developing, Needs Attention, and Not Yet Applicable without predicting grades.
+- Cross-artifact claim/evidence reasoning that considers authority, assumptions, contradictions, control maturity, demonstrated outcomes, and claim strength when prioritizing review concerns.
+- Adaptive apprenticeship coaching that can challenge, reframe, nudge, scaffold, teach directly, and request application/teach-back while keeping engineering decisions with the student team.
 - Persistent review history, finding corrections/dispositions, evidence disputes, and team-level review memory.
 - OpenAI-backed semantic coaching with deterministic control, model routing, token/latency/cost telemetry, and selective critic behavior.
+- Progressive-disclosure student review UI that keeps the active Board concern and coaching conversation prominent while leaving detailed readiness, evidence, guidance, and findings available on demand.
 - Instructor Command Center with section context, team/evidence/review visibility, AI economics, semester setup, and bounded recovery actions.
 - Azure reference architecture using Container Apps, private PostgreSQL Flexible Server, Key Vault, managed identity, ACR, Application Insights, Log Analytics, alerts, PITR, and immutable-image rollback.
 
@@ -59,7 +63,11 @@ Deterministic + semantic engineering findings (REVIEW)
     ↓
 Board / Focused / Review Findings purpose
     ↓
+Phase-specific readiness assessment + prioritized Board Agenda
+    ↓
 Senior-reviewer coaching and challenge
+    ↓
+Adaptive coaching, direct teaching when needed, and student teach-back
     ↓
 Student recommendation, evidence dispute, correction, or review completion
     ↓
@@ -71,6 +79,8 @@ Exactly one review purpose is active for a review session:
 - **Board Review** — normal phase-gate review; the board selects the highest-value current issue.
 - **Focused Review** — student-selected work-in-progress, decision, artifact, architecture concern, risk, pull request, AI-use question, or other engineering subject.
 - **Review Findings** — understand, challenge, resolve, accept, defer, or provide contrary evidence for existing REVIEW findings.
+
+For Board Review, the Studio starts with the highest-value phase-specific concern while allowing the student to steer naturally to another issue, challenge the Board's interpretation, point to evidence, or make an engineering assertion. Detailed readiness, evidence, guidance, and finding information remains available without competing with the active coaching task.
 
 Review type is selected before the session and remains fixed during that session. Frozen evidence is immutable; validated REVIEW interpretations may be corrected without rewriting the frozen evidence.
 

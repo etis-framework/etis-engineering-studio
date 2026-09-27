@@ -106,12 +106,16 @@
             <div class="board-readout-head"><div><span class="eyebrow">PHASE-GATE READINESS ASSESSMENT</span><h3 id="boardReadoutTitle">Board executive summary</h3></div><span class="readout-not-grade">Coaching signal · not a grade</span></div>
             <p id="boardAssessment"></p>
             <div id="boardCounts" class="board-counts"></div><div id="boardChanges" class="board-changes hidden"></div>
-            <div class="board-readout-grid">
-              <div><span class="brief-label">BOARD AGENDA</span><div id="boardAgenda" class="board-agenda"></div></div>
-              <div><span class="brief-label">READINESS MAP</span><div id="readinessMap" class="readiness-map"></div></div>
-            </div>
-            <p id="boardSteering" class="board-steering"></p>
-            <p id="submissionBaseline" class="submission-baseline"></p>
+            <div id="boardFocus" class="board-focus hidden"></div>
+            <details class="board-readout-details">
+              <summary>View full Board assessment</summary>
+              <div class="board-readout-grid">
+                <div><span class="brief-label">BOARD AGENDA</span><div id="boardAgenda" class="board-agenda"></div></div>
+                <div><span class="brief-label">READINESS MAP</span><div id="readinessMap" class="readiness-map"></div></div>
+              </div>
+              <p id="boardSteering" class="board-steering"></p>
+              <p id="submissionBaseline" class="submission-baseline"></p>
+            </details>
           </div>
 
           <div id="challengeBrief" class="challenge-brief hidden">
@@ -168,10 +172,10 @@
         <aside class="evidence-rail">
           <div class="panel-title"><div><span class="eyebrow">EVIDENCE RAIL</span><h3>What the board can see</h3></div><button class="mini-help" data-help-topic="evidence-rail" aria-label="Explain evidence rail">?</button></div>
           <div id="evidenceSummary" class="evidence-summary"><div><b>—</b><small>Visible</small></div><div><b>—</b><small>Gaps</small></div><div><b>—</b><small>Snapshot</small></div></div>
-          <div id="evidenceList" class="evidence-list"><p class="quiet">Begin a review to freeze the current evidence snapshot.</p></div>
-          <div class="rail-section"><div class="rail-section-head"><span class="eyebrow">RELATED GUIDANCE</span><small>Contextual references, not required answers</small></div><div id="relatedGuidance" class="related-guidance"><p class="quiet">Relevant ETIS and reference guidance will appear here when useful.</p></div></div>
-          <div class="rail-section"><div class="rail-section-head"><span class="eyebrow">REVIEW FINDINGS</span><small>Snapshot-bound findings · ask, challenge, resolve, or defer</small></div><div id="findingList" class="finding-list"><p class="quiet">Findings appear after the evidence snapshot is analyzed.</p></div></div>
-          <div class="guardrail"><b>Apprenticeship guardrail</b><p>Senior reviewers will steer you away from unsupported reasoning, teach when you are stuck, and give an honest professional opinion when you ask. They will not silently make consequential team decisions for you. Productive mistakes can be explored and recommendations can change when evidence changes.</p></div>
+          <details class="rail-disclosure"><summary>Evidence used in this review</summary><div id="evidenceList" class="evidence-list"><p class="quiet">Begin a review to freeze the current evidence snapshot.</p></div></details>
+          <details class="rail-disclosure"><summary>Related guidance</summary><div class="rail-section"><div class="rail-section-head"><small>Contextual references, not required answers</small></div><div id="relatedGuidance" class="related-guidance"><p class="quiet">Relevant ETIS and reference guidance will appear here when useful.</p></div></div></details>
+          <details class="rail-disclosure"><summary id="findingSummaryLabel">Review findings</summary><div class="rail-section"><div class="rail-section-head"><small>Ask, challenge, or resolve a finding when you need it.</small></div><div id="findingList" class="finding-list"><p class="quiet">Findings appear after the evidence snapshot is analyzed.</p></div></div></details>
+          <details class="rail-disclosure"><summary>How the apprenticeship works</summary><div class="guardrail"><p>Senior reviewers challenge unsupported reasoning, coach you when needed, and teach directly when you are stuck. You still own the team's engineering decisions.</p></div></details>
         </aside>
       </div>
 
