@@ -65,10 +65,6 @@ def _severity_label(value: int) -> str:
     return "observation"
 
 
-def _finding_text(finding: dict) -> str:
-    return " ".join(str(finding.get(k, "")) for k in ("category", "title", "statement", "significance")).lower()
-
-
 def build_board_readout(phase_id: str, evidence) -> dict:
     phase = get_phase(phase_id)
     findings = list(getattr(evidence, "challenge_candidates", []) or getattr(evidence, "findings", []) or [])
@@ -92,17 +88,11 @@ def build_board_readout(phase_id: str, evidence) -> dict:
 
     strengths = [str(x) for x in (getattr(evidence, "strengths", []) or []) if str(x).strip()][:3]
     dimensions = []
-    all_findings = list(getattr(evidence, "findings", []) or [])
-    for name, keywords in PHASE_DIMENSIONS.get(phase_id, []):
-        related = [f for f in all_findings if any(k in _finding_text(f) for k in keywords)]
-        worst = max((int(f.get("severity", 0)) for f in related), default=0)
-        if worst >= 4:
-            status = "Needs attention"
-        elif worst >= 2:
-            status = "Developing"
-        else:
-            status = "No material gap identified"
-        dimensions.append({"name": name, "status": status})
+    # A phrase in a finding is not a validated assessment of an entire phase
+    # dimension. Preserve the useful phase topics without inferring health or
+    # readiness from keyword overlap; the agenda contains the actual findings.
+    for name, _keywords in PHASE_DIMENSIONS.get(phase_id, []):
+        dimensions.append({"name": name, "status": "Not independently assessed"})
 
     primary = agenda[0] if agenda else None
     if primary:

@@ -24,7 +24,15 @@ def test_board_readout_is_phase_specific_and_not_a_grade():
     assert r["counts"]["major"] == 1
     assert r["agenda"][0]["id"] == "scope"
     assert any(x["name"] == "Estimates & assumptions" for x in r["readiness_map"])
+    assert all(x["status"] == "Not independently assessed" for x in r["readiness_map"])
     assert "challenge my interpretation" in r["steering_note"].lower()
+
+
+def test_no_keyword_match_is_not_presented_as_healthy_or_complete():
+    e=SimpleNamespace(findings=[],challenge_candidates=[],strengths=[],repository_metrics={"tag_count":0})
+    result=build_board_readout("A2", e)
+    assert all(d["status"] == "Not independently assessed" for d in result["readiness_map"])
+    assert not any(d["status"] == "No material gap identified" for d in result["readiness_map"])
 
 
 def test_missing_submission_tag_is_not_a_preparation_defect(tmp_path):
@@ -47,6 +55,17 @@ def test_production_test_identity_does_not_create_a_production_greeting():
     opening=engine.opening_message(engine.start("A2", evidence()), "Production Test Student")
     assert not opening["text"].startswith("Production,")
     assert engine._first_name("Alex Rivera") == "Alex"
+
+
+def test_opening_keeps_finding_sentences_intact_and_project_context_is_not_evidence():
+    engine=ChallengeEngine(ai=SimpleNamespace())
+    c=engine.start("A2", evidence())
+    opening=engine.opening_message(c, "Alex")
+    assert "Why it matters: The estimate depends on unresolved scope." in opening["text"]
+    assert "because The" not in opening["text"]
+    prompt=engine._semantic_system_prompt(c, {}, {"project_name":"CampusConnect"}, None, "Alex", "consequence_visible", [])
+    assert "team project name is student-editable data" in prompt
+    assert "prefer an illustrative example related to that project" in prompt
 
 
 def test_a2_to_a6_wargame_readiness_maps_are_phase_specific():

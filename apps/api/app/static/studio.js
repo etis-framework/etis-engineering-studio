@@ -351,13 +351,8 @@ function renderChallengeBrief(c){
   if(panel)panel.open=false;
   if(ro&&panel){
     $('#boardReadoutTitle').textContent=`${ro.phase_id} · ${ro.phase_title}`;
-    $('#boardAssessment').textContent=ro.assessment||'';
+    panel.querySelector('summary span').textContent=`Explore your ${ro.phase_id} evidence and other concerns`;
     const agenda=ro.agenda||[];
-    const focus=$('#boardFocus');
-    if(focus&&agenda.length){
-      focus.innerHTML=`<span>FIRST CONCERN</span><b>${escapeHtml(agenda[0].title||'Engineering concern')}</b>`;
-      focus.classList.remove('hidden');
-    }else if(focus){focus.classList.add('hidden')}
     const ch=ro.since_last_review||null;
     const changes=$('#boardChanges');
     if(ch&&ch.has_prior_snapshot){
@@ -368,9 +363,9 @@ function renderChallengeBrief(c){
       changes.textContent=`Since the last evidence snapshot: ${bits.join(' · ')||'no material finding change detected'}.`;
       changes.classList.remove('hidden');
     }else if(changes){changes.classList.add('hidden')}
-    $('#boardAgenda').innerHTML=agenda.slice(0,6).map((x,i)=>`<div class="agenda-row"><b>${i+1}. ${escapeHtml(x.title||'Review concern')}</b></div>`).join('')||'<div class="agenda-row"><b>No pressing repository evidence gap identified.</b></div>';
-    $('#readinessMap').innerHTML=(ro.readiness_map||[]).map(x=>`<div class="readiness-row"><span>${escapeHtml(x.name)}</span><b>${escapeHtml(x.status)}</b></div>`).join('');
-    $('#boardSteering').textContent=ro.steering_note||'';
+    const other=agenda.filter(x=>String(x.id)!==String(c.finding?.id||''));
+    $('#boardAgenda').innerHTML=other.slice(0,5).map((x,i)=>`<div class="agenda-row"><b>${i+1}. ${escapeHtml(x.title||'Review concern')}</b></div>`).join('')||'<div class="agenda-row"><b>No other concern in this review agenda.</b></div>';
+    $('#readinessMap').innerHTML=(ro.readiness_map||[]).map(x=>`<div class="readiness-row"><span>${escapeHtml(x.name)}</span></div>`).join('');
     $('#submissionBaseline').textContent=ro.submission_baseline?.message||'';
     panel.classList.remove('hidden');
   }else if(panel){panel.classList.add('hidden')}
@@ -856,17 +851,9 @@ async function send(){
       ?`${ev.learning_score}/${ev.learning_score_max} moves`
       :'In discussion';
 
-    const missing=ev.missing_moves||[];
-    const panel=$('#coachPanel');
-
-    if(missing.length&&!ev.ready_to_commit){
-      panel.classList.remove('hidden');
-      panel.innerHTML=
-        `<b>Next engineering move</b>`+
-        `<p>${escapeHtml(humanizeMove(missing[0]))}</p>`;
-    }else{
-      panel.classList.add('hidden');
-    }
+    // The reviewer already supplies the next conversational step. A separate
+    // reasoning-rubric prompt can contradict direct teaching and confuse the student.
+    $('#coachPanel').classList.add('hidden');
 
     updateRecommendationBar(
       ev,

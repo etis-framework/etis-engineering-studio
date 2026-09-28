@@ -48,3 +48,9 @@ def test_reviewer_response_begins_at_its_first_line_without_page_jump():
     assert "turnElement.getBoundingClientRect().top" in block
     assert "els.transcript.scrollIntoView" not in block
     assert "requestAnimationFrame(updateReadingCue)" in block
+
+
+def test_student_review_has_one_conversational_next_step():
+    send = _send_block()
+    assert "$('#coachPanel').classList.add('hidden')" in send
+    assert "Next engineering move</b>" not in send
