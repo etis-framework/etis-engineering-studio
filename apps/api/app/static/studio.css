@@ -493,6 +493,7 @@
 .board-readout{margin:0 0 16px;padding:18px;border:1px solid var(--line,#d9e0e7);border-radius:14px;background:var(--panel,#fff)}
 .board-readout-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.board-readout-head h3{margin:3px 0 0}.readout-not-grade{font-size:.78rem;opacity:.72;white-space:nowrap}.board-counts{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}.board-counts span{border:1px solid var(--line,#d9e0e7);border-radius:999px;padding:6px 10px;font-size:.82rem}.board-counts b{margin-right:4px}.board-readout-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px}.agenda-row,.readiness-row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line,#e5e9ee);font-size:.86rem}.agenda-row span{text-transform:capitalize;opacity:.72}.readiness-row b{text-align:right;font-weight:600}.board-steering{margin:14px 0 0;font-weight:600}.submission-baseline{margin:8px 0 0;font-size:.82rem;opacity:.78}@media(max-width:850px){.board-readout-grid{grid-template-columns:1fr}.board-readout-head{display:block}.readout-not-grade{display:inline-block;margin-top:6px}}
 .board-changes{margin:8px 0 12px;padding:8px 10px;border-left:3px solid currentColor;font-size:.84rem;opacity:.82}
+.board-readout[open]>summary small{display:none}
 
 
 /* Student review progressive disclosure: keep the board intelligent and the active task simple. */
