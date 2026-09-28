@@ -54,3 +54,18 @@ def test_student_review_has_one_conversational_next_step():
     send = _send_block()
     assert "$('#coachPanel').classList.add('hidden')" in send
     assert "Next engineering move</b>" not in send
+
+
+def test_direct_help_is_visible_in_live_and_restored_conversations():
+    coach = JS[JS.index("$('#coachButton').onclick=async()=>"):JS.index("\nasync function send(){")]
+    assert coach.index("if(!r.ok)") < coach.index("addTurn('student','conversation'") < coach.index("addTurn(\n      'reviewer'")
+    assert "meta.kind==='student_coach_request'?'Explain this and show me how.':text" in JS
+    assert "{...t.signals,reviewer:t.signals?.reviewer" in JS
+    assert "clearReviewMutation(mutation)" in coach
+
+
+def test_teaching_artifact_action_requires_exact_frozen_artifact():
+    card = JS[JS.index('function reviewerCard('):JS.index('\nfunction addTurn(')]
+    assert "(currentEvidence?.artifacts||[]).find(a=>a.path===path)" in card
+    assert "if(art){" in card
+    assert "showArtifact(path,path)" in card

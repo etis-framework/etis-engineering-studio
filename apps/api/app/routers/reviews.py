@@ -1635,7 +1635,11 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
         level = min(state.get("coaching_level", 0) + 1, 5)
         student = _student_for_session(db, session)
         turns = db.query(ReviewTurn).filter_by(session_id=session_id).order_by(ReviewTurn.sequence).all()
-        text = "Please explain this directly and show me how to improve our work. Give me your recommended answer, why it matters, and a short clearly labeled example I can adapt to our evidence. If you cannot tell what our team actually did, show the possible cases without inventing facts. Where can I learn more?"
+        text = ("Explain this and show me how. Start with your recommended next action for our team, "
+                "using only the frozen evidence. Do not repeat the opening finding or enumerate its missing "
+                "files again. Then briefly explain why, give one clearly labeled illustrative example if "
+                "useful, and link the relevant ES guidance. If you cannot tell what our team did, "
+                "distinguish possible cases without inventing facts. End with one concrete application question.")
         history_payload = _history_payload(turns)
         prior = state.get("reasoning_state") or {}
         reply, merged, evaluation = engine.converse(
