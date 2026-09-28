@@ -92,7 +92,7 @@ class GitHubEvidenceProvider:
         settings = get_settings()
         self.s = settings
         self.semantic_assessor = semantic_assessor or SemanticEvidenceAssessor()
-        self._cache: dict[tuple[str, str], tuple[float, EvidenceSnapshotData]] = {}
+        self._cache: dict[tuple[str, str, str], tuple[float, EvidenceSnapshotData]] = {}
         self.base = 'https://api.github.com'
         self.headers = {
             'Accept': 'application/vnd.github+json',
@@ -177,11 +177,11 @@ class GitHubEvidenceProvider:
             ref.raise_for_status()
             return ref.json()['object']['sha']
 
-    def analyze(self, repo_full_name: str, phase_id: str, prior_categories: list[str] | None = None) -> EvidenceSnapshotData:
+    def analyze(self, repo_full_name: str, phase_id: str, prior_categories: list[str] | None = None, expected_sha: str | None = None) -> EvidenceSnapshotData:
         if not repo_full_name or repo_full_name.startswith('demo/'):
             return demo_snapshot(phase_id, repo_full_name or 'demo/comp330-f26-team-01', prior_categories=prior_categories)
-        cache_key = (repo_full_name, phase_id)
-        cached = self._cache.get(cache_key)
+        cache_key = (repo_full_name, phase_id, expected_sha) if expected_sha else None
+        cached = self._cache.get(cache_key) if cache_key else None
         if cached and (time.monotonic() - cached[0]) < self.s.etis_repo_refresh_seconds:
             out = copy.deepcopy(cached[1])
             # Re-rank against review history even when the evidence scan itself is cached.
@@ -203,6 +203,8 @@ class GitHubEvidenceProvider:
                 ref = c.get(f'/repos/{repo_full_name}/git/ref/heads/{default_branch}')
                 ref.raise_for_status()
                 sha = ref.json()['object']['sha']
+                if expected_sha and sha != expected_sha:
+                    raise RuntimeError('Repository HEAD changed while preparing the review. Start the review again to capture one consistent commit.')
                 tree = c.get(f'/repos/{repo_full_name}/git/trees/{sha}', params={'recursive': '1'})
                 tree.raise_for_status()
                 tree_entries = [x for x in tree.json().get('tree', []) if x.get('type') == 'blob']
@@ -279,6 +281,7 @@ class GitHubEvidenceProvider:
                         continue
                     blob = c.get(f"/repos/{repo_full_name}/git/blobs/{entry['sha']}")
                     if not blob.is_success:
+                        artifacts.append(ArtifactFact(path=path, exists=True, size=size, provenance='UNKNOWN', quality='uninspected', summary='GitHub blob could not be inspected.', url=f"https://github.com/{repo_full_name}/blob/{sha}/{path}"))
                         continue
                     bj = blob.json()
                     try:
@@ -289,6 +292,8 @@ class GitHubEvidenceProvider:
                         artifact = artifact_from_bytes(path, data, f"https://github.com/{repo_full_name}/blob/{sha}/{path}")
                         artifact.phase_scope, artifact.scope_reason = evidence_phase_scope(path, phase_id)
                         artifacts.append(artifact)
+                    elif size:
+                        artifacts.append(ArtifactFact(path=path, exists=True, size=size, provenance='UNKNOWN', quality='uninspected', summary='GitHub blob content could not be decoded.', url=f"https://github.com/{repo_full_name}/blob/{sha}/{path}"))
                 result = build_snapshot(phase_id, repo_full_name, sha, actual_paths, metrics, artifacts, prior_categories=prior_categories)
                 if self.s.etis_semantic_repository_review and self.semantic_assessor.available():
                     try:
@@ -332,7 +337,7 @@ class GitHubEvidenceProvider:
                         result.warnings.append('Semantic repository interpretation was unavailable; deterministic FACT analysis remains valid.')
                 else:
                     result.semantic_review = {"enabled": False, "warning": 'Semantic repository review is not configured.'}
-                self._cache[cache_key] = (time.monotonic(), copy.deepcopy(result))
+                self._cache[(repo_full_name, phase_id, sha)] = (time.monotonic(), copy.deepcopy(result))
                 return result
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code if exc.response is not None else 0
@@ -368,18 +373,23 @@ def build_snapshot(phase_id: str, repo_full_name: str, sha: str, actual_paths: I
             if not art and p.endswith('/'):
                 children = [a for a in artifacts if a.path.startswith(p)]
                 source_prov = 'BASELINE' if children and all(a.provenance == 'BASELINE' for a in children) else ('TEAM_ADAPTED' if children else 'UNKNOWN')
-                quality = 'scaffold' if source_prov == 'BASELINE' else ('reviewable' if children else 'missing')
+                quality = ('scaffold' if source_prov == 'BASELINE' else
+                           'uninspected' if children and all(a.quality in {'uninspected', 'too_large'} for a in children) else
+                           'reviewable' if children else 'uninspected' if ok else 'missing')
             else:
                 source_prov = art.provenance if art else 'UNKNOWN'
-                quality = art.quality if art else ('reviewable' if ok else 'missing')
+                quality = art.quality if art else ('uninspected' if ok else 'missing')
         status = 'present' if ok else 'missing'
-        if ok and source_prov == 'BASELINE':
+        if ok and quality in {'uninspected', 'too_large'}:
+            status = 'uninspected'
+            detail = art.summary if art else 'Repository path found, but the artifact could not be inspected.'
+        elif ok and source_prov == 'BASELINE':
             status = 'scaffold'
         elif ok and quality in {'thin', 'partial', 'empty'}:
             status = 'weak'
         item = EvidenceItem(ref=f'EV-{idx:03d}', kind='repository', status=status, title=p, detail=detail, provenance='FACT', source_provenance=source_prov, quality=quality, phase_scope='CURRENT_PHASE', scope_reason=f'{phase_id} expected evidence')
         items.append(item)
-        if status != 'present':
+        if status not in {'present', 'equivalent'}:
             gaps.append(f"{p}: {status}")
 
     coverage = round(100 * sum(i.status in {'present','equivalent'} for i in items) / max(1, len(items)))

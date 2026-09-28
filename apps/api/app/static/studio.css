@@ -521,3 +521,5 @@
 .review-session-active .evidence-rail .panel-title h3{font-size:1rem}
 .review-session-active .evidence-rail .panel-title .eyebrow{display:none}
 @media(max-width:850px){.review-session-active .conversation-controls{position:static}}
+.teaching-guidance{display:flex;flex-direction:column;gap:.4rem;margin-top:.85rem;padding-top:.7rem;border-top:1px solid var(--line,#d8e0e8)}
+.teaching-guidance a{font-size:.9rem;line-height:1.4}

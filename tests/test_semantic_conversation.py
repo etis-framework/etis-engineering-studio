@@ -103,6 +103,28 @@ def test_stuck_student_triggers_direct_teaching_and_teachback():
     assert state == blank_reasoning()
 
 
+def test_direct_teaching_exposes_phase_relevant_es_guidance_even_if_model_omits_it():
+    ai = FakeSemanticProvider([{
+        'student_intent': 'stuck', 'understood_points': [],
+        'reasoning_updates': {k: False for k in blank_reasoning()},
+        'stuck': True, 'frustrated': False, 'needs_direct_teaching': True,
+        'next_target': 'evidence_boundary_visible', 'response_mode': 'teach',
+        'reply': 'Here is how to separate a planning claim from its evidence. Name the assumption and the repository evidence that would test it. Which assumption applies to your plan?',
+        'guidance_ids': ['ETIS-ES100-PRINCIPLES'],
+        'handoff_lens': None, 'teach_back': True,
+    }])
+    engine = ChallengeEngine(ai=ai)
+    reply, _, _ = engine.converse(
+        engine.start('A2', demo_snapshot('A2')),
+        'Please explain and show me how.', blank_reasoning(),
+        conversation_memory={}, student_name='Alex Rivera',
+    )
+    assert reply['kind'] == 'teaching'
+    assert reply['guidance_refs']
+    assert all('A2' in item['phase_ids'] for item in reply['guidance_refs'])
+    assert reply['guidance_refs'][0]['website_url'].startswith('https://')
+
+
 def test_semantic_engine_uses_student_button_only_as_hint():
     ai = FakeSemanticProvider([
         {

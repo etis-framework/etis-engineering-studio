@@ -1007,7 +1007,9 @@ The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the stu
 
         evaluation = self.evaluate_cumulative(merged, decision)
         requested_ids = parsed.get("guidance_ids") or []
-        refs = verified_guidance(requested_ids)
+        refs = [item for item in verified_guidance(requested_ids) if challenge.phase_id in item.get('phase_ids', [])]
+        if (must_teach or parsed.get('response_mode') == 'teach') and not refs:
+            refs = guidance_for(challenge.phase_id, self.next_move(merged) or target, limit=1)
         lens = memory.get("active_lens") or challenge.lens
         handoff = parsed.get("handoff_lens")
         if handoff in REVIEWERS and handoff != lens and evaluation.get("learning_score", 0) >= 5 and not must_teach:
