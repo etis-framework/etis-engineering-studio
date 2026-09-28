@@ -500,9 +500,15 @@
 .review-session-active .workspace{margin-top:14px}
 .review-session-active .review-room{scroll-margin-top:100px}
 .review-session-active #challengeBrief{display:none}
-.review-session-active #boardReadout{margin:10px 0;padding:9px 14px}
-.review-session-active #boardReadout>summary{cursor:pointer;color:var(--accent);font-size:12px;font-weight:700}
+.review-session-active #boardReadout{margin:10px 0;padding:0;border-color:#35796e;background:#102824}
+.review-session-active #boardReadout>summary{cursor:pointer;color:#c4f4e6;font-size:14px;font-weight:800;padding:14px 16px;display:flex;align-items:center;gap:10px;list-style:none}
+.review-session-active #boardReadout>summary small{font-size:11px;font-weight:500;color:#9ecbbb;margin-left:auto}
+.review-session-active #boardReadout>summary::-webkit-details-marker{display:none}
+.review-session-active #boardReadout>summary::before{content:'▸';color:#72d5c8;font-size:18px}
+.review-session-active #boardReadout[open]>summary::before{content:'▾'}
+.review-session-active #boardReadout>summary~*{margin-left:16px;margin-right:16px}
 .review-session-active #boardReadout[open]>summary{margin-bottom:12px}
+@media(max-width:650px){.review-session-active #boardReadout>summary{flex-wrap:wrap}.review-session-active #boardReadout>summary small{flex-basis:100%;margin-left:26px}}
 .conversation-scroll-cue{display:block;width:100%;padding:8px 12px;border:0;border-top:1px solid var(--line);background:#10212b;color:var(--accent);cursor:pointer;text-align:center;font-size:12px;font-weight:700}
 .review-session-active .reviewer-meta>span:not(.lens-badge){display:none}
 .board-readout{padding:15px 16px;margin-bottom:12px}

@@ -1266,6 +1266,7 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
     memory = default_memory(challenge.lens)
     memory["review_mode"] = req.mode
     memory["review_focus"] = req.focus or ""
+    memory["project_name"] = team.project_name or ""
     memory["entry_intent"] = req.entry_intent
     memory["source_view"] = req.source_view
     memory["selected_finding_ids"] = req.finding_ids or ([req.finding_id] if req.finding_id else [])
