@@ -182,9 +182,9 @@ class ChallengeEngine:
             strength_intro = strengths[0] if strengths else "The repository has enough structure to support a focused review."
             prompt = (
                 f"A strength to build on: {strength_intro} "
-                f"Here is what I see in the repository snapshot used for this review: {f.get('statement','')} "
+                f"In the repository snapshot used for this review, {f.get('statement','')} "
                 f"This matters because {f.get('significance') or 'the team needs evidence to support its engineering claim.'} "
-                f"A useful next step is to check the cited evidence with your team, then correct the artifact or show me stronger evidence if I missed it. "
+                "Check the cited evidence with your team. If I missed something, show me where; otherwise, correct the work and record how you verified it. "
                 f"{dq}"
             )
             return Challenge(
@@ -213,9 +213,7 @@ class ChallengeEngine:
         prefix = f"{name}, " if name else ""
         text = challenge.prompt
         if challenge.board_readout:
-            summary = challenge.board_readout.get("assessment", "")
-            steering = challenge.board_readout.get("steering_note", "")
-            text = f"{summary} {steering} {text}".strip()
+            text = f"Let's improve your {challenge.phase_id} work before instructor review. {text}".strip()
         if prefix:
             text = prefix + text
         category = (challenge.finding or {}).get("category") if challenge.finding else None
@@ -481,6 +479,8 @@ class ChallengeEngine:
         }
 
     def _first_name(self, display_name: str):
+        if (display_name or "").strip().casefold().startswith("production test student"):
+            return ""
         return (display_name or "").strip().split(" ")[0] if (display_name or "").strip() else ""
 
     def _decision_label(self, decision):

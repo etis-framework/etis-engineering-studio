@@ -102,21 +102,21 @@
             <div><span class="eyebrow">CURRENTLY COACHING YOU</span><h3 id="activeReviewerName"></h3><p id="activeReviewerFocus"></p></div>
           </div>
 
-          <div id="boardReadout" class="board-readout hidden" aria-live="polite">
+          <details id="boardReadout" class="board-readout hidden">
+            <summary>Review details and other concerns</summary>
             <div class="board-readout-head"><div><span class="eyebrow">PHASE-GATE READINESS ASSESSMENT</span><h3 id="boardReadoutTitle">Board executive summary</h3></div><span class="readout-not-grade">Coaching signal · not a grade</span></div>
             <p id="boardAssessment"></p>
-            <div id="boardCounts" class="board-counts"></div><div id="boardChanges" class="board-changes hidden"></div>
+            <div id="boardChanges" class="board-changes hidden"></div>
             <div id="boardFocus" class="board-focus hidden"></div>
-            <details class="board-readout-details">
-              <summary>View full Board assessment</summary>
+            <div class="board-readout-details">
               <div class="board-readout-grid">
                 <div><span class="brief-label">BOARD AGENDA</span><div id="boardAgenda" class="board-agenda"></div></div>
                 <div><span class="brief-label">READINESS MAP</span><div id="readinessMap" class="readiness-map"></div></div>
               </div>
               <p id="boardSteering" class="board-steering"></p>
               <p id="submissionBaseline" class="submission-baseline"></p>
-            </details>
-          </div>
+            </div>
+          </details>
 
           <div id="challengeBrief" class="challenge-brief hidden">
             <div><span class="brief-label">WHAT THE BOARD NOTICED</span><p id="noticedText"></p></div>
@@ -127,6 +127,7 @@
           <div id="transcript" class="transcript conversation">
             <div class="empty"><div class="glyph">⌬</div><h3>Your engineering review starts here.</h3><p>The board will use your team's evidence and coach you through one engineering move at a time. You may ask questions before you make a decision.</p><button class="inline-help" data-help-topic="first-review">What happens when I begin?</button></div>
           </div>
+          <button id="continueReading" class="conversation-scroll-cue hidden" type="button">Continue reading ↓</button>
 
           <div id="reviewerThinking" class="reviewer-thinking hidden" aria-live="polite"><img id="thinkingPortrait" alt=""><div><b id="thinkingName">Reviewer is thinking…</b><span id="thinkingStatus">Reviewing your answer and the frozen evidence.</span><i></i></div></div>
 

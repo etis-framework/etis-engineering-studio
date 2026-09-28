@@ -330,25 +330,32 @@ function addTurn(actor,lens,text,meta={}){
     els.transcript.appendChild(turnElement);
     if(meta.reviewer)showActiveReviewer(meta.reviewer);
   }
-  els.transcript.scrollTop=els.transcript.scrollHeight;
-  if(actor!=='student'&&pending&&turnElement){
-    requestAnimationFrame(()=>els.transcript.scrollIntoView({behavior:'smooth',block:'center'}));
+  if(actor==='student'){
+    els.transcript.scrollTop=els.transcript.scrollHeight;
+  }else if(turnElement){
+    // Start at the beginning of a new reviewer reply. Short replies stay fully
+    // visible; long replies can be read downward without hunting for their start.
+    const top=turnElement.getBoundingClientRect().top-els.transcript.getBoundingClientRect().top+els.transcript.scrollTop-18;
+    els.transcript.scrollTop=Math.max(0,top);
   }
+  requestAnimationFrame(updateReadingCue);
 }
-function renderStrengths(ev){if(!ev?.strengths?.length&&!ev?.longitudinal?.has_prior_snapshot)return;const d=document.createElement('div');d.className='strengths-strip';const strengths=(ev?.strengths||[]).slice(0,4);let html='<b>What the board found working</b>';html+=strengths.length?'<ul>'+strengths.map(x=>`<li>${escapeHtml(x)}</li>`).join('')+'</ul>':'<p class="quiet">The board did not manufacture praise; it will stay specific about what the snapshot actually supports.</p>';const l=ev?.longitudinal;if(l?.has_prior_snapshot){const delta=Number(l.coverage_change||0),improved=(l.improved_evidence||[]).length,regressed=(l.regressed_evidence||[]).length;html+=`<div class="longitudinal-note"><b>Since ${escapeHtml(l.previous_phase||'the prior review')}</b> · ${delta>=0?'+':''}${delta} evidence points · ${improved} improved · ${regressed} regressed</div>`}d.innerHTML=html;els.transcript.appendChild(d)}
+function updateReadingCue(){const cue=$('#continueReading');if(!cue)return;cue.classList.toggle('hidden',!sessionId||!document.body.classList.contains('review-session-active')||els.transcript.scrollHeight-els.transcript.scrollTop-els.transcript.clientHeight<12)}
+els.transcript.addEventListener('scroll',updateReadingCue);
+$('#continueReading').onclick=()=>els.transcript.scrollBy({top:Math.max(160,els.transcript.clientHeight*.8),behavior:'smooth'});
+function renderStrengths(ev){const panel=$('#boardReadout .board-readout-details');if(!panel)return;panel.querySelector('.strengths-strip')?.remove();if(!ev?.strengths?.length&&!ev?.longitudinal?.has_prior_snapshot)return;const d=document.createElement('div');d.className='strengths-strip';const strengths=(ev?.strengths||[]).slice(0,4);let html='<b>What is working</b>';html+=strengths.length?'<ul>'+strengths.map(x=>`<li>${escapeHtml(x)}</li>`).join('')+'</ul>':'<p class="quiet">No specific strength identified from this snapshot.</p>';const l=ev?.longitudinal;if(l?.has_prior_snapshot){const improved=(l.improved_evidence||[]).length,regressed=(l.regressed_evidence||[]).length;html+=`<div class="longitudinal-note"><b>Since ${escapeHtml(l.previous_phase||'the prior review')}</b> · ${improved} improved · ${regressed} regressed</div>`}d.innerHTML=html;panel.appendChild(d)}
 function renderChallengeBrief(c){
   currentChallenge=c;
   const ro=c.board_readout||null;
   const panel=$('#boardReadout');
+  if(panel)panel.open=false;
   if(ro&&panel){
     $('#boardReadoutTitle').textContent=`${ro.phase_id} · ${ro.phase_title}`;
     $('#boardAssessment').textContent=ro.assessment||'';
-    const counts=ro.counts||{};
-    $('#boardCounts').innerHTML=`<span><b>${counts.major||0}</b> Major</span><span><b>${counts.issue||0}</b> Issues</span><span><b>${counts.observation||0}</b> Observations</span>`;
     const agenda=ro.agenda||[];
     const focus=$('#boardFocus');
     if(focus&&agenda.length){
-      focus.innerHTML=`<span>STARTING WITH</span><b>${escapeHtml(agenda[0].title||'Highest-priority review issue')}</b>${agenda.length>1?`<small>${agenda.length-1} other priority ${agenda.length===2?'issue':'issues'} available in the full assessment</small>`:''}`;
+      focus.innerHTML=`<span>FIRST CONCERN</span><b>${escapeHtml(agenda[0].title||'Engineering concern')}</b>`;
       focus.classList.remove('hidden');
     }else if(focus){focus.classList.add('hidden')}
     const ch=ro.since_last_review||null;
@@ -361,7 +368,7 @@ function renderChallengeBrief(c){
       changes.textContent=`Since the last evidence snapshot: ${bits.join(' · ')||'no material finding change detected'}.`;
       changes.classList.remove('hidden');
     }else if(changes){changes.classList.add('hidden')}
-    $('#boardAgenda').innerHTML=agenda.slice(0,6).map((x,i)=>`<div class="agenda-row"><b>${i+1}. ${escapeHtml(x.title||'Review issue')}</b><span>${escapeHtml(x.level||'issue')}</span></div>`).join('')||'<div class="agenda-row"><b>No material repository gap ranked above the review threshold.</b></div>';
+    $('#boardAgenda').innerHTML=agenda.slice(0,6).map((x,i)=>`<div class="agenda-row"><b>${i+1}. ${escapeHtml(x.title||'Review concern')}</b></div>`).join('')||'<div class="agenda-row"><b>No pressing repository evidence gap identified.</b></div>';
     $('#readinessMap').innerHTML=(ro.readiness_map||[]).map(x=>`<div class="readiness-row"><span>${escapeHtml(x.name)}</span><b>${escapeHtml(x.status)}</b></div>`).join('');
     $('#boardSteering').textContent=ro.steering_note||'';
     $('#submissionBaseline').textContent=ro.submission_baseline?.message||'';
@@ -606,6 +613,7 @@ async function beginReview(mode='board',opts={}){
     restoreDraft();
 
     await loadHistory();
+    requestAnimationFrame(()=>document.querySelector('.review-room')?.scrollIntoView({behavior:'auto',block:'start'}));
 
   }catch(e){
     console.error('Review preparation failed',e);
