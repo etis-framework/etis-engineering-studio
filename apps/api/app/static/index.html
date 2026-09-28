@@ -133,13 +133,13 @@
           <div class="conversation-controls hidden" id="conversationControls">
             <button id="askMode" class="mode-button"><b>Talk with the reviewer</b><span>Ask a question, answer what they asked, or think out loud. The reviewer will follow what you mean.</span></button>
             <button id="coachButton" class="mode-button coaching"><b>Explain this and show me how</b><span>Get a direct explanation, a useful example, a next step for your team, and related ES guidance.</span></button>
-            <button id="decisionMode" class="mode-button active"><b>Build my recommendation</b><span>Use this when the discussion reaches a real engineering decision. You can keep asking questions first.</span></button>
-            <div class="review-finish"><span>You can return to this review later. Finish it when you are done discussing this snapshot.</span><div><button id="startAnotherReview" class="text-button" type="button">Start another review</button><button id="completeReview" class="secondary compact" type="button">Finish this review</button></div></div>
+            <button id="decisionMode" class="mode-button"><b>Build my recommendation</b><span>Use this when the discussion reaches a real engineering decision. You can keep asking questions first.</span></button>
+            <div class="review-finish"><span>You can return to this review later. Finish it when you are done discussing this snapshot.</span><div><button id="startAnotherReview" class="secondary compact" type="button">Start another review</button><button id="completeReview" class="primary compact" type="button">Finish this review</button></div></div>
           </div>
 
           <div class="composer">
             <div id="askBanner" class="mode-banner hidden"><b>Conversation mode</b><span>Talk naturally. Ask a question, respond to the reviewer, or say what you are thinking. The reviewer will respond to the substance—not the button you clicked.</span></div>
-            <div id="decisionComposerHead" class="composer-head">
+            <div id="decisionComposerHead" class="composer-head hidden">
               <div class="decision-row">
                 <label for="decision">What do you recommend right now? <span class="optional-label">(optional)</span></label>
                 <select id="decision">
@@ -160,7 +160,7 @@
             <div id="coachPanel" class="coach-panel hidden"></div>
             <div id="composerContext" class="composer-context hidden" aria-live="polite"></div>
             <textarea id="response" placeholder="Talk to the reviewer naturally. Ask a question, explain what you think, or say where you are stuck."></textarea>
-            <div id="movePrompts" class="move-prompts" aria-label="Engineering reasoning prompts"><button data-insert="Our decision: ">Decision</button><button data-insert="Evidence we have: ">Evidence</button><button data-insert="Risk if we are wrong: ">Consequence</button><button data-insert="Accountable owner: ">Owner</button><button data-insert="We would change this position when: ">Change trigger</button></div>
+            <div id="movePrompts" class="move-prompts hidden" aria-label="Engineering reasoning prompts"><button data-insert="Our decision: ">Decision</button><button data-insert="Evidence we have: ">Evidence</button><button data-insert="Risk if we are wrong: ">Consequence</button><button data-insert="Accountable owner: ">Owner</button><button data-insert="We would change this position when: ">Change trigger</button></div>
             <div class="composer-bottom">
               <span id="keyboardHint">Enter to discuss · Shift+Enter for newline<br><span class="student-language-note">Write in your own words. Grammar, spelling, and accent are not being graded.</span></span>
               <div><span id="draftHint" class="draft-hint"></span><button id="send" disabled>Discuss My Decision →</button></div>
