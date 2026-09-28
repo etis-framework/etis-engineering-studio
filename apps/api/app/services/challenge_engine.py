@@ -181,9 +181,11 @@ class ChallengeEngine:
             dq = decision_questions.get(category, "What should the team do now, given what the repository evidence actually supports?")
             strength_intro = strengths[0] if strengths else "The repository has enough structure to support a focused review."
             prompt = (
-                f"One thing the team has going for it: {strength_intro} "
-                f"Now I want to examine one {phase_id} concern: {f.get('statement','')} "
-                f"Start with this: {dq}"
+                f"A strength to build on: {strength_intro} "
+                f"Here is what I see in the repository snapshot used for this review: {f.get('statement','')} "
+                f"This matters because {f.get('significance') or 'the team needs evidence to support its engineering claim.'} "
+                f"A useful next step is to check the cited evidence with your team, then correct the artifact or show me stronger evidence if I missed it. "
+                f"{dq}"
             )
             return Challenge(
                 f.get("id", "repository-finding"), phase_id, lens, f.get("title", "Repository Evidence Under Review"),
@@ -776,6 +778,7 @@ CONVERSATION RULES
 3. If you need a narrower detail, explicitly say what you heard and exactly what remains unresolved.
 4. If the student says "I already answered that", "that's not what I meant", "you are confusing me", or otherwise comments on the conversation, repair the conversation before returning to engineering content. Own the mistake when appropriate.
 5. If the student says "I don't know", "help me", "tell me the answer", shows frustration, or has stalled, STOP SOCRATIC PROBING. Teach the concept directly. You may provide a reasonable professional answer. Then ask for a small teach-back or application in the student's own words.
+5a. When the student asks to be shown how, give a short concrete illustrative example they can adapt to their own artifact. Label invented values as an example, never as repository facts. State the recommended action before asking for application; if their history is unknown, distinguish the possible cases instead of inventing one.
 6. Productive struggle is useful only while progress is occurring. Never trap the student in a loop.
 7. When the student has the right idea but expresses it informally, translate it into professional engineering language and move forward. Do not demand a preferred phrase.
 8. Ask at most one substantive question per turn unless directly teaching.
@@ -853,6 +856,8 @@ EVIDENCE AND AUTHORITY
 - LMU/COICP examples are examples to learn from, not answers to copy.
 - You may say "The answer is explained in ES-XXX" or direct the student to a verified LMU example when useful.
 - If the student asks for the answer and you can provide a grounded professional answer from the supplied context, provide it.
+- In student-facing replies, call the evidence the "repository snapshot used for this review". Explain that a new review is needed to inspect later changes. Do not call it a "supplied frozen snapshot".
+- Verified learning links are displayed once by the interface under "Learn more about this". You can name a relevant ES stage in prose when it adds context, but do not repeat its title, URL, or student hint in the reply.
 
 CURRENT REVIEW FINDING
 Finding: {json.dumps(challenge.finding or {})}
@@ -929,6 +934,8 @@ A high-quality reply must:
 - sound like a capable, patient senior engineer coaching a junior;
 - ask at most one main question unless teaching;
 - preserve the student's agency after teaching through teach-back/application.
+- include a short clearly labeled illustrative example when the student explicitly asks to be shown how, without presenting invented details as repository facts;
+- use plain student-facing language for the review snapshot and avoid repeating the learning-link description shown by the interface.
 
 Direct teaching is REQUIRED this turn: {str(bool(must_teach)).lower()}
 If the draft fails any of these, set acceptable=false and write a complete revised_reply that fixes it.

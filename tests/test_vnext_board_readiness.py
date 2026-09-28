@@ -24,7 +24,7 @@ def test_board_readout_is_phase_specific_and_not_a_grade():
     assert r["counts"]["major"] == 1
     assert r["agenda"][0]["id"] == "scope"
     assert any(x["name"] == "Estimates & assumptions" for x in r["readiness_map"])
-    assert "steer" in r["steering_note"].lower()
+    assert "challenge my interpretation" in r["steering_note"].lower()
 
 
 def test_missing_submission_tag_is_not_a_preparation_defect(tmp_path):
@@ -36,8 +36,9 @@ def test_board_opening_orients_then_probes():
     engine=ChallengeEngine(ai=SimpleNamespace())
     challenge=engine.start("A2", evidence())
     opening=engine.opening_message(challenge, "Alex")
-    assert "major issue" in opening["text"].lower()
-    assert "steer" in opening["text"].lower()
+    assert "major issue" not in opening["text"].lower()
+    assert "instructor review" in opening["text"].lower()
+    assert "challenge my interpretation" in opening["text"].lower()
     assert "scope" in opening["text"].lower()
 
 

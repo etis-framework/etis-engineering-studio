@@ -107,15 +107,13 @@ def build_board_readout(phase_id: str, evidence) -> dict:
     primary = agenda[0] if agenda else None
     if primary:
         assessment = (
-            f"The board found {counts['major']} major issue{'s' if counts['major'] != 1 else ''}, "
-            f"{counts['issue']} other issue{'s' if counts['issue'] != 1 else ''}, and "
-            f"{counts['observation']} observation{'s' if counts['observation'] != 1 else ''} in the current {phase_id} evidence. "
-            f"The board will begin with the highest-value concern: {primary['title']}."
+            f"Let's improve your {phase_id} work before the instructor review. "
+            f"The first thing to examine is {primary['title']}."
         )
     else:
         assessment = (
-            f"The current {phase_id} scan found no material repository gap above the board's review threshold. "
-            "The board will still test consequential engineering judgment; artifact completeness alone does not establish readiness."
+            f"Your {phase_id} repository review did not identify a pressing evidence gap. "
+            "Let's examine a consequential engineering decision together; a complete set of files alone cannot prove the work is ready."
         )
 
     metrics = getattr(evidence, "repository_metrics", {}) or {}
@@ -151,8 +149,8 @@ def build_board_readout(phase_id: str, evidence) -> dict:
         "readiness_map": dimensions,
         "submission_baseline": submission_baseline,
         "steering_note": (
-            "The board will guide the review and start with the most consequential issue. "
-            "You can steer at any time by asking about another issue, challenging an interpretation, pointing to evidence, or making an engineering assertion."
+            "I will explain what the evidence supports and help you decide what to improve. "
+            "You can ask for an example, point me to evidence, or challenge my interpretation at any time."
         ),
         "not_a_grade": True,
     }

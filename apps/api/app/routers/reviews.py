@@ -1634,7 +1634,7 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
         level = min(state.get("coaching_level", 0) + 1, 5)
         student = _student_for_session(db, session)
         turns = db.query(ReviewTurn).filter_by(session_id=session_id).order_by(ReviewTurn.sequence).all()
-        text = "I need another nudge. If we are going in circles, teach me the concept directly and show me where I can review it."
+        text = "Please explain this directly and show me how to improve our work. Give me your recommended answer, why it matters, and a short clearly labeled example I can adapt to our evidence. If you cannot tell what our team actually did, show the possible cases without inventing facts. Where can I learn more?"
         history_payload = _history_payload(turns)
         prior = state.get("reasoning_state") or {}
         reply, merged, evaluation = engine.converse(
