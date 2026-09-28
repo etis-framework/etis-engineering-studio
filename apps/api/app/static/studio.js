@@ -290,7 +290,7 @@ $('#helpButton').onclick=()=>openHelp(appRole==='instructor'?'staff-general':'ge
 function phaseId(){return String(els.phase.value).slice(0,2)}
 function applyPhase(){currentPhase=phaseId();$('#gateQuestion').textContent=phaseQuestions[currentPhase]||'Can the team defend the current engineering gate?';const context=$('#gateQuestionContext'),repoReady=!!studentContext?.onboarding?.repository_connected,phaseReleased=currentPhaseIsReleased();if(context)context.textContent=!repoReady?`This is the standing ${currentPhase} phase-gate review question. Once your repository is connected, the board will evaluate it using your team’s actual evidence.`:!phaseReleased?`This is the standing ${currentPhase} phase-gate review question. Your team repository is connected; the board can evaluate it once ${currentPhase} is released.`:`This is the standing ${currentPhase} phase-gate review question. The board will evaluate it using your team’s actual repository evidence.`;$('#dimensionChips').innerHTML=(phaseDimensions[currentPhase]||[]).map(x=>`<span>${x}</span>`).join('');renderStudentReadiness();updateStartReviewButton()}
 els.phase.onchange=()=>{applyPhase();resetReview(`Phase changed to ${currentPhase}. Begin a new review to freeze the repository evidence for this gate.`)};
-function resetReview(message){document.body.classList.remove('review-session-active');els.phase.disabled=false;$('#reviewCompletionSummary').classList.add('hidden');sessionId=null;currentEvidence=null;reviewSnapshotId=null;currentChallenge=null;committed=false;setPending(false);els.send.disabled=true;$('#reviewStatus').classList.add('hidden');$('#conversationControls').classList.add('hidden');$('#conversationReadyNote')?.classList.add('hidden');$('#challengeBrief').classList.add('hidden');hideActiveReviewer();$('#commitBar').classList.add('hidden');$('#challengeTitle').textContent='Start a review to convene the board';els.transcript.innerHTML=`<div class="empty"><div class="glyph">⌬</div><h3>Ready for a new review.</h3><p>${escapeHtml(message)}</p></div>`;els.evidenceList.innerHTML='<p class="quiet">Begin a review to freeze the current evidence snapshot.</p>';$('#relatedGuidance').innerHTML='<p class="quiet">Relevant ETIS and reference guidance will appear here when useful.</p>';$('#findingList').innerHTML='<p class="quiet">Findings appear after the evidence snapshot is analyzed.</p>';$('#coverage').textContent='—';$('#evCoverage').textContent='Not scanned';$('#meter').style.width='0';$('#defense').textContent='Not started';$('#depth').textContent='—';renderEvidenceSummary(null);setMode('decision');updateStartReviewButton()}
+function resetReview(message){document.body.classList.remove('review-session-active');els.phase.disabled=false;$('#reviewCompletionSummary').classList.add('hidden');sessionId=null;currentEvidence=null;reviewSnapshotId=null;currentChallenge=null;committed=false;setPending(false);els.send.disabled=true;$('#reviewStatus').classList.add('hidden');$('#conversationControls').classList.add('hidden');$('#conversationReadyNote')?.classList.add('hidden');$('#challengeBrief').classList.add('hidden');hideActiveReviewer();$('#commitBar').classList.add('hidden');$('#challengeTitle').textContent='Start a review to convene the board';els.transcript.innerHTML=`<div class="empty"><div class="glyph">⌬</div><h3>Ready for a new review.</h3><p>${escapeHtml(message)}</p></div>`;els.evidenceList.innerHTML='<p class="quiet">Begin a review to freeze the current evidence snapshot.</p>';$('#relatedGuidance').innerHTML='<p class="quiet">Relevant ETIS and reference guidance will appear here when useful.</p>';$('#findingList').innerHTML='<p class="quiet">Findings appear after the evidence snapshot is analyzed.</p>';$('#coverage').textContent='—';$('#evCoverage').textContent='Not scanned';$('#meter').style.width='0';$('#defense').textContent='Not started';$('#depth').textContent='—';renderEvidenceSummary(null);els.decision.value='';$('#postureMeaning').textContent=postureMeanings[''];setMode('ask');refreshHistorySelection();updateStartReviewButton()}
 function showActiveReviewer(reviewer){if(!reviewer){hideActiveReviewer();return}currentReviewer=reviewer;const box=$('#activeReviewer');$('#activeReviewerPortrait').src=reviewer.portrait;$('#activeReviewerPortrait').alt=`Portrait of ${reviewer.name}, ${reviewer.role}`;$('#activeReviewerName').textContent=`${reviewer.name} · ${reviewer.role}`;$('#activeReviewerFocus').textContent=reviewer.focus;box.classList.remove('hidden');const askLabel=$('#askMode b');if(askLabel)askLabel.textContent=`Talk with ${reviewer.name.split(' ')[0]}`}
 function hideActiveReviewer(){$('#activeReviewer').classList.add('hidden');currentReviewer=null}
 let thinkingTimer=null,pendingStartedAt=0,pendingElapsedTimer=null;
@@ -641,11 +641,15 @@ async function beginReview(mode='board',opts={}){
     $('#coachPanel').classList.add('hidden');
     $('#commitBar').classList.add('hidden');
 
-    setMode('decision');
+    setMode('ask');
     restoreDraft();
 
     await loadHistory();
-    requestAnimationFrame(()=>document.querySelector('.review-room')?.scrollIntoView({behavior:'auto',block:'start'}));
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      els.transcript.scrollTop=0;
+      updateReadingCue();
+      document.querySelector('.review-room')?.scrollIntoView({behavior:'auto',block:'start'});
+    }));
 
   }catch(e){
     console.error('Review preparation failed',e);
@@ -672,7 +676,7 @@ async function beginReview(mode='board',opts={}){
     els.newReview.removeAttribute('aria-busy');
     setPending(false);
     updateStartReviewButton();
-    els.response.focus();
+    if(!sessionId)els.response.focus();
   }
 }
 function insertText(text){
@@ -1260,6 +1264,9 @@ async function loadHistory(){
     }
 
     box.innerHTML=d.sessions.map(s=>{
+      const selected=Number(s.id)===Number(sessionId);
+      const state=s.status==='active'?(selected?'Current review':'Saved for later'):
+        s.status==='completed'?'Completed':String(s.status||'historical').replaceAll('_',' ');
       const progress=
         s.committed
           ?'Recommendation stated'
@@ -1269,7 +1276,7 @@ async function loadHistory(){
               ?'Awaiting your first response'
               :'Opening challenge presented';
 
-      return `<button class="history-item" data-session="${s.id}"><span><b>${s.phase_id} · Session #${s.id}</b><small>${new Date(s.started_at).toLocaleString()}</small></span><span class="history-state ${s.status}">${s.status}</span><span>${progress}</span></button>`;
+      return `<button class="history-item${selected?' current-review':''}" data-session="${s.id}" ${selected?'aria-current="true"':''}><span><b>${escapeHtml(s.phase_id)} · Session #${s.id}</b><small>${new Date(s.started_at).toLocaleString()}</small></span><span class="history-state ${escapeHtml(s.status)}">${escapeHtml(state)}</span><span>${escapeHtml(progress)}</span></button>`;
     }).join('');
 
     $$('.history-item').forEach(
@@ -1280,13 +1287,25 @@ async function loadHistory(){
     console.error('Review history could not be refreshed',e);
   }
 }
+function refreshHistorySelection(){
+  for(const box of [$('#reviewHistory'),$('#reviewHistoryPage')]){
+    if(!box)continue;
+    box.querySelectorAll('.history-item').forEach(row=>{
+      const selected=!!sessionId&&Number(row.dataset.session)===Number(sessionId);
+      row.classList.toggle('current-review',selected);
+      if(selected)row.setAttribute('aria-current','true');else row.removeAttribute('aria-current');
+      const badge=row.querySelector('.history-state.active');
+      if(badge)badge.textContent=selected?'Current review':'Saved for later';
+    });
+  }
+}
 function reviewHistoricalPresentation(status,id){
  if(status==='archived_incomplete')return {purpose:'Archived semester · incomplete review · read-only',label:'Archived semester · incomplete review · read-only',detail:`Session #${id} · archive ended the active review; frozen evidence and conversation preserved`,toast:'Archived incomplete review opened read-only. The semester ended this session before normal completion; its original frozen evidence and conversation are preserved.'};
  if(status==='completed')return {purpose:'Completed session · read-only',label:'Review complete · read-only',detail:`Session #${id} · preserved history`,toast:'Review complete and read-only. Start another review when your team is ready.'};
  const human=String(status||'historical').replaceAll('_',' ');
  return {purpose:`${human} · read-only`,label:`${human} · read-only`,detail:`Session #${id} · preserved history`,toast:'Historical review opened read-only against its original frozen evidence snapshot.'}
 }
-async function resumeSession(id,opts={}){try{const r=await fetch(`/api/v1/reviews/${id}`),d=await r.json();if(!r.ok)throw new Error(d.detail||r.statusText);switchView('studio',{history:false});sessionId=id;reviewSnapshotId=d.snapshot?.id||null;if(opts.history!==false)recordNavigationState();clearEntryContext();setComposerContext(null);const active=d.session.status==='active',historical=active?null:reviewHistoricalPresentation(d.session.status,id);document.body.classList.toggle('review-session-active',active);els.phase.disabled=active;$('#reviewCompletionSummary').classList.add('hidden');const modeName=String(d.session.mode||'board_review');const label=modeName.includes('focused')?'Focused Review':modeName.includes('finding')?'Finding Review':'Board Review';$('#reviewSessionPurpose').innerHTML=`<div><b>${label} · ${d.session.phase_id}</b><span>${active?'Resumed':historical.purpose} against its original frozen evidence snapshot.</span></div>`;$('#reviewSessionPurpose').classList.remove('hidden');$('#reviewHomeButton').classList.remove('hidden');$('#reviewHomeButton').textContent='Start another review';currentPhase=d.session.phase_id;const opt=[...els.phase.options].find(o=>o.value.startsWith(currentPhase));if(opt)els.phase.value=opt.value;applyPhase();els.transcript.innerHTML='';currentChallenge=d.state.challenge||null;if(currentChallenge)renderChallengeBrief(currentChallenge);if(d.evidence){renderEvidence(d.evidence);renderStrengths(d.evidence)}d.turns.forEach(t=>addTurn(t.actor,t.lens,t.content,{...t.signals,reviewer:t.signals?.reviewer,guidance_refs:t.signals?.guidance_refs}));$('#challengeTitle').textContent=d.state.challenge?.title||'Review session';committed=!!d.state.committed_position;reviewMode=modeName.includes('focused')?'focused':modeName.includes('finding')?'finding':'board';$('#reviewStatus').classList.toggle('hidden',!active);$('#conversationControls').classList.toggle('hidden',!active);$('#conversationReadyNote')?.classList.toggle('hidden',!active);$('#reviewStatusText').textContent=active?`${currentPhase} · Reviewing a frozen repository snapshot. After changing your work, start a new review.`:historical.detail;updateRecommendationBar(d.state.evaluation,d.state.reasoning_state||{});if(!active){hideActiveReviewer();$('#challengeBrief').classList.remove('hidden');$('#reviewStatus').classList.remove('hidden');$('#reviewStatusLabel').textContent=historical.label;$('#reviewStatusText').textContent=historical.detail;}else{$('#reviewCompletionSummary').classList.add('hidden')}$('#reviewHomeButton').classList.toggle('hidden',active||d.session.status==='completed');if(d.session.status==='completed')renderReviewCompletionSummary();els.send.disabled=!active;updateStartReviewButton();if(active)restoreDraft();requestAnimationFrame(()=>window.scrollTo({top:0,behavior:'auto'}));toast(active?'Review resumed with its original frozen evidence snapshot.':historical.toast)}catch(e){toast(safeErrorMessage(e,'Could not open that review session.'))}}
+async function resumeSession(id,opts={}){try{const r=await fetch(`/api/v1/reviews/${id}`),d=await r.json();if(!r.ok)throw new Error(d.detail||r.statusText);switchView('studio',{history:false});sessionId=id;reviewSnapshotId=d.snapshot?.id||null;if(opts.history!==false)recordNavigationState();clearEntryContext();setComposerContext(null);const active=d.session.status==='active',historical=active?null:reviewHistoricalPresentation(d.session.status,id);document.body.classList.toggle('review-session-active',active);els.phase.disabled=active;$('#reviewCompletionSummary').classList.add('hidden');const modeName=String(d.session.mode||'board_review');const label=modeName.includes('focused')?'Focused Review':modeName.includes('finding')?'Finding Review':'Board Review';$('#reviewSessionPurpose').innerHTML=`<div><b>${label} · ${d.session.phase_id}</b><span>${active?'Resumed':historical.purpose} against its original frozen evidence snapshot.</span></div>`;$('#reviewSessionPurpose').classList.remove('hidden');$('#reviewHomeButton').classList.remove('hidden');$('#reviewHomeButton').textContent='Start another review';currentPhase=d.session.phase_id;const opt=[...els.phase.options].find(o=>o.value.startsWith(currentPhase));if(opt)els.phase.value=opt.value;applyPhase();els.transcript.innerHTML='';currentChallenge=d.state.challenge||null;if(currentChallenge)renderChallengeBrief(currentChallenge);if(d.evidence){renderEvidence(d.evidence);renderStrengths(d.evidence)}d.turns.forEach(t=>addTurn(t.actor,t.lens,t.content,{...t.signals,reviewer:t.signals?.reviewer,guidance_refs:t.signals?.guidance_refs}));$('#challengeTitle').textContent=d.state.challenge?.title||'Review session';committed=!!d.state.committed_position;reviewMode=modeName.includes('focused')?'focused':modeName.includes('finding')?'finding':'board';els.decision.value='';$('#postureMeaning').textContent=postureMeanings[''];setMode('ask');$('#reviewStatus').classList.toggle('hidden',!active);$('#conversationControls').classList.toggle('hidden',!active);$('#conversationReadyNote')?.classList.toggle('hidden',!active);$('#reviewStatusText').textContent=active?`${currentPhase} · Reviewing a frozen repository snapshot. After changing your work, start a new review.`:historical.detail;updateRecommendationBar(d.state.evaluation,d.state.reasoning_state||{});if(!active){hideActiveReviewer();$('#challengeBrief').classList.remove('hidden');$('#reviewStatus').classList.remove('hidden');$('#reviewStatusLabel').textContent=historical.label;$('#reviewStatusText').textContent=historical.detail;}else{$('#reviewCompletionSummary').classList.add('hidden')}$('#reviewHomeButton').classList.toggle('hidden',active||d.session.status==='completed');if(d.session.status==='completed')renderReviewCompletionSummary();els.send.disabled=!active;refreshHistorySelection();updateStartReviewButton();if(active)restoreDraft();requestAnimationFrame(()=>window.scrollTo({top:0,behavior:'auto'}));toast(active?'Review resumed with its original frozen evidence snapshot.':historical.toast)}catch(e){toast(safeErrorMessage(e,'Could not open that review session.'))}}
 
 const evidenceLensIds={
  A1:['business_value','governability','ai_governance','traceability','accountability','uncertainty','compliance','maintainability'],

@@ -526,11 +526,17 @@
 .board-readout-details[open]>summary::before,.rail-disclosure[open]>summary::before{transform:rotate(90deg)}
 .board-readout-details[open]>summary{margin-bottom:8px}
 .review-session-active .challenge-brief{margin-bottom:12px}
+.review-room{scroll-margin-top:100px}
 .review-session-active .conversation-controls{position:sticky;bottom:0;z-index:4;background:#08131b;padding:8px 0}
 .review-finish{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
 .review-finish>div{display:flex;align-items:center;gap:9px;flex-shrink:0}
-.review-finish #completeReview{border-color:#4c8790;color:#e5f7f7;font-weight:750}
-.review-finish #completeReview:hover{border-color:var(--accent);background:#163238}
+.review-finish #startAnotherReview{border-color:#4c8790;color:#e5f7f7;font-weight:750}
+.review-finish #startAnotherReview:hover{border-color:var(--accent);background:#163238}
+.review-finish #completeReview{background:#75d7c9;color:#092824;border-color:#75d7c9;font-weight:800;box-shadow:0 0 0 1px rgba(117,215,201,.2)}
+.review-finish #completeReview:hover{background:#a3eadf;border-color:#a3eadf}
+.history-item.current-review{border-color:#65c9ba;background:#102b2e;box-shadow:inset 3px 0 #75d7c9}
+.history-item.current-review .history-state.active{background:#206454;color:#e6fff6;font-weight:800}
+.history-item .history-state.active{white-space:nowrap}
 .review-completion-summary{margin:0 0 12px;padding:14px 16px;border:1px solid #3b7968;border-radius:11px;background:#102821}
 .review-completion-summary b,.review-completion-summary span{display:block}
 .review-completion-summary span{margin-top:5px;color:#c1d7cd;font-size:12px;line-height:1.45}
