@@ -133,6 +133,22 @@ def default_memory(primary_lens: str):
     }
 
 
+def normalize_guidance_mentions(reply: str, refs: list[dict]) -> str:
+    """Leave verified guidance links to the UI; do not display model-made stage URLs."""
+    stages = {str(ref.get("stage")) for ref in refs if ref.get("website_url")}
+    for stage in stages:
+        if not re.fullmatch(r"ES-\d{3}", stage):
+            continue
+        token = re.escape(stage)
+        reply = re.sub(
+            rf"(?i)\bSee\s+\[{token}\]\([^\n)]*\)\s+for\s+(?:the\s+)?(?:relevant\s+)?guidance\.",
+            "", reply,
+        )
+        reply = re.sub(rf"\[{token}\]\([^\n)]*\)", stage, reply)
+    reply = re.sub(r"\[(ES-\d{3})\]\([^\n)]*\)", r"\1", reply)
+    return re.sub(r"\n{3,}", "\n\n", reply).strip()
+
+
 class ChallengeEngine:
     """State-aware coaching engine.
 
@@ -1051,6 +1067,7 @@ The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the stu
                 reply = critique["revised_reply"].strip()
                 memory["critic_repairs"] = int(memory.get("critic_repairs", 0)) + 1
 
+        reply = normalize_guidance_mentions(reply, refs)
         memory["last_target"] = parsed.get("next_target") or self.next_move(merged)
         memory["last_question"] = reply
         memory["last_student_summary"] = text[:500]

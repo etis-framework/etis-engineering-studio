@@ -25,6 +25,7 @@ from ..services.review_planning import (
 )
 from ..services.evidence import snapshot_from_dict
 from ..services.evidence_package import EvidencePackageBuilder
+from ..services.model_disclosure import sanitize_model_artifact
 from ..services.usage_store import record_usage_events
 from ..services.reasoning_validation import ReasoningValidator, blank_reasoning_shadow
 from ..services.review_planner import ReviewPlanner, blank_planning_shadow
@@ -199,6 +200,48 @@ def _safe_json(value, default):
         return json.loads(value or "")
     except Exception:
         return default
+
+
+def _public_evidence_snapshot(evidence: dict) -> dict:
+    """Keep the frozen full review copy server-side; publish only safe excerpts."""
+    public = dict(evidence)
+    public["artifacts"] = []
+    for artifact in evidence.get("artifacts", []):
+        item = dict(artifact)
+        item.pop("review_content", None)
+        disclosure = sanitize_model_artifact(
+            item.get("path"), item.get("content_excerpt")
+        )
+        item["content_excerpt"] = disclosure.text
+        if "sensitive_file" in disclosure.redactions:
+            item["url"] = ""
+        public["artifacts"].append(item)
+    return public
+
+
+def _frozen_artifact(snapshot: EvidenceSnapshot, path: str) -> dict:
+    evidence = _safe_json(snapshot.summary_json, {})
+    artifact = next((a for a in evidence.get("artifacts", []) if a.get("path") == path), None)
+    if artifact is None:
+        raise HTTPException(404, "Artifact is not in this frozen snapshot")
+    review_copy = artifact.get("review_content") or ""
+    fallback = not review_copy
+    if fallback:
+        review_copy = artifact.get("content_excerpt") or ""
+    disclosure = sanitize_model_artifact(path, review_copy[:8000])
+    return {
+        "path": path,
+        "snapshot_id": snapshot.id,
+        "commit_sha": snapshot.commit_sha,
+        "content": disclosure.text,
+        "source": "compact_excerpt" if fallback else "bounded_review_copy",
+        "may_be_incomplete": fallback or len(review_copy) >= 8000 or int(artifact.get("size") or 0) > 8000,
+        "disclosure_status": "quarantined" if "sensitive_file" in disclosure.redactions else ("redacted" if disclosure.redactions else "clear"),
+        "provenance": artifact.get("provenance") or "UNKNOWN",
+        "quality": artifact.get("quality") or "unknown",
+        "summary": artifact.get("summary") or "",
+        "url": "" if "sensitive_file" in disclosure.redactions else (artifact.get("url") or ""),
+    }
 
 
 def _idempotency_fingerprint(payload: dict) -> str:
@@ -1027,6 +1070,7 @@ def _review_start_response(
 
     return {
         "session_id": session.id,
+        "snapshot_id": snapshot.id,
         "team": {
             "id": team.id,
             "name": team.name,
@@ -1039,7 +1083,7 @@ def _review_start_response(
             "role": user.role,
         },
         "challenge": challenge_payload,
-        "evidence": evidence,
+        "evidence": _public_evidence_snapshot(evidence),
         "evidence_cache_reused": bool(
             state.get("evidence_cache_reused")
         ),
@@ -1378,8 +1422,19 @@ def current_evidence(team_id: int, phase_id: str | None, request: Request, db: S
         "snapshot_id": snapshot.id,
         "created_at": snapshot.created_at.isoformat(),
         "team": {"id": team.id, "name": team.name, "project_name": team.project_name, "repo_full_name": team.repo_full_name},
-        "evidence": evidence,
+        "evidence": _public_evidence_snapshot(evidence),
     }
+
+
+@router.get("/evidence/{snapshot_id}/artifact")
+def inspect_frozen_artifact(snapshot_id: int, path: str, request: Request, db: Session = Depends(get_db)):
+    snapshot = db.get(EvidenceSnapshot, snapshot_id)
+    if not snapshot:
+        raise HTTPException(404, "Evidence snapshot not found")
+    require_team_access(db, auth_context(request), snapshot.team_id)
+    if not path or len(path) > 1024:
+        raise HTTPException(400, "A valid artifact path is required")
+    return _frozen_artifact(snapshot, path)
 
 
 @router.get("/{session_id}")
@@ -1410,7 +1465,7 @@ def get_review(session_id: int, request:Request, db: Session = Depends(get_db)):
         "team": {"id": team.id, "name": team.name, "project_name": team.project_name, "repo_full_name": team.repo_full_name} if team else None,
         "snapshot": {"id": snapshot.id, "commit_sha": snapshot.commit_sha, "source": snapshot.source, "created_at": snapshot.created_at.isoformat()} if snapshot else None,
         "state": _public_review_state(state),
-        "evidence": evidence,
+        "evidence": _public_evidence_snapshot(evidence) if evidence else None,
         "turns": [
             {
                 "sequence": turn.sequence,
