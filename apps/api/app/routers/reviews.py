@@ -25,6 +25,7 @@ from ..services.review_planning import (
 )
 from ..services.evidence import snapshot_from_dict
 from ..services.evidence_package import EvidencePackageBuilder
+from ..services.artifact_condition import decorate_conditions
 from ..services.model_disclosure import sanitize_model_artifact
 from ..services.usage_store import record_usage_events
 from ..services.reasoning_validation import ReasoningValidator, blank_reasoning_shadow
@@ -61,7 +62,7 @@ def _decorate_finding_states(evidence:dict, states:dict[str,dict]):
     for key in ('findings','challenge_candidates'):
         for finding in evidence.get(key,[]):
             finding['lifecycle']=states.get(finding.get('id'),{"status":"open"})
-    return evidence
+    return decorate_conditions(evidence)
 
 
 def _planner_finding_projection(value: dict) -> dict:
