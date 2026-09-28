@@ -71,11 +71,13 @@ class ReviewOrchestrator:
         finding_ids: list[str] | None = None,
         excluded_finding_ids: set[str] | None = None,
         entry_intent: str = 'review',
+        expected_sha: str | None = None,
     ) -> PreparedReview:
         evidence = cached_evidence or self.evidence_provider.analyze(
             repo_full_name,
             phase_id,
             prior_categories=list(prior_categories or []),
+            expected_sha=expected_sha,
         )
         if cached_evidence is not None and evidence.findings:
             materialized = [

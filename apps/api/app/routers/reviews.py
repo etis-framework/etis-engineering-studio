@@ -1210,8 +1210,11 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
             finding_ids=req.finding_ids,
             excluded_finding_ids=excluded,
             entry_intent=req.entry_intent,
+            expected_sha=current_sha if repo_full_name and not req.scenario_id else None,
         )
         evidence = prepared.evidence
+        if repo_full_name and not req.scenario_id and evidence.commit_sha != current_sha:
+            raise RuntimeError('Repository evidence does not match the commit selected for this review. Start the review again.')
         challenge = prepared.challenge
     except RuntimeError as exc:
         raise HTTPException(502, str(exc)) from exc

@@ -204,7 +204,7 @@ def _find_artifact(artifacts: list[ArtifactFact], path: str) -> ArtifactFact | N
         return None
     # Directory-level evidence is baseline only when all visible children are baseline.
     prov = 'BASELINE' if all(a.provenance == 'BASELINE' for a in children) else 'TEAM_ADAPTED'
-    quality = 'scaffold' if prov == 'BASELINE' else ('reviewable' if any(a.quality == 'reviewable' for a in children) else 'partial')
+    quality = 'scaffold' if prov == 'BASELINE' else ('reviewable' if any(a.quality == 'reviewable' for a in children) else ('uninspected' if all(a.quality in {'uninspected', 'too_large'} for a in children) else 'partial'))
     return ArtifactFact(path=path, exists=True, provenance=prov, quality=quality, summary=f'{len(children)} artifact(s) visible under this evidence area.')
 
 
@@ -228,6 +228,8 @@ def build_findings(phase_id: str, artifacts: list[ArtifactFact], metrics: dict, 
             findings.append(ReviewFinding(f'missing-{idx}', 'missing_evidence', f'Expected evidence not visible: {path}', f'The snapshot did not contain `{path}` or an equivalent artifact detected in that evidence area.', exp['claim'], 4, 'high', evidence_refs=[f'PATH:{path}'], suggested_lens='evidence_auditor'))
         elif art.provenance == 'BASELINE':
             findings.append(ReviewFinding(f'baseline-{idx}', 'artifact_theater', f'Scaffold is present but not yet team evidence: {path}', f'`{path}` is unchanged from the official COMP 330 starter-kit baseline.', 'Starter-kit scaffolding is course infrastructure. Its presence does not prove that the team performed, adopted, reviewed, or agreed to the engineering practice.', 3, 'high', evidence_refs=[f'PATH:{path}'], suggested_lens='evidence_auditor'))
+        elif art.quality in {'uninspected', 'too_large'}:
+            findings.append(ReviewFinding(f'uninspected-{idx}', 'inspection_boundary', f'Evidence could not be inspected: {path}', f'`{path}` is located in the frozen tree, but its content could not be inspected.', 'The Studio cannot judge the engineering quality or claim support of content it did not inspect. Verify the frozen file and retry after the acquisition limit or failure is addressed.', 2, 'high', evidence_refs=[f'PATH:{path}'], suggested_lens='evidence_auditor'))
         elif art.quality in {'empty', 'thin', 'partial'}:
             findings.append(ReviewFinding(f'weak-{idx}', 'weak_evidence', f'Evidence may be too thin: {path}', f'`{path}` exists but appears incomplete or still scaffold-like.', exp['claim'], 3, 'moderate', evidence_refs=[f'PATH:{path}'], suggested_lens='evidence_auditor'))
 
