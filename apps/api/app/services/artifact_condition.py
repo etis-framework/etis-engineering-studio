@@ -1,0 +1,97 @@
+"""Student-facing interpretation of frozen phase evidence areas.
+
+This is a presentation projection, not an assessment or a stored verdict.
+Repository quality only establishes inspection/provenance; unresolved REVIEW
+findings may identify a consequential gap in otherwise reviewable content.
+"""
+
+from __future__ import annotations
+
+
+def _paths_for(item: dict) -> set[str]:
+    paths = {str(item.get('title') or '').strip()}
+    if item.get('equivalent_path'):
+        paths.add(str(item['equivalent_path']).strip())
+    path = str(item.get('title') or '').strip()
+    if path == 'GitHub Issues':
+        paths.add('GITHUB:issues')
+    elif path == 'GitHub Pull Requests':
+        paths.add('GITHUB:pulls')
+    return {path for path in paths if path}
+
+
+def _cites(finding: dict, paths: set[str]) -> bool:
+    for ref in finding.get('evidence_refs') or []:
+        ref = str(ref)
+        if ref in paths:
+            return True
+        if ref.startswith('PATH:'):
+            cited = ref[5:]
+            if cited in paths or any(path.endswith('/') and cited.startswith(path) for path in paths):
+                return True
+    return False
+
+
+def _active_findings(item: dict, findings: list[dict]) -> list[dict]:
+    paths = _paths_for(item)
+    return sorted(
+        (finding for finding in findings
+         if finding.get('lifecycle', {}).get('status', 'open') not in {'resolved', 'corrected'}
+         and _cites(finding, paths)),
+        key=lambda finding: (
+            finding.get('review_scope') == 'professional_challenge',
+            -int(finding.get('severity') or 0),
+        ),
+    )
+
+
+def condition_for(item: dict, findings: list[dict]) -> dict:
+    status = str(item.get('status') or '')
+    quality = str(item.get('quality') or '')
+    paths = _paths_for(item)
+    linked = _active_findings(item, findings)
+    course = next((f for f in linked if f.get('review_scope') != 'professional_challenge'), None)
+    professional = next((f for f in linked if f.get('review_scope') == 'professional_challenge'), None)
+
+    def result(key: str, label: str, why: str, next_step: str, finding: dict | None = None) -> dict:
+        return {'key': key, 'label': label, 'why': why, 'next_step': next_step,
+                'finding_id': finding.get('id') if finding else None}
+
+    if status == 'missing':
+        return result('gap', 'Not found', 'No matching evidence was found in this frozen snapshot.',
+                      'Locate equivalent team evidence, or create and verify the missing engineering record.')
+    if status == 'scaffold' or item.get('source_provenance') == 'BASELINE':
+        return result('gap', 'Starter only', 'Unchanged course scaffolding does not show what this team decided or did.',
+                      'Record the team decision, owner, rationale, and evidence in the appropriate artifact.')
+    if status == 'uninspected' or quality in {'uninspected', 'too_large', 'binary', 'unknown'}:
+        return result('unknown', 'Cannot judge yet', 'The Studio cannot inspect enough content to assess this evidence.',
+                      'Open the frozen source and verify the claim with your team; ask the reviewer about the inspection limit.')
+    if status in {'weak', 'partial'} or quality in {'empty', 'thin', 'partial'}:
+        return result('gap', 'Needs substantive work',
+                      'The visible content is empty, very thin, or still contains starter placeholders.',
+                      'Replace generic headings with the actual decision, owner, rationale, and verification evidence.')
+    if course:
+        return result('concern', 'Review concern',
+                      'A current review concern cites this evidence; presence alone does not settle the claim.',
+                      'Inspect the concern, correct the work or show the reviewer stronger frozen evidence.', course)
+    if professional:
+        return result('explore', 'Explore the trade-off',
+                      'A professional engineering question cites this evidence; it is not automatically a phase requirement.',
+                      'Discuss the trade-off with the reviewer if it affects your team’s decision.', professional)
+    if status == 'equivalent':
+        return result('verify', 'Equivalent evidence suggested',
+                      f"The expected evidence may be at {item.get('equivalent_path') or 'another location'}; its claim still needs checking.",
+                      'Inspect the equivalent artifact and explain how it supports this phase claim.')
+    if paths:
+        return result('verify', 'Visible; verify support',
+                      'The evidence is present, but inspection or adaptation alone does not prove the engineering claim.',
+                      'Check what was decided, who owns it, how it was verified, and whether the artifacts agree.')
+    return result('unknown', 'Cannot judge yet', 'There is not enough evidence to describe this area.',
+                  'Ask the reviewer what evidence would make the claim reviewable.')
+
+
+def decorate_conditions(evidence: dict) -> dict:
+    findings = evidence.get('findings') or []
+    for item in evidence.get('items') or []:
+        item['condition'] = condition_for(item, findings)
+    return evidence
