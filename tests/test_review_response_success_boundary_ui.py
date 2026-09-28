@@ -41,17 +41,10 @@ def _add_turn_block() -> str:
     return JS[start:end]
 
 
-def test_live_reviewer_response_is_brought_into_view():
+def test_reviewer_response_begins_at_its_first_line_without_page_jump():
     block = _add_turn_block()
-
-    transcript_scroll = block.index(
-        "els.transcript.scrollTop=els.transcript.scrollHeight;"
-    )
-    live_reviewer_guard = block.index(
-        "if(actor!=='student'&&pending&&turnElement){"
-    )
-    viewport_scroll = block.index(
-        "els.transcript.scrollIntoView({behavior:'smooth',block:'center'})"
-    )
-
-    assert transcript_scroll < live_reviewer_guard < viewport_scroll
+    assert "if(actor==='student'){" in block
+    assert "els.transcript.scrollTop=Math.max(0,top)" in block
+    assert "turnElement.getBoundingClientRect().top" in block
+    assert "els.transcript.scrollIntoView" not in block
+    assert "requestAnimationFrame(updateReadingCue)" in block

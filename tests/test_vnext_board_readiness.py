@@ -38,8 +38,15 @@ def test_board_opening_orients_then_probes():
     opening=engine.opening_message(challenge, "Alex")
     assert "major issue" not in opening["text"].lower()
     assert "instructor review" in opening["text"].lower()
-    assert "challenge my interpretation" in opening["text"].lower()
+    assert "before instructor review" in opening["text"].lower()
     assert "scope" in opening["text"].lower()
+
+
+def test_production_test_identity_does_not_create_a_production_greeting():
+    engine=ChallengeEngine(ai=SimpleNamespace())
+    opening=engine.opening_message(engine.start("A2", evidence()), "Production Test Student")
+    assert not opening["text"].startswith("Production,")
+    assert engine._first_name("Alex Rivera") == "Alex"
 
 
 def test_a2_to_a6_wargame_readiness_maps_are_phase_specific():

@@ -498,6 +498,13 @@
 /* Student review progressive disclosure: keep the board intelligent and the active task simple. */
 .review-session-active .hero-grid{display:none}
 .review-session-active .workspace{margin-top:14px}
+.review-session-active .review-room{scroll-margin-top:100px}
+.review-session-active #challengeBrief{display:none}
+.review-session-active #boardReadout{margin:10px 0;padding:9px 14px}
+.review-session-active #boardReadout>summary{cursor:pointer;color:var(--accent);font-size:12px;font-weight:700}
+.review-session-active #boardReadout[open]>summary{margin-bottom:12px}
+.conversation-scroll-cue{display:block;width:100%;padding:8px 12px;border:0;border-top:1px solid var(--line);background:#10212b;color:var(--accent);cursor:pointer;text-align:center;font-size:12px;font-weight:700}
+.review-session-active .reviewer-meta>span:not(.lens-badge){display:none}
 .board-readout{padding:15px 16px;margin-bottom:12px}
 .board-readout-head h3{font-size:1.05rem}
 .board-counts{margin:10px 0}
