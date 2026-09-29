@@ -99,9 +99,11 @@ def condition_for(item: dict, findings: list[dict], claim_support: list[dict] | 
         # aggregation semantics than an exact inspected file.
         strong = (support['judgment'] == 'strong' and status != 'equivalent'
                   and not str(item.get('title') or '').endswith('/'))
-        maturity = ('A team decision or operating record is visible in the bounded excerpt.'
-                    if support.get('support_kind') == 'demonstrated' else
-                    'The bounded excerpt defines the approach; its use is not established here.')
+        record_path = support.get('operating_evidence_path')
+        maturity = ('The bounded excerpt defines the approach; its use is not established here.'
+                    if support.get('support_kind') != 'demonstrated' else
+                    f'A team operating record is quoted from {record_path}; this is not independent proof of every outcome.'
+                    if record_path else 'A team decision is visible in the bounded excerpt.')
         condition = result('strong' if strong else 'okay',
                            'Strong support' if strong else 'Okay support',
                            f"For this phase claim: {support['rationale']} {maturity} Limitation: {support['limitation']}",
@@ -109,7 +111,8 @@ def condition_for(item: dict, findings: list[dict], claim_support: list[dict] | 
         condition['support'] = {key: support[key] for key in
                                 ('claim', 'support_path', 'support_quote', 'support_kind',
                                  'limitation', 'inspection_scope')}
-        if support.get('operating_evidence_path') and support.get('operating_evidence_quote'):
+        if (support.get('support_kind') == 'demonstrated'
+            and support.get('operating_evidence_path') and support.get('operating_evidence_quote')):
             condition['support']['operating_evidence_path'] = support['operating_evidence_path']
             condition['support']['operating_evidence_quote'] = support['operating_evidence_quote']
         return condition
@@ -153,10 +156,14 @@ def supported_observations(evidence) -> list[str]:
         if condition['key'] not in {'strong', 'okay'}:
             continue
         support = condition['support']
+        record = support.get('operating_evidence_path')
+        basis = ('approach defined; use not established'
+                 if support['support_kind'] != 'demonstrated' else
+                 f'team operating record quoted from {record}' if record else
+                 'team decision visible')
         observations.append(
             f"{condition['label']} for {item['title']}: {support['claim']} "
-            f"({'decision or use visible' if support['support_kind'] == 'demonstrated' else 'approach defined; use not established'} "
-            f"in excerpt from {support['support_path']}). "
+            f"({basis} in bounded evidence from {support['support_path']}). "
             f"Boundary: {support['limitation']}"
         )
     return observations[:4]
