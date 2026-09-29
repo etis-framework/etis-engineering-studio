@@ -46,10 +46,81 @@ async function scenario(intent,{session=37,pending=false,draft=''}={}){
  const resolve=await scenario('resolve');assert(resolve.calls.includes('send'));
  const challenge=await scenario('challenge');assert.deepStrictEqual(challenge.calls,['dispute']);
  const waiting=await scenario('discuss',{pending:true});assert(!waiting.calls.includes('send'));
+ const waitingChallenge=await scenario('challenge',{pending:true});assert(!waitingChallenge.calls.includes('dispute'));
  const draft=await scenario('discuss',{draft:'My own unfinished answer'});
  assert(!draft.calls.includes('send')&&!draft.calls.includes('context')&&draft.calls.includes('draft-scroll'));
  assert.strictEqual(draft.value,'My own unfinished answer');
  const noSession=await scenario('discuss',{session:null});assert.deepStrictEqual(noSession.calls,['prepare']);
+})().catch(e=>{console.error(e);process.exitCode=1});
+'''
+    subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)
+
+
+@pytest.mark.skipif(not shutil.which('node'), reason='Node needed for UI-state simulation')
+def test_submitted_challenge_opens_review_and_positions_new_exchange():
+    script = r'''
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync('apps/api/app/static/studio.js','utf8');
+const start=source.indexOf('function showSubmittedExchange(');
+const fn=source.slice(start,source.indexOf('function updateReadingCue(',start));
+const events=[],student={isConnected:true,getBoundingClientRect:()=>({top:510})};
+const transcript={scrollTop:50,getBoundingClientRect:()=>({top:100}),scrollIntoView:o=>events.push(['scroll',o.block])};
+const ctx={student,els:{transcript},switchView:(v,o)=>events.push(['view',v,o.scroll]),
+ requestAnimationFrame:f=>f(),updateReadingCue:()=>events.push(['cue'])};
+vm.runInNewContext(fn+';showSubmittedExchange(student)',ctx);
+assert.deepStrictEqual(events.map(x=>x[0]),['view','scroll','cue']);
+assert.strictEqual(transcript.scrollTop,442);
+student.isConnected=false;events.length=0;
+vm.runInNewContext(fn+';showSubmittedExchange(student)',ctx);
+assert.deepStrictEqual(events.map(x=>x[0]),['view']);
+'''
+    subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)
+
+
+def test_evidence_actions_have_distinct_destinations():
+    assert 'data-inspect-path' in SOURCE and 'showArtifact(b.dataset.inspectPath' in SOURCE
+    assert 'data-focus-path' in SOURCE and 'configureFocusedFromEvidence(`Review the evidence' in SOURCE
+    assert 'data-condition-finding' in SOURCE and "'discuss','engineering_evidence'" in SOURCE
+    for intent in ('discuss', 'challenge', 'resolve'):
+        assert f"configureFindingFromEvidence(b.dataset.finding{intent.capitalize()},'{intent}'" in SOURCE
+    focused = SOURCE[SOURCE.index('async function configureFocusedFromEvidence('):SOURCE.index('async function configureFindingFromEvidence(')]
+    assert "if(els.response.value.trim())" in focused
+    assert "await sending;" in focused
+    assert 'startReviewAction();' in focused
+    challenge = SOURCE[SOURCE.index('async function disputeEvidence('):SOURCE.index('async function loadInstructor', SOURCE.index('async function disputeEvidence('))]
+    assert 'closeEvidenceDispute();\n    showSubmittedExchange(studentTurn);' in challenge
+
+
+@pytest.mark.skipif(not shutil.which('node'), reason='Node needed for UI-state simulation')
+def test_ask_reviewer_preserves_draft_or_sends_or_starts_focused_review():
+    script = r'''
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync('apps/api/app/static/studio.js','utf8');
+const start=source.indexOf('async function configureFocusedFromEvidence(');
+const fn=source.slice(start,source.indexOf('async function configureFindingFromEvidence(',start));
+async function scenario({session=12,draft='',busy=false,active=true}={}){
+ const events=[],input={value:draft,focus:()=>events.push('focus'),scrollIntoView:()=>events.push('draft-scroll')};
+ const purpose={classList:{remove:()=>{}},innerHTML:''};
+ const ctx={sessionId:session,pending:busy,finishingReview:false,document:{body:{classList:{contains:()=>active}}},
+  els:{response:input,transcript:{scrollIntoView:()=>events.push('transcript-scroll')}},
+  switchView:()=>events.push('view'),setMode:()=>events.push('mode'),setComposerContext:()=>events.push('context'),
+  updateDraftHint:()=>events.push('hint'),send:async()=>events.push('send'),toast:()=>events.push('toast'),
+  requestAnimationFrame:f=>f(),newReviewHome:()=>events.push('home'),
+  prepareEntryContext:()=>events.push('entry'),selectReviewMode:async()=>events.push('focused'),
+  updateReviewModeSummary:()=>events.push('summary'),startReviewAction:()=>events.push('start'),
+  $:s=>s==='#reviewFocus'?{value:''}:purpose,escapeHtml:x=>x};
+ await vm.runInNewContext(fn+';configureFocusedFromEvidence("Inspect A2","docs/planning/scope.md")',ctx);
+ return {events,value:input.value};
+}
+(async()=>{
+ const draft=await scenario({draft:'Do not erase my question'});
+ assert(draft.events.includes('focus')&&!draft.events.includes('send'));
+ assert.equal(draft.value,'Do not erase my question');
+ const active=await scenario();assert(active.events.includes('send')&&active.events.includes('transcript-scroll'));
+ const busy=await scenario({busy:true});assert.deepStrictEqual(busy.events,['toast']);
+ const newReview=await scenario({session:null});
+ assert(newReview.events.includes('focused')&&newReview.events.includes('start'));
+ assert(!newReview.events.includes('send'));
 })().catch(e=>{console.error(e);process.exitCode=1});
 '''
     subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)

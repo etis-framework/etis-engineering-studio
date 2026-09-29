@@ -231,15 +231,12 @@ def test_evidence_ask_board_submits_immediately_in_active_review():
     js = (ROOT / 'apps/api/app/static/studio.js').read_text()
     compact = ''.join(js.split())
 
-    # "Ask the Board" is an action, not merely a composer prefill.
-    assert (
-        "if(sessionId){switchView('studio');setMode('ask');"
-        "if(path)setComposerContext({kind:'evidence',path,label:path,"
-        "detail:'SelectedfromEngineeringEvidence'});"
-        "els.response.value=`Iwantyourhonestsenior-engineeropinionabout"
-        "${path||focus}.Whatisstrong,weak,unclear,orworthimproving"
-        "beforewemoveon?`;updateDraftHint();send();return}"
-    ) in compact
+    # "Ask reviewer" sends within an active review, while retaining an
+    # unfinished student draft rather than overwriting it.
+    assert "if(sessionId&&document.body.classList.contains('review-session-active')){" in compact
+    assert "if(els.response.value.trim()){els.response.focus();" in compact
+    assert "constsending=send();" in compact
+    assert "awaitsending;" in compact
 
     # Explicit artifact attachment remains a manual next-message action.
     assert "Evidenceattachedtoyournextmessage." in compact

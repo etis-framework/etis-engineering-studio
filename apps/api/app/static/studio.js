@@ -380,6 +380,17 @@ function addTurn(actor,lens,text,meta={}){
     els.transcript.scrollTop=Math.max(0,top);
   }
   requestAnimationFrame(updateReadingCue);
+  return turnElement;
+}
+function showSubmittedExchange(studentTurn){
+  switchView('studio',{scroll:false});
+  requestAnimationFrame(()=>{
+    if(!studentTurn?.isConnected)return;
+    const top=studentTurn.getBoundingClientRect().top-els.transcript.getBoundingClientRect().top+els.transcript.scrollTop-18;
+    els.transcript.scrollTop=Math.max(0,top);
+    els.transcript.scrollIntoView({block:'center',behavior:'auto'});
+    updateReadingCue();
+  });
 }
 function updateReadingCue(){const cue=$('#continueReading');if(!cue)return;cue.classList.toggle('hidden',!sessionId||!document.body.classList.contains('review-session-active')||els.transcript.scrollHeight-els.transcript.scrollTop-els.transcript.clientHeight<12)}
 els.transcript.addEventListener('scroll',updateReadingCue);
@@ -433,6 +444,7 @@ function findingContext(f,intent='discuss'){return {kind:'finding',id:f.id,label
 function findingStudentPrompt(f,intent){if(intent==='resolve')return `I agree the finding “${f.title}” has merit. Help me act on this exact finding: what should we improve first, why, and what evidence would show it is addressed?`;if(intent==='challenge')return `I think the board may have missed or misinterpreted evidence for the finding “${f.title}”. I want to challenge this exact finding.`;return `I want to discuss the finding “${f.title}”. Please stay on this finding and help me understand what the evidence supports, why it matters, and what I should consider next.`}
 async function actOnFinding(f,intent='discuss',source='studio'){
   if(!f){toast('That finding is no longer available in this snapshot. Refresh the evidence view.');return}
+  if(pending||finishingReview){toast('Wait for the current reviewer response to finish.');return}
   if(intent==='challenge'){
     const path=findingPrimaryPath(f);
     if(sessionId){openEvidenceDispute(path,f.id);return}
@@ -440,7 +452,6 @@ async function actOnFinding(f,intent='discuss',source='studio'){
     return;
   }
   if(!sessionId){await configureFindingFromEvidence(f.id,intent,source);return}
-  if(pending||finishingReview){toast('Wait for the current reviewer response to finish.');return}
   switchView('studio');
   // A student's unfinished thought is theirs to keep; do not replace or send it.
   if(els.response.value.trim()){
@@ -1191,7 +1202,10 @@ $('#submitEvidenceDispute').onclick=async()=>{
 };
 
 async function disputeEvidence(path,explanation,findingId=null){
-  if(!sessionId)return;
+  if(!sessionId||pending)return;
+  const submit=$('#submitEvidenceDispute');
+  submit.disabled=true;
+  submit.textContent='Maya is checking the frozen snapshot…';
 
   const body={
     path,
@@ -1228,7 +1242,7 @@ async function disputeEvidence(path,explanation,findingId=null){
       throw new Error(responseBody.detail||r.statusText);
     }
 
-    addTurn(
+    const studentTurn=addTurn(
       'student',
       'evidence_dispute',
       `I think the board should reconsider ${path}: ${explanation}`
@@ -1260,6 +1274,7 @@ async function disputeEvidence(path,explanation,findingId=null){
 
     clearReviewMutation(mutation);
     closeEvidenceDispute();
+    showSubmittedExchange(studentTurn);
 
   }catch(e){
     // Keep the overlay and its exact path/explanation open. If the server
@@ -1282,6 +1297,8 @@ async function disputeEvidence(path,explanation,findingId=null){
 
   }finally{
     setPending(false);
+    submit.disabled=false;
+    submit.textContent='Ask Maya to re-check →';
   }
 }
 
@@ -1361,7 +1378,35 @@ function relatedToLens(obj,dimension){const terms=[dimension.label,dimension.que
 function evidenceCondition(item){return item.condition||{key:'unknown',label:'Check evidence',why:'The condition of this evidence has not been assessed here.',next_step:'Inspect the frozen source and ask the reviewer what it supports.'}}
 function evidenceStatusLabel(item){return evidenceCondition(item).label}
 function evidenceStatusClass(item){return ({gap:'bad',concern:'warn',unknown:'warn',explore:'neutral',verify:'neutral',strong:'good',okay:'neutral'})[evidenceCondition(item).key]||'warn'}
-async function configureFocusedFromEvidence(focus,path=''){if(sessionId){switchView('studio');setMode('ask');if(path)setComposerContext({kind:'evidence',path,label:path,detail:'Selected from Engineering Evidence'});els.response.value=`I want your honest senior-engineer opinion about ${path||focus}. What is strong, weak, unclear, or worth improving before we move on?`;updateDraftHint();send();return}if(pending)return;prepareEntryContext({source_view:'engineering_evidence',entry_intent:'review',focus,path});switchView('studio');await selectReviewMode('focused');$('#reviewFocus').value=focus;updateReviewModeSummary();$('#reviewSessionPurpose').innerHTML=`<div><b>Starting artifact review</b><span>${escapeHtml(path||focus)}</span></div>`;$('#reviewSessionPurpose').classList.remove('hidden');startReviewAction()}
+async function configureFocusedFromEvidence(focus,path=''){
+  if(pending||finishingReview){toast('Wait for the current reviewer response to finish.');return}
+  if(sessionId&&document.body.classList.contains('review-session-active')){
+    switchView('studio');
+    if(els.response.value.trim()){
+      els.response.focus();
+      requestAnimationFrame(()=>els.response.scrollIntoView({block:'center',behavior:'smooth'}));
+      toast('Your draft is still here. Send or clear it before asking about another artifact.');
+      return;
+    }
+    setMode('ask');
+    if(path)setComposerContext({kind:'evidence',path,label:path,detail:'Selected from Engineering Evidence'});
+    els.response.value=`I want your honest senior-engineer opinion about ${path||focus}. What is strong, weak, unclear, or worth improving before we move on?`;
+    updateDraftHint();
+    const sending=send();
+    requestAnimationFrame(()=>els.transcript.scrollIntoView({block:'center',behavior:'smooth'}));
+    await sending;
+    return;
+  }
+  if(sessionId)newReviewHome();
+  prepareEntryContext({source_view:'engineering_evidence',entry_intent:'review',focus,path});
+  switchView('studio');
+  await selectReviewMode('focused');
+  $('#reviewFocus').value=focus;
+  updateReviewModeSummary();
+  $('#reviewSessionPurpose').innerHTML=`<div><b>Starting artifact review</b><span>${escapeHtml(path||focus)}</span></div>`;
+  $('#reviewSessionPurpose').classList.remove('hidden');
+  startReviewAction();
+}
 async function configureFindingFromEvidence(fid,intent='discuss',source='engineering_evidence'){const f=currentFindingById(fid);if(!f){toast('That finding is not available in the current frozen snapshot. Refresh Engineering Evidence and try again.');return}if(sessionId&&document.body.classList.contains('review-session-active')){await actOnFinding(f,intent,source);return}if(sessionId)newReviewHome();const findings=engineeringEvidenceData?.findings||currentEvidence?.findings||[];const available=findings.some(x=>String(x.id)===String(fid))?findings:[f,...findings];selectedFindingIds.clear();selectedFindingIds.add(fid);prepareEntryContext({source_view:source,entry_intent:intent,finding_ids:[fid],finding_id:fid,title:f.title});switchView('studio');await selectReviewMode('finding',{findings:available});const cb=$(`#findingPicker input[value="${CSS.escape(fid)}"]`);if(!cb){toast('The selected finding could not be placed in the review picker. Refresh the evidence snapshot before starting.');selectedFindingIds.clear()}updateReviewModeSummary();const action=intent==='resolve'?'Help resolve':intent==='challenge'?'Challenge':'Discuss';$('#reviewSessionPurpose').innerHTML=`<div><b>Prepared from Engineering Evidence · ${escapeHtml(action)}</b><span>${escapeHtml(f.title)}</span></div>`;$('#reviewSessionPurpose').classList.remove('hidden');requestAnimationFrame(()=>window.scrollTo({top:0,behavior:'auto'}));toast(`${action} Finding Review is ready. Use Start Finding Review above to begin.`)}
 function renderEvidenceLensDetail(dimension,evidence){activeEvidenceLens=dimension.id;$$('.mcard').forEach(c=>c.classList.toggle('selected',c.dataset.lens===dimension.id));const items=(evidence.items||[]).filter(x=>relatedToLens(x,dimension));const findings=(evidence.findings||[]).filter(x=>relatedToLens(x,dimension));const box=$('#evidenceLensDetail');box.classList.remove('hidden');box.innerHTML=`<div class="lens-detail-head"><div><span class="eyebrow">${escapeHtml(dimension.label.toUpperCase())}</span><h3>${escapeHtml(dimension.question)}</h3><p>${items.length} related evidence item(s) · ${findings.length} related finding(s) in the frozen ${escapeHtml(evidence.phase_id)} snapshot.</p></div><button class="primary compact" id="focusLensReview">Ask the Board about ${escapeHtml(dimension.label)}</button></div><div class="lens-detail-grid"><div><b>Related evidence</b>${items.slice(0,8).map(x=>`<span class="lens-evidence ${evidenceStatusClass(x)}">${escapeHtml(evidenceStatusLabel(x))} · ${escapeHtml(x.equivalent_path||x.title)}</span>`).join('')||'<span class="quiet">No direct evidence relationship was identified in this snapshot. That may itself be worth asking about.</span>'}</div><div><b>Related findings</b>${findings.slice(0,6).map(f=>`<button class="lens-finding" data-finding="${escapeHtml(f.id)}">${escapeHtml((f.lifecycle?.status||'open').replaceAll('_',' '))} · ${escapeHtml(f.title)}</button>`).join('')||'<span class="quiet">No current board finding is tied to this lens.</span>'}</div></div>`;$('#focusLensReview').onclick=()=>configureFocusedFromEvidence(`${dimension.label}: ${dimension.question}`);$$('.lens-finding').forEach(b=>b.onclick=()=>configureFindingFromEvidence(b.dataset.finding,'discuss','engineering_evidence_lens'));box.scrollIntoView({behavior:'smooth',block:'nearest'})}
 function snapshotCaptureLabel(value){if(!value)return 'capture time unavailable';const stamped=/Z$|[+-]\d{2}:\d{2}$/.test(value)?value:`${value}Z`;const date=new Date(stamped);return Number.isNaN(date.getTime())?'capture time unavailable':date.toLocaleString()}
