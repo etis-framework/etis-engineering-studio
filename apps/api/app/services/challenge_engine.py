@@ -141,12 +141,15 @@ def normalize_guidance_mentions(reply: str, refs: list[dict]) -> str:
         if not re.fullmatch(r"ES-\d{3}", stage):
             continue
         token = re.escape(stage)
+        # The model may add a descriptive link title and escape the opening
+        # parenthesis. The UI already renders the verified guidance reference.
+        link = rf"\[{token}(?::[^\]\n]*)?\]\\?\([^\n)]*\)"
         reply = re.sub(
-            rf"(?i)\bSee\s+\[{token}\]\([^\n)]*\)\s+for\s+(?:the\s+)?(?:relevant\s+)?guidance\.",
+            rf"(?i)\bSee\s+{link}(?:\s+for\s+(?:the\s+)?(?:relevant\s+)?guidance)?\.",
             "", reply,
         )
-        reply = re.sub(rf"\[{token}\]\([^\n)]*\)", stage, reply)
-    reply = re.sub(r"\[(ES-\d{3})\]\([^\n)]*\)", r"\1", reply)
+        reply = re.sub(link, stage, reply)
+    reply = re.sub(r"\[(ES-\d{3})(?::[^\]\n]*)?\]\\?\([^\n)]*\)", r"\1", reply)
     return re.sub(r"\n{3,}", "\n\n", reply).strip()
 
 
