@@ -182,11 +182,12 @@ AUTHORITY RULES
 - Distinguish current course phase-gate readiness concerns from broader professional engineering challenges when possible; do not imply every professional observation is a course requirement.
 - Studio is used DURING preparation. Absence of a phase-gate submission tag is not itself a defect. A required tag should identify the exact intended submission commit only when the package is submitted for final instructor review.
 - Only cite evidence_paths that appear in the supplied artifact list. If no supplied evidence supports a statement, do not cite a path.
-- Equivalent evidence is allowed: if the expected concept is credibly addressed in another supplied artifact, identify it rather than insisting on one filename.
+- Equivalent evidence is allowed in bounded repository areas: if the expected phase claim is supported in another supplied artifact (or complementary artifacts), identify the exact paths rather than insisting on one filename. A suggested location without validated claim_support does not satisfy the claim.
 - A filename is a clue, not proof. For an equivalent location, provide an exact substantive support_quote visible in a supplied window. A blank form, policy promise, or illustrative sample does not establish an operating record. Do not claim absence across omitted files or uninspected portions of long files.
 - Supplied windows include exact character offsets into the frozen file. They are samples, not complete-file inspection. A missing or conflicting passage outside them remains unknown. Compare related supplied artifacts before judging a claim.
 - Keep strengths factual and specific. Do not praise template structure as if it were team-authored work.
 - For up to four expected phase claims, return affirmative claim_support only when a specific supplied excerpt supports it. Quote an exact continuous span from one team-authored artifact. The quote must demonstrate the stated claim rather than repeat a heading, template instruction, or aspiration. Use the expected_path exactly as listed and a supplied support_path. Describe the bounded claim, not the quality of an entire file.
+- If a claim depends on another supplied artifact, include up to two corroborating_evidence records with path and exact continuous quote. Explain their relationship in the rationale. Do not use a generic file as corroboration, and do not treat one file's strength as proof of an entire directory.
 - Strong requires a demonstrated team decision or behavior, high confidence, and no material contradiction in supplied evidence. A defined policy without an operating example, counts of issues/PRs, or a polished plan without actual decisions is at most Okay. If context is missing, truncated, or conflicting, omit the positive claim rather than guess. State a meaningful limitation and next step even for Strong; never imply phase-gate approval or a grade.
 - Do not treat illustrative or sample content as a team accomplishment. For re-estimation, architecture-review follow-through, CI execution, test execution, and operational diagnosis/recovery claims, a Strong judgment requires a concrete past operating record with an exact quote in operating_evidence_path and operating_evidence_quote. The record may be in the same artifact, but must identify an actual event, action, or outcome. A proposed trigger, review template, workflow configuration, test plan, or runbook may support only its defined approach, not its execution. Do not claim a passing run or recovery from prose that merely promises one.
 - For an AI-use-log claim, a policy, blank table, or intended verification process is not affirmative support. If material AI use was recorded, cite a filled operating record that names what was used and what a human checked or changed. Supply operating_evidence_path and an exact continuous operating_evidence_quote from a team-authored excerpt or operating_excerpt; otherwise omit the claim. These are bounded windows, not the whole file. An explicit no-use statement may be useful context but does not prove that AI-assisted work was logged and reviewed. For other claims use empty strings when no separate operating record is necessary. Do not infer that no AI was used from an empty log.
@@ -334,6 +335,34 @@ For every finding, classify review_scope as course_readiness, professional_chall
             if judgment == 'strong' and (kind != 'demonstrated' or confidence != 'high'
                                          or int(fact.get('size') or 0) > 8000):
                 judgment = 'okay'
+            records = candidate.get('corroborating_evidence') or []
+            if not isinstance(records, list) or len(records) > 2:
+                continue
+            corroborating = []
+            invalid_corroboration = False
+            for record in records:
+                if not isinstance(record, dict):
+                    invalid_corroboration = True
+                    break
+                other_path = record.get('path')
+                other_quote = str(record.get('quote') or '').strip()
+                other = by_path.get(other_path)
+                other_fact = raw_artifacts.get(other_path)
+                if (other_path == path or any(r['path'] == other_path for r in corroborating)
+                    or not other or not other_fact or other['disclosure_status'] != 'clear'
+                    or other_fact.get('provenance') not in {'TEAM_ADDED', 'TEAM_ADAPTED'}
+                    or other_fact.get('quality') != 'reviewable'
+                    or len(other_quote) < 24 or len(other_quote) > 300
+                    or _UNFILLED_EVIDENCE.search(other_quote)
+                    or _ILLUSTRATIVE_EVIDENCE.search(other_quote)
+                    or not _quoted_in_visible_record(other_quote, other)):
+                    invalid_corroboration = True
+                    break
+                corroborating.append({'path': other_path, 'quote': other_quote})
+            if invalid_corroboration:
+                continue
+            if judgment == 'strong' and any(int(raw_artifacts[r['path']].get('size') or 0) > 8000 for r in corroborating):
+                judgment = 'okay'
             support.append({
                 'expected_path': expected, 'claim': expected_claims[expected],
                 'support_path': path, 'support_quote': quote,
@@ -342,6 +371,7 @@ For every finding, classify review_scope as course_readiness, professional_chall
                 'provenance': 'REVIEW', 'inspection_scope': 'bounded_excerpt',
                 'operating_evidence_path': operating_path if needs_record or operating_path else '',
                 'operating_evidence_quote': operating_quote if needs_record or operating_quote else '',
+                'corroborating_evidence': corroborating,
             })
             seen_claims.add(expected)
         return SemanticAssessment(strengths, findings, equivalent,

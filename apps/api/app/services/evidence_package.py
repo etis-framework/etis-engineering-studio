@@ -85,6 +85,20 @@ class EvidencePackageBuilder:
     """
 
     @staticmethod
+    def _supported_paths(evidence: dict, paths: list[str]) -> list[str]:
+        """Follow validated claim citations within the same frozen snapshot."""
+        selected = list(dict.fromkeys(paths))
+        for support in evidence.get('claim_support') or []:
+            cited = [support.get('support_path'),
+                     *(r.get('path') for r in support.get('corroborating_evidence') or [])]
+            if support.get('expected_path') not in selected and not any(p in selected for p in cited):
+                continue
+            for path in cited:
+                if path and path not in selected:
+                    selected.append(path)
+        return selected
+
+    @staticmethod
     def _model_safe_artifact(
         artifact: dict,
         max_chars: int,
@@ -144,6 +158,7 @@ class EvidencePackageBuilder:
 
         if not selected_paths:
             return self.build(evidence, challenge)
+        selected_paths = self._supported_paths(evidence, selected_paths)[:3]
 
         selected = []
         by_path = {
@@ -176,6 +191,7 @@ class EvidencePackageBuilder:
         for agenda_item in readout.get("agenda", [])[:6]:
             refs.update(agenda_item.get("evidence_refs") or [])
         paths = {r[5:] for r in refs if isinstance(r, str) and r.startswith("PATH:")}
+        paths.update(self._supported_paths(evidence, list(paths))[:8])
         items = []
         for item in evidence.get("items", []):
             title = item.get("title") or ""

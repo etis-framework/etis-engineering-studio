@@ -93,6 +93,10 @@ def make_strong_profile(root: Path):
     for path in root.rglob("*.md"):
         write_project_evidence(path, path.stem.replace("-", " ").title())
 
+    # A sample ADR template is not a team decision; remove it from the strong
+    # profile instead of counting one populated README as the whole area.
+    (root / "docs/decisions/ADR-000-template.md").unlink()
+
     for relative_path, topic in (
         ("docs/planning/README.md", "Planning Evidence Map"),
         ("docs/planning/team-commitments.md", "Team Commitments"),

@@ -112,6 +112,8 @@ def build_phase_preparation(phase_id: str, evidence) -> dict:
         support = state['support']
         grounded.append({'label': state['label'], 'path': item.get('title') or '',
                          'claim': support['claim'], 'source_path': support['support_path'],
+                         'source_paths': [support['support_path'],
+                                          *(r['path'] for r in support.get('corroborating_evidence', []))],
                          'support_kind': support['support_kind'],
                          'limitation': support['limitation']})
     unknowns = [{'path': item.get('title') or '', 'why': state['why']}

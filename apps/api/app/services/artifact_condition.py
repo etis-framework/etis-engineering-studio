@@ -67,6 +67,13 @@ def condition_for(item: dict, findings: list[dict], claim_support: list[dict] | 
         return result('unknown', 'Cannot judge yet', 'The Studio cannot inspect enough content to assess this evidence.',
                       'Open the frozen source and verify the claim with your team; ask the reviewer about the inspection limit.')
     if status in {'weak', 'partial'} or quality in {'empty', 'thin', 'partial'}:
+        if str(item.get('title') or '').endswith('/') and quality == 'partial':
+            sources = [s for s in claim_support or [] if s.get('expected_path') == item.get('title')]
+            cited = [s.get('support_path') for s in sources if s.get('support_path')]
+            return result('concern', 'Mixed evidence',
+                          f"This area includes material that is still scaffold-like, thin, or uninspected. "
+                          f"A bounded claim may have support in {', '.join(cited[:2])}, but it does not establish the whole area.",
+                          'Inspect each relevant file and reconcile gaps or contradictions before relying on the area.')
         return result('gap', 'Needs substantive work',
                       'The visible content is empty, very thin, or still contains starter placeholders.',
                       'Replace generic headings with the actual decision, owner, rationale, and verification evidence.')
@@ -91,14 +98,20 @@ def condition_for(item: dict, findings: list[dict], claim_support: list[dict] | 
             continue
         # A finding on the supporting file also blocks praise for this claim,
         # even when the expected item is a directory or an equivalent path.
-        source_item = {'title': support['support_path']}
-        if any(f.get('review_scope') != 'professional_challenge'
-               for f in _active_findings(source_item, findings)):
-            continue
-        # Directory rollups and suggested equivalent locations have weaker
-        # aggregation semantics than an exact inspected file.
-        strong = (support['judgment'] == 'strong' and status != 'equivalent'
-                  and not str(item.get('title') or '').endswith('/'))
+        source_paths = [support['support_path'], *(r.get('path') for r in support.get('corroborating_evidence') or [])]
+        source_concern = next((f for source_path in source_paths
+                               for f in _active_findings({'title': source_path}, findings)
+                               if f.get('review_scope') != 'professional_challenge'), None)
+        if source_concern:
+            return result('concern', 'Review concern',
+                          'A current concern cites one of the files used to support this claim. Reconcile the evidence before relying on the positive judgment.',
+                          'Inspect the cited sources and challenge or correct the contradictory evidence.', source_concern)
+        # A validated alternate can be Strong for this one claim. Directory
+        # rollups cannot inherit the strongest child's judgment.
+        strong = (support['judgment'] == 'strong'
+                  and not str(item.get('title') or '').endswith('/')
+                  and (status != 'equivalent' or
+                       item.get('equivalent_path') in source_paths))
         record_path = support.get('operating_evidence_path')
         maturity = ('The bounded excerpt defines the approach; its use is not established here.'
                     if support.get('support_kind') != 'demonstrated' else
@@ -111,6 +124,7 @@ def condition_for(item: dict, findings: list[dict], claim_support: list[dict] | 
         condition['support'] = {key: support[key] for key in
                                 ('claim', 'support_path', 'support_quote', 'support_kind',
                                  'limitation', 'inspection_scope')}
+        condition['support']['corroborating_evidence'] = support.get('corroborating_evidence') or []
         if (support.get('support_kind') == 'demonstrated'
             and support.get('operating_evidence_path') and support.get('operating_evidence_quote')):
             condition['support']['operating_evidence_path'] = support['operating_evidence_path']
@@ -163,7 +177,8 @@ def supported_observations(evidence) -> list[str]:
                  'team decision visible')
         observations.append(
             f"{condition['label']} for {item['title']}: {support['claim']} "
-            f"({basis} in bounded evidence from {support['support_path']}). "
+            f"({basis} in bounded evidence from {support['support_path']}"
+            f"{' with ' + ', '.join(r['path'] for r in support.get('corroborating_evidence', [])) if support.get('corroborating_evidence') else ''}). "
             f"Boundary: {support['limitation']}"
         )
     return observations[:4]

@@ -235,7 +235,10 @@ def _find_artifact(artifacts: list[ArtifactFact], path: str) -> ArtifactFact | N
         return None
     # Directory-level evidence is baseline only when all visible children are baseline.
     prov = 'BASELINE' if all(a.provenance == 'BASELINE' for a in children) else 'TEAM_ADAPTED'
-    quality = 'scaffold' if prov == 'BASELINE' else ('reviewable' if any(a.quality == 'reviewable' for a in children) else ('uninspected' if all(a.quality in {'uninspected', 'too_large'} for a in children) else 'partial'))
+    quality = ('scaffold' if prov == 'BASELINE' else
+               'uninspected' if all(a.quality in {'uninspected', 'too_large'} for a in children) else
+               'reviewable' if all(a.quality == 'reviewable' and a.provenance in {'TEAM_ADDED', 'TEAM_ADAPTED'} for a in children) else
+               'partial')
     return ArtifactFact(path=path, exists=True, provenance=prov, quality=quality, summary=f'{len(children)} artifact(s) visible under this evidence area.')
 
 

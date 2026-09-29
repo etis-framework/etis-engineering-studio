@@ -81,7 +81,7 @@ def test_operating_record_must_be_exact_team_authored_inspectable_and_disclosed(
     assert assess(candidate(), [artifact(content=PREFIX)])[0] == []
 
 
-def test_equivalent_operating_record_stays_cautious():
+def test_equivalent_operating_record_can_support_specific_strong_claim():
     alternate = 'docs/decisions/ai-review-record.md'
     supports, _ = assess(candidate(support_path=alternate, operating_evidence_path=alternate),
                          [artifact(path=alternate, content_excerpt=ENTRY, size=500)])
@@ -89,7 +89,7 @@ def test_equivalent_operating_record_stays_cautious():
     item = {'title': PATH, 'status': 'equivalent', 'equivalent_path': alternate,
             'quality': 'reviewable'}
     state = condition_for(item, [], supports)
-    assert state['key'] == 'okay'
+    assert state['key'] == 'strong'
     assert state['support']['operating_evidence_path'] == alternate
 
 
