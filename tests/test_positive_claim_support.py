@@ -147,6 +147,8 @@ def test_snapshot_roundtrip_keeps_claim_support_and_legacy_snapshot_works():
     from apps.api.app.services.evidence import snapshot_from_dict
     support = assess([candidate()]).claim_support
     base = {'phase_id': 'A2', 'repo_full_name': 'team/repo', 'commit_sha': 'frozen',
-            'items': [item()], 'findings': [], 'artifacts': [artifact()]}
+            'items': [{**item(), 'ref': 'EV-001', 'kind': 'repository',
+                       'detail': 'A2 estimate evidence'}],
+            'findings': [], 'artifacts': [artifact()]}
     assert snapshot_from_dict({**base, 'claim_support': support}).to_dict()['claim_support'] == support
     assert snapshot_from_dict(base).to_dict()['claim_support'] == []
