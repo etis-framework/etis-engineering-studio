@@ -25,6 +25,15 @@ from .repository_intelligence import (
 )
 
 
+# A frozen snapshot remains immutable. A new analysis contract may create a
+# second snapshot at the same commit instead of reusing an older interpretation.
+ANALYSIS_CONTRACT = 'claim_support_v1'
+
+
+def supports_current_analysis_contract(data: dict) -> bool:
+    return (data.get('semantic_review') or {}).get('analysis_contract') == ANALYSIS_CONTRACT
+
+
 @dataclass
 class EvidenceItem:
     ref: str
@@ -299,7 +308,7 @@ class GitHubEvidenceProvider:
                 if self.s.etis_semantic_repository_review and self.semantic_assessor.available():
                     try:
                         semantic = self.semantic_assessor.assess(phase_id, repo_full_name, sha, result.artifacts, metrics)
-                        result.semantic_review = {"enabled": True, "strength_count": len(semantic.strengths), "claim_support_count": len(semantic.claim_support), "finding_count": len(semantic.findings), "model": self.s.openai_repository_model}
+                        result.semantic_review = {"enabled": True, "analysis_contract": ANALYSIS_CONTRACT, "strength_count": len(semantic.strengths), "claim_support_count": len(semantic.claim_support), "finding_count": len(semantic.findings), "model": self.s.openai_repository_model}
                         result.ai_usage_events = list(semantic.usage_events or [])
                         for strength in semantic.strengths:
                             if strength not in result.strengths:
@@ -335,10 +344,10 @@ class GitHubEvidenceProvider:
                             all_findings, prior_categories=prior_categories, limit=self.s.etis_review_challenge_limit
                         )]
                     except Exception as exc:
-                        result.semantic_review = {"enabled": False, "warning": f"Semantic repository review was unavailable: {type(exc).__name__}"}
+                        result.semantic_review = {"enabled": False, "analysis_contract": ANALYSIS_CONTRACT, "warning": f"Semantic repository review was unavailable: {type(exc).__name__}"}
                         result.warnings.append('Semantic repository interpretation was unavailable; deterministic FACT analysis remains valid.')
                 else:
-                    result.semantic_review = {"enabled": False, "warning": 'Semantic repository review is not configured.'}
+                    result.semantic_review = {"enabled": False, "analysis_contract": ANALYSIS_CONTRACT, "warning": 'Semantic repository review is not configured.'}
                 self._cache[(repo_full_name, phase_id, sha)] = (time.monotonic(), copy.deepcopy(result))
                 return result
         except httpx.HTTPStatusError as exc:
@@ -415,6 +424,7 @@ def build_snapshot(phase_id: str, repo_full_name: str, sha: str, actual_paths: I
         artifacts=[a.to_dict() for a in artifacts],
         findings=[f.to_dict() for f in findings],
         challenge_candidates=[f.to_dict() for f in rank_challenges(findings, prior_categories=prior_categories, limit=get_settings().etis_review_challenge_limit)],
+        semantic_review={'enabled': False, 'analysis_contract': ANALYSIS_CONTRACT},
     )
 
 
@@ -442,6 +452,7 @@ def demo_snapshot(phase_id: str, repo_full_name='demo/comp330-f26-team-01', prio
         ['DEMO snapshot: use repository analysis for real review decisions.'], metrics,
         [a.to_dict() for a in artifacts], [f.to_dict() for f in findings],
         [f.to_dict() for f in rank_challenges(findings, prior_categories=prior_categories, limit=get_settings().etis_review_challenge_limit)], 'demo',
+        semantic_review={'enabled': False, 'analysis_contract': ANALYSIS_CONTRACT},
     )
 
 

@@ -23,7 +23,7 @@ from ..services.review_planning import (
     review_control_modes,
     review_objective_from_dict,
 )
-from ..services.evidence import snapshot_from_dict
+from ..services.evidence import snapshot_from_dict, supports_current_analysis_contract
 from ..services.evidence_package import EvidencePackageBuilder
 from ..services.artifact_condition import decorate_conditions
 from ..services.model_disclosure import sanitize_model_artifact
@@ -1237,8 +1237,10 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
                 .first()
             )
             if same:
-                cached_evidence = snapshot_from_dict(_safe_json(same.summary_json, {}))
-                cache_reused = True
+                same_data = _safe_json(same.summary_json, {})
+                if supports_current_analysis_contract(same_data):
+                    cached_evidence = snapshot_from_dict(same_data)
+                    cache_reused = True
         excluded=set()
         source_snapshot = same if 'same' in locals() and same else previous_snapshot
         current_sha = cached_evidence.commit_sha if cached_evidence else (orchestrator.evidence_provider.head_sha(repo_full_name) if repo_full_name else '')
