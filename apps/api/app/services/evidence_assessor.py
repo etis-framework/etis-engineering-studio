@@ -24,6 +24,24 @@ def _normalized_text(value: str) -> str:
     return re.sub(r'\s+', ' ', value).strip().casefold()
 
 
+def _quoted_in_visible_record(quote: str, source: dict) -> bool:
+    """Check the quoted span and reject a quote cut out of a labeled example."""
+    needle = _normalized_text(quote)
+    windows = [source['excerpt'], source['operating_excerpt'],
+               *(window['text'] for window in source['windows'])]
+    for window in windows:
+        visible = _normalized_text(window)
+        position = visible.find(needle)
+        if position < 0:
+            continue
+        prefix = visible[max(0, position - 120):position]
+        if re.search(r'(?:^|[.!?])\s*(?:example|sample|illustrative|hypothetical|dummy)\s*[:—-][^.!?]*$',
+                     prefix, re.I):
+            continue
+        return True
+    return False
+
+
 _UNFILLED_EVIDENCE = re.compile(r'\b(?:TODO|TBD|placeholder|fill in|example only)\b', re.I)
 _DESIGN_ONLY_LANGUAGE = re.compile(r'\b(?:will|should|must|planned|proposed|template)\b', re.I)
 _HUMAN_CHECK_ACTION = re.compile(
@@ -31,10 +49,28 @@ _HUMAN_CHECK_ACTION = re.compile(
     r'validated|corrected|examined|assessed|cross-checked|confirmed|tested)\b', re.I)
 _NON_OPERATING_EXAMPLE = re.compile(
     r'\b(?:example|sample|illustrative|hypothetical)\b|\bno AI (?:assistance|use)\b|\bAI was not used\b', re.I)
+_ILLUSTRATIVE_EVIDENCE = re.compile(
+    r'^\s*(?:#{1,6}\s*)?(?:example|sample|illustrative|hypothetical|dummy)\s*[:—-]'
+    r'|\b(?:for example|illustrative example|hypothetical scenario|sample entry)\b', re.I)
+_OBSERVED_ACTION = re.compile(
+    r'\b(?:revised|re-estimated|changed|reviewed|resolved|closed|tested|ran|reran|'
+    r'executed|passed|failed|deployed|restored|recovered|triaged|observed|'
+    r'verified|compared|accepted|rejected|corrected)\b', re.I)
 
 # These phase claims describe a control operating, rather than a control's
 # existence. A policy or blank log cannot establish that the team used it.
 _OPERATING_RECORD_CLAIMS = {'docs/ai/ai-use-log.md'}
+
+# These phase claims describe an exercised practice or an observed outcome. An
+# authored plan can still earn bounded Okay support; Strong needs a citable
+# operating record, which may be in the same file when it is a real event row.
+_PRACTICE_RECORD_FOR_STRONG = {
+    'A2': {'docs/planning/re-estimation.md'},
+    'A3': {'docs/reviews/architecture-review.md'},
+    'A4': {'.github/workflows/ci.yml', 'docs/testing/', 'docs/reviews/architecture-review.md'},
+    'A5': {'docs/testing/', 'test-evidence/'},
+    'A6': {'docs/testing/', 'docs/operations/', 'docs/observability/'},
+}
 
 
 class SemanticEvidenceAssessor:
@@ -152,6 +188,7 @@ AUTHORITY RULES
 - Keep strengths factual and specific. Do not praise template structure as if it were team-authored work.
 - For up to four expected phase claims, return affirmative claim_support only when a specific supplied excerpt supports it. Quote an exact continuous span from one team-authored artifact. The quote must demonstrate the stated claim rather than repeat a heading, template instruction, or aspiration. Use the expected_path exactly as listed and a supplied support_path. Describe the bounded claim, not the quality of an entire file.
 - Strong requires a demonstrated team decision or behavior, high confidence, and no material contradiction in supplied evidence. A defined policy without an operating example, counts of issues/PRs, or a polished plan without actual decisions is at most Okay. If context is missing, truncated, or conflicting, omit the positive claim rather than guess. State a meaningful limitation and next step even for Strong; never imply phase-gate approval or a grade.
+- Do not treat illustrative or sample content as a team accomplishment. For re-estimation, architecture-review follow-through, CI execution, test execution, and operational diagnosis/recovery claims, a Strong judgment requires a concrete past operating record with an exact quote in operating_evidence_path and operating_evidence_quote. The record may be in the same artifact, but must identify an actual event, action, or outcome. A proposed trigger, review template, workflow configuration, test plan, or runbook may support only its defined approach, not its execution. Do not claim a passing run or recovery from prose that merely promises one.
 - For an AI-use-log claim, a policy, blank table, or intended verification process is not affirmative support. If material AI use was recorded, cite a filled operating record that names what was used and what a human checked or changed. Supply operating_evidence_path and an exact continuous operating_evidence_quote from a team-authored excerpt or operating_excerpt; otherwise omit the claim. These are bounded windows, not the whole file. An explicit no-use statement may be useful context but does not prove that AI-assisted work was logged and reviewed. For other claims use empty strings when no separate operating record is necessary. Do not infer that no AI was used from an empty log.
 - In A2, a populated requirement-to-task row can support a defined trace, and an estimate with a real range and assumption can support that bounded decision. Do not claim a task was completed, reviewed, or verified from a plan alone. GitHub counts are discovery clues; tie actual work to an identified requirement and outcome before interpreting follow-through. Treat a missing visible issue as an uncertainty to check if the team supplies another credible work record.
 
@@ -218,12 +255,10 @@ For every finding, classify review_scope as course_readiness, professional_chall
                 or fact.get('provenance') not in {'TEAM_ADDED', 'TEAM_ADAPTED'}
                 or fact.get('quality') != 'reviewable'
                 or len(quote) < 24 or len(quote) > 300
-                or _UNFILLED_EVIDENCE.search(quote)
+                or _UNFILLED_EVIDENCE.search(quote) or _ILLUSTRATIVE_EVIDENCE.search(quote)
                 or (e.get('expected_path') in _OPERATING_RECORD_CLAIMS and
                     (_NON_OPERATING_EXAMPLE.search(quote) or not _HUMAN_CHECK_ACTION.search(quote)))
-                or not any(_normalized_text(quote) in _normalized_text(window)
-                           for window in [source['excerpt'], source['operating_excerpt'],
-                                          *(w['text'] for w in source['windows'])])):
+                or not _quoted_in_visible_record(quote, source)):
                 continue
             equivalent.append({
                 'expected_path': e.get('expected_path'),
@@ -262,30 +297,37 @@ For every finding, classify review_scope as course_readiness, professional_chall
                 or fact.get('provenance') not in {'TEAM_ADDED', 'TEAM_ADAPTED'}
                 or fact.get('quality') != 'reviewable' or source['disclosure_status'] != 'clear'
                 or len(quote) < 24 or len(quote) > 300
-                or _UNFILLED_EVIDENCE.search(quote)
+                or _UNFILLED_EVIDENCE.search(quote) or _ILLUSTRATIVE_EVIDENCE.search(quote)
                 or (kind == 'demonstrated' and _DESIGN_ONLY_LANGUAGE.search(quote)
                     and not (expected in _OPERATING_RECORD_CLAIMS and _HUMAN_CHECK_ACTION.search(quote)))
-                or not any(_normalized_text(quote) in _normalized_text(window)
-                           for window in [source['excerpt'], source['operating_excerpt'],
-                                          *(w['text'] for w in source['windows'])])
+                or not _quoted_in_visible_record(quote, source)
                 or kind not in {'defined', 'demonstrated'}
                 or judgment not in {'strong', 'okay'} or confidence not in {'moderate', 'high'}
                 or not rationale or not limitation or not next_step):
                 continue
-            if expected in _OPERATING_RECORD_CLAIMS:
+            needs_record = expected in _OPERATING_RECORD_CLAIMS or (
+                expected in _PRACTICE_RECORD_FOR_STRONG.get(phase_id, set())
+                and kind == 'demonstrated')
+            if needs_record or operating_path or operating_quote:
                 operating_source = by_path.get(operating_path)
                 operating_fact = raw_artifacts.get(operating_path)
-                if (kind != 'demonstrated' or not operating_source or not operating_fact
+                if (not operating_source or not operating_fact
                     or operating_fact.get('provenance') not in {'TEAM_ADDED', 'TEAM_ADAPTED'}
                     or operating_fact.get('quality') != 'reviewable'
                     or operating_source['disclosure_status'] != 'clear'
                     or len(operating_quote) < 24 or len(operating_quote) > 300
                     or _UNFILLED_EVIDENCE.search(operating_quote)
-                    or _NON_OPERATING_EXAMPLE.search(operating_quote)
-                    or not _HUMAN_CHECK_ACTION.search(operating_quote)
-                    or not any(_normalized_text(operating_quote) in _normalized_text(window)
-                               for window in [operating_source['excerpt'], operating_source['operating_excerpt'],
-                                              *(w['text'] for w in operating_source['windows'])])):
+                    or _ILLUSTRATIVE_EVIDENCE.search(operating_quote)
+                    or not _quoted_in_visible_record(operating_quote, operating_source)):
+                    continue
+                if expected in _OPERATING_RECORD_CLAIMS and (
+                    kind != 'demonstrated' or _NON_OPERATING_EXAMPLE.search(operating_quote)
+                    or not _HUMAN_CHECK_ACTION.search(operating_quote)):
+                    continue
+                if (expected in _PRACTICE_RECORD_FOR_STRONG.get(phase_id, set())
+                    and kind == 'demonstrated' and
+                    (not _OBSERVED_ACTION.search(operating_quote)
+                     or _DESIGN_ONLY_LANGUAGE.search(operating_quote))):
                     continue
             # A short excerpt can substantiate a bounded claim, not whole-file quality.
             # A long artifact's decisive section may be beyond the retained 8000 chars.
@@ -298,8 +340,8 @@ For every finding, classify review_scope as course_readiness, professional_chall
                 'support_kind': kind, 'judgment': judgment, 'confidence': confidence,
                 'rationale': rationale, 'limitation': limitation, 'next_step': next_step,
                 'provenance': 'REVIEW', 'inspection_scope': 'bounded_excerpt',
-                'operating_evidence_path': operating_path if expected in _OPERATING_RECORD_CLAIMS else '',
-                'operating_evidence_quote': operating_quote if expected in _OPERATING_RECORD_CLAIMS else '',
+                'operating_evidence_path': operating_path if needs_record or operating_path else '',
+                'operating_evidence_quote': operating_quote if needs_record or operating_quote else '',
             })
             seen_claims.add(expected)
         return SemanticAssessment(strengths, findings, equivalent,
