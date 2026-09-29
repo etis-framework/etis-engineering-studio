@@ -45,7 +45,7 @@ def _active_findings(item: dict, findings: list[dict]) -> list[dict]:
     )
 
 
-def condition_for(item: dict, findings: list[dict]) -> dict:
+def condition_for(item: dict, findings: list[dict], claim_support: list[dict] | None = None) -> dict:
     status = str(item.get('status') or '')
     quality = str(item.get('quality') or '')
     paths = _paths_for(item)
@@ -78,6 +78,35 @@ def condition_for(item: dict, findings: list[dict]) -> dict:
         return result('explore', 'Explore the trade-off',
                       'A professional engineering question cites this evidence; it is not automatically a phase requirement.',
                       'Discuss the trade-off with the reviewer if it affects your team’s decision.', professional)
+    for support in claim_support or []:
+        if (support.get('expected_path') != item.get('title')
+            or support.get('judgment') not in {'strong', 'okay'}
+            or support.get('provenance') != 'REVIEW'
+            or support.get('inspection_scope') != 'bounded_excerpt'
+            or support.get('confidence') not in {'moderate', 'high'}
+            or (support.get('judgment') == 'strong' and
+                (support.get('confidence') != 'high' or support.get('support_kind') != 'demonstrated'))
+            or not all(support.get(k) for k in ('claim', 'support_path', 'support_quote',
+                                               'rationale', 'limitation', 'next_step'))):
+            continue
+        # A finding on the supporting file also blocks praise for this claim,
+        # even when the expected item is a directory or an equivalent path.
+        source_item = {'title': support['support_path']}
+        if any(f.get('review_scope') != 'professional_challenge'
+               for f in _active_findings(source_item, findings)):
+            continue
+        # Directory rollups and suggested equivalent locations have weaker
+        # aggregation semantics than an exact inspected file.
+        strong = (support['judgment'] == 'strong' and status != 'equivalent'
+                  and not str(item.get('title') or '').endswith('/'))
+        condition = result('strong' if strong else 'okay',
+                           'Strong support' if strong else 'Okay support',
+                           f"For this phase claim: {support['rationale']} Limitation: {support['limitation']}",
+                           support['next_step'])
+        condition['support'] = {key: support[key] for key in
+                                ('claim', 'support_path', 'support_quote', 'support_kind',
+                                 'limitation', 'inspection_scope')}
+        return condition
     if status == 'equivalent':
         return result('verify', 'Equivalent evidence suggested',
                       f"The expected evidence may be at {item.get('equivalent_path') or 'another location'}; its claim still needs checking.",
@@ -93,5 +122,5 @@ def condition_for(item: dict, findings: list[dict]) -> dict:
 def decorate_conditions(evidence: dict) -> dict:
     findings = evidence.get('findings') or []
     for item in evidence.get('items') or []:
-        item['condition'] = condition_for(item, findings)
+        item['condition'] = condition_for(item, findings, evidence.get('claim_support') or [])
     return evidence

@@ -61,6 +61,7 @@ class EvidenceSnapshotData:
     equivalent_evidence: list[dict] | None = None
     semantic_review: dict | None = None
     ai_usage_events: list[dict] | None = None
+    claim_support: list[dict] | None = None
 
     def to_dict(self):
         return asdict(self)
@@ -298,7 +299,7 @@ class GitHubEvidenceProvider:
                 if self.s.etis_semantic_repository_review and self.semantic_assessor.available():
                     try:
                         semantic = self.semantic_assessor.assess(phase_id, repo_full_name, sha, result.artifacts, metrics)
-                        result.semantic_review = {"enabled": True, "strength_count": len(semantic.strengths), "finding_count": len(semantic.findings), "model": self.s.openai_repository_model}
+                        result.semantic_review = {"enabled": True, "strength_count": len(semantic.strengths), "claim_support_count": len(semantic.claim_support), "finding_count": len(semantic.findings), "model": self.s.openai_repository_model}
                         result.ai_usage_events = list(semantic.usage_events or [])
                         for strength in semantic.strengths:
                             if strength not in result.strengths:
@@ -311,6 +312,7 @@ class GitHubEvidenceProvider:
                                 result.findings.append(finding)
                                 existing_keys.add(key)
                         result.equivalent_evidence = semantic.equivalent_evidence
+                        result.claim_support = semantic.claim_support
                         if semantic.equivalent_evidence:
                             equivalents = {x.get('expected_path'): x for x in semantic.equivalent_evidence if x.get('confidence') in {'moderate','high'}}
                             for item in result.items:
@@ -453,4 +455,5 @@ def snapshot_from_dict(data: dict) -> EvidenceSnapshotData:
         artifacts=list(data.get('artifacts') or []), findings=list(data.get('findings') or []), challenge_candidates=list(data.get('challenge_candidates') or []),
         snapshot_kind=data.get('snapshot_kind','github'), longitudinal=data.get('longitudinal'), equivalent_evidence=data.get('equivalent_evidence'),
         semantic_review=data.get('semantic_review'), ai_usage_events=list(data.get('ai_usage_events') or []),
+        claim_support=list(data.get('claim_support') or []),
     )
