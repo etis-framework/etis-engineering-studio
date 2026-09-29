@@ -596,3 +596,21 @@
 .eitem .pill.warn{background:#34291a;color:#f9dfb5}
 .eitem .pill.neutral{background:#123039;color:#d4f0ee}
 @media(max-width:1100px){.evidence-summary-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Keep the primary review action in view when team and repository names are long.
+   The action owns a full row instead of competing with four context fields. */
+#studio .professional-context{grid-template-columns:repeat(4,minmax(0,1fr))}
+#studio .professional-context>div{min-width:0}
+#studio .professional-context .repo-context{min-width:0}
+#studio .professional-context .repo-context input{max-width:100%}
+#studio .professional-context select{max-width:100%}
+#studio .professional-context .context-actions{grid-column:1/-1;justify-content:flex-end;padding:10px 14px}
+#studio .professional-context .context-actions #newReview{min-height:46px}
+@media(max-width:1100px){#studio .professional-context{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){
+  #studio .professional-context{display:grid;grid-template-columns:minmax(0,1fr)}
+  #studio .professional-context .context-actions{justify-content:stretch}
+  #studio .professional-context .context-actions #newReview{flex:1;min-width:0;white-space:normal}
+}
+/* The concern title and its explanation must remain separate at every width. */
+.evidence-next-action .preparation-focus>div{display:grid;gap:5px}
