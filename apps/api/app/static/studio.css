@@ -513,6 +513,7 @@
 .conversation-scroll-cue{display:block;width:100%;padding:8px 12px;border:0;border-top:1px solid var(--line);background:#10212b;color:var(--accent);cursor:pointer;text-align:center;font-size:12px;font-weight:700}
 .review-session-active .reviewer-meta>span:not(.lens-badge){display:none}
 .board-readout{padding:15px 16px;margin-bottom:12px}
+.evidence-lenses-section>summary{cursor:pointer;color:var(--accent);font-weight:700;padding:4px 0}.evidence-lenses-section>summary small{color:var(--muted);font-weight:400;margin-left:8px}
 .board-readout-head h3{font-size:1.05rem}
 .board-counts{margin:10px 0}
 .board-focus{display:grid;gap:3px;margin:10px 0 4px;padding:10px 12px;border:1px solid #31545b;border-radius:10px;background:#0b1b24}

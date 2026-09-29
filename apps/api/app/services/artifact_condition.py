@@ -99,13 +99,19 @@ def condition_for(item: dict, findings: list[dict], claim_support: list[dict] | 
         # aggregation semantics than an exact inspected file.
         strong = (support['judgment'] == 'strong' and status != 'equivalent'
                   and not str(item.get('title') or '').endswith('/'))
+        maturity = ('A team decision or operating record is visible in the bounded excerpt.'
+                    if support.get('support_kind') == 'demonstrated' else
+                    'The bounded excerpt defines the approach; its use is not established here.')
         condition = result('strong' if strong else 'okay',
                            'Strong support' if strong else 'Okay support',
-                           f"For this phase claim: {support['rationale']} Limitation: {support['limitation']}",
+                           f"For this phase claim: {support['rationale']} {maturity} Limitation: {support['limitation']}",
                            support['next_step'])
         condition['support'] = {key: support[key] for key in
                                 ('claim', 'support_path', 'support_quote', 'support_kind',
                                  'limitation', 'inspection_scope')}
+        if support.get('operating_evidence_path') and support.get('operating_evidence_quote'):
+            condition['support']['operating_evidence_path'] = support['operating_evidence_path']
+            condition['support']['operating_evidence_quote'] = support['operating_evidence_quote']
         return condition
     if status == 'equivalent':
         return result('verify', 'Equivalent evidence suggested',
@@ -149,7 +155,8 @@ def supported_observations(evidence) -> list[str]:
         support = condition['support']
         observations.append(
             f"{condition['label']} for {item['title']}: {support['claim']} "
-            f"(excerpt from {support['support_path']}). "
+            f"({'decision or use visible' if support['support_kind'] == 'demonstrated' else 'approach defined; use not established'} "
+            f"in excerpt from {support['support_path']}). "
             f"Boundary: {support['limitation']}"
         )
     return observations[:4]

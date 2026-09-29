@@ -27,7 +27,7 @@ from .repository_intelligence import (
 
 # A frozen snapshot remains immutable. A new analysis contract may create a
 # second snapshot at the same commit instead of reusing an older interpretation.
-ANALYSIS_CONTRACT = 'claim_support_v1'
+ANALYSIS_CONTRACT = 'practice_evidence_v2'
 
 
 def supports_current_analysis_contract(data: dict) -> bool:
