@@ -124,3 +124,32 @@ def decorate_conditions(evidence: dict) -> dict:
     for item in evidence.get('items') or []:
         item['condition'] = condition_for(item, findings, evidence.get('claim_support') or [])
     return evidence
+
+
+def supported_observations(evidence) -> list[str]:
+    """Bounded positive claims shared by the board and Evidence page.
+
+    Recompute the projection because stored snapshots may predate conditions, and
+    finding lifecycle changes can invalidate praise without changing the SHA.
+    """
+    if isinstance(evidence, dict):
+        items = evidence.get('items') or []
+        findings = evidence.get('findings') or []
+        supports = evidence.get('claim_support') or []
+    else:
+        items = getattr(evidence, 'items', []) or []
+        findings = getattr(evidence, 'findings', []) or []
+        supports = getattr(evidence, 'claim_support', []) or []
+    observations = []
+    for value in items:
+        item = value if isinstance(value, dict) else vars(value)
+        condition = condition_for(item, findings, supports)
+        if condition['key'] not in {'strong', 'okay'}:
+            continue
+        support = condition['support']
+        observations.append(
+            f"{condition['label']} for {item['title']}: {support['claim']} "
+            f"(excerpt from {support['support_path']}). "
+            f"Boundary: {support['limitation']}"
+        )
+    return observations[:4]

@@ -262,7 +262,7 @@ def test_opening_is_personalized_and_one_question_at_a_time():
     assert 'scaffold' in opening_lower
     # The exact engineering challenge is intentionally selected from the current
     # repository findings.  Test the UX contract rather than a canned sentence:
-    # a personalized, strengths-first opening that asks one focused question.
+    # a personalized opening that asks one focused question without praising scaffold.
     assert opening.count('?') == 1
     assert any(term in opening_lower for term in ('evidence','workflow','control','claim','consequence'))
     assert 'who owns the next action' not in opening_lower
