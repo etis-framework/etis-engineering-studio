@@ -254,6 +254,26 @@ REPOSITORY_ASSESSMENT_SCHEMA = {
     "type": "object",
     "properties": {
         "strengths": {"type": "array", "items": {"type": "string"}},
+        "claim_support": {
+            "type": "array", "maxItems": 4,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "expected_path": {"type": "string"},
+                    "support_path": {"type": "string"},
+                    "support_quote": {"type": "string"},
+                    "support_kind": {"type": "string", "enum": ["defined", "demonstrated"]},
+                    "judgment": {"type": "string", "enum": ["strong", "okay"]},
+                    "confidence": {"type": "string", "enum": ["low", "moderate", "high"]},
+                    "rationale": {"type": "string"},
+                    "limitation": {"type": "string"},
+                    "next_step": {"type": "string"},
+                },
+                "required": ["expected_path", "support_path", "support_quote", "support_kind",
+                             "judgment", "confidence", "rationale", "limitation", "next_step"],
+                "additionalProperties": False,
+            },
+        },
         "findings": {
             "type": "array",
             "items": {
@@ -294,7 +314,7 @@ REPOSITORY_ASSESSMENT_SCHEMA = {
             },
         },
     },
-    "required": ["strengths", "findings", "equivalent_evidence"],
+    "required": ["strengths", "claim_support", "findings", "equivalent_evidence"],
     "additionalProperties": False,
 }
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
+from dataclasses import field
 
 from .ai_provider import OpenAIResponsesProvider
 from .course_model import get_phase
@@ -14,6 +16,15 @@ class SemanticAssessment:
     findings: list[dict]
     equivalent_evidence: list[dict]
     usage_events: list[dict]
+    claim_support: list[dict] = field(default_factory=list)
+
+
+def _normalized_text(value: str) -> str:
+    return re.sub(r'\s+', ' ', value).strip().casefold()
+
+
+_UNFILLED_EVIDENCE = re.compile(r'\b(?:TODO|TBD|placeholder|fill in|example only)\b', re.I)
+_DESIGN_ONLY_LANGUAGE = re.compile(r'\b(?:will|should|must|planned|proposed|template)\b', re.I)
 
 
 class SemanticEvidenceAssessor:
@@ -34,7 +45,6 @@ class SemanticEvidenceAssessor:
         if not self.available():
             return SemanticAssessment([], [], [], [])
         phase = get_phase(phase_id)
-        visible_paths = {a.get('path') for a in artifacts if a.get('path')}
         artifact_context = []
         for a in artifacts:
             disclosure = sanitize_model_artifact(
@@ -57,6 +67,19 @@ class SemanticEvidenceAssessor:
                 'disclosure_status': disclosure_status,
                 'disclosure_reasons': list(disclosure.redactions),
             })
+        expected_paths = [x.get('path', '') for x in phase.get('expected_evidence', [])]
+        artifact_context.sort(key=lambda a: (
+            0 if a['path'] in expected_paths else
+            1 if any(p.endswith('/') and a['path'].startswith(p) for p in expected_paths) else 2
+        ))
+        # Supply complete JSON records, not an arbitrarily truncated JSON string.
+        # Validate model citations against exactly the records the model saw.
+        supplied_context = []
+        for artifact in artifact_context:
+            if len(json.dumps([*supplied_context, artifact])) > 28000:
+                break
+            supplied_context.append(artifact)
+        visible_paths = {a['path'] for a in supplied_context}
         system = f"""
 You are the semantic evidence assessor for the ETIS Engineering Studio. You are NOT the conversational reviewer.
 Analyze only the supplied frozen repository evidence for COMP 330 phase {phase_id}.
@@ -80,6 +103,8 @@ AUTHORITY RULES
 - Only cite evidence_paths that appear in the supplied artifact list. If no supplied evidence supports a statement, do not cite a path.
 - Equivalent evidence is allowed: if the expected concept is credibly addressed in another supplied artifact, identify it rather than insisting on one filename.
 - Keep strengths factual and specific. Do not praise template structure as if it were team-authored work.
+- For up to four expected phase claims, return affirmative claim_support only when a specific supplied excerpt supports it. Quote an exact continuous span from one team-authored artifact. The quote must demonstrate the stated claim rather than repeat a heading, template instruction, or aspiration. Use the expected_path exactly as listed and a supplied support_path. Describe the bounded claim, not the quality of an entire file.
+- Strong requires a demonstrated team decision or behavior, high confidence, and no material contradiction in supplied evidence. A defined policy without an operating example, counts of issues/PRs, or a polished plan without actual decisions is at most Okay. If context is missing, truncated, or conflicting, omit the positive claim rather than guess. State a meaningful limitation and next step even for Strong; never imply phase-gate approval or a grade.
 
 PHASE PURPOSE
 {phase.get('purpose','')}
@@ -95,9 +120,9 @@ Repository: {repo_full_name}
 Frozen commit: {commit_sha}
 GitHub metrics: {json.dumps(metrics)}
 Artifacts and bounded excerpts:
-{json.dumps(artifact_context)[:28000]}
+{json.dumps(supplied_context)}
 
-Identify no more than 4 strong positive observations and 6 high-value REVIEW findings. Avoid duplicating obvious exact-path findings unless semantic interpretation materially adds something.
+Identify no more than 4 positive claim supports and 6 high-value REVIEW findings. Avoid duplicating obvious exact-path findings unless semantic interpretation materially adds something. Return an empty claim_support array when the bounded excerpts do not substantiate a positive phase claim.
 For every finding, classify review_scope as course_readiness, professional_challenge, or both, and identify the dominant reasoning_pattern. A professional_challenge may teach industry judgment without implying that the course phase requires remediation.
 """.strip()
         raw = self.ai.repository_assessment(system, user)
@@ -143,4 +168,52 @@ For every finding, classify review_scope as course_readiness, professional_chall
                 'confidence': e.get('confidence', 'moderate'),
                 'provenance': 'REVIEW',
             })
-        return SemanticAssessment(strengths, findings, equivalent, [raw.get("_usage")] if raw.get("_usage") else [])
+        expected_claims = {
+            x.get('path'): x.get('claim', '')
+            for x in phase.get('expected_evidence', [])
+            if x.get('path') and not x['path'].startswith('GitHub ')
+        }
+        by_path = {a['path']: a for a in supplied_context if a.get('path')}
+        raw_artifacts = {a['path']: a for a in artifacts if a.get('path')}
+        support: list[dict] = []
+        seen_claims: set[str] = set()
+        for candidate in raw.get('claim_support', [])[:4]:
+            if not isinstance(candidate, dict):
+                continue
+            expected = candidate.get('expected_path')
+            path = candidate.get('support_path')
+            source = by_path.get(path)
+            fact = raw_artifacts.get(path)
+            quote = str(candidate.get('support_quote') or '').strip()
+            kind = candidate.get('support_kind')
+            judgment = candidate.get('judgment')
+            confidence = candidate.get('confidence')
+            rationale = str(candidate.get('rationale') or '').strip()[:350]
+            limitation = str(candidate.get('limitation') or '').strip()[:240]
+            next_step = str(candidate.get('next_step') or '').strip()[:240]
+            if (expected not in expected_claims or expected in seen_claims or not source or not fact
+                or fact.get('provenance') not in {'TEAM_ADDED', 'TEAM_ADAPTED'}
+                or fact.get('quality') != 'reviewable' or source['disclosure_status'] != 'clear'
+                or len(quote) < 24 or len(quote) > 300
+                or _UNFILLED_EVIDENCE.search(quote)
+                or (kind == 'demonstrated' and _DESIGN_ONLY_LANGUAGE.search(quote))
+                or _normalized_text(quote) not in _normalized_text(source['excerpt'])
+                or kind not in {'defined', 'demonstrated'}
+                or judgment not in {'strong', 'okay'} or confidence not in {'moderate', 'high'}
+                or not rationale or not limitation or not next_step):
+                continue
+            # A short excerpt can substantiate a bounded claim, not whole-file quality.
+            # A long artifact's decisive section may be beyond the retained 8000 chars.
+            if judgment == 'strong' and (kind != 'demonstrated' or confidence != 'high'
+                                         or int(fact.get('size') or 0) > 8000):
+                judgment = 'okay'
+            support.append({
+                'expected_path': expected, 'claim': expected_claims[expected],
+                'support_path': path, 'support_quote': quote,
+                'support_kind': kind, 'judgment': judgment, 'confidence': confidence,
+                'rationale': rationale, 'limitation': limitation, 'next_step': next_step,
+                'provenance': 'REVIEW', 'inspection_scope': 'bounded_excerpt',
+            })
+            seen_claims.add(expected)
+        return SemanticAssessment(strengths, findings, equivalent,
+                                  [raw.get("_usage")] if raw.get("_usage") else [], support)
