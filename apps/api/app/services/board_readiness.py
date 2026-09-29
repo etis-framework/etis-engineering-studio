@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .course_model import get_phase
-from .artifact_condition import supported_observations
+from .artifact_condition import condition_for, supported_observations
 
 # Student-facing readiness dimensions are deliberately phase-specific and non-numeric.
 # They orient coaching; they are not a grade prediction or an autonomous gate verdict.
@@ -66,10 +66,75 @@ def _severity_label(value: int) -> str:
     return "observation"
 
 
+def build_phase_preparation(phase_id: str, evidence) -> dict:
+    """Current, bounded coaching priorities from one frozen phase snapshot.
+
+    This is a presentation projection. In particular, absence of a finding is
+    never a positive assessment, and a professional stretch question is not a
+    course requirement. Accept both stored dictionaries and live snapshots.
+    """
+    def field(value, name, default=None):
+        return value.get(name, default) if isinstance(value, dict) else getattr(value, name, default)
+
+    items = [x if isinstance(x, dict) else vars(x) for x in (field(evidence, 'items', []) or [])]
+    findings = [f for f in (field(evidence, 'findings', []) or []) if isinstance(f, dict)]
+    supports = field(evidence, 'claim_support', []) or []
+    conditions = [(item, condition_for(item, findings, supports)) for item in items]
+    active = [f for f in findings if not f.get('positive')
+              and (f.get('lifecycle') or {}).get('status', 'open') not in {'corrected', 'resolved'}]
+    course = [f for f in active if f.get('review_scope', 'course_readiness') != 'professional_challenge']
+    course.sort(key=lambda f: (int(f.get('rank_score') or 0), int(f.get('severity') or 0)), reverse=True)
+
+    focus = None
+    if course:
+        finding = course[0]
+        linked = next(((item, state) for item, state in conditions
+                       if state.get('finding_id') == finding.get('id')), None)
+        focus = {
+            'kind': 'review_interpretation', 'title': finding.get('title') or 'Review this concern',
+            'why': finding.get('statement') or '',
+            'next_step': (linked[1]['next_step'] if linked else
+                          'Inspect the cited frozen evidence; ask the reviewer to explain or challenge this interpretation, then decide what to change.'),
+            'evidence_refs': list(finding.get('evidence_refs') or []),
+            'finding_id': finding.get('id'),
+        }
+    else:
+        gap = next(((item, state) for item, state in conditions if state['key'] == 'gap'), None)
+        if gap:
+            focus = {'kind': 'evidence_gap', 'title': gap[0].get('title') or 'Evidence area',
+                     'why': gap[1]['why'], 'next_step': gap[1]['next_step'],
+                     'evidence_refs': [gap[0].get('title') or ''], 'finding_id': None}
+
+    grounded = []
+    for item, state in conditions:
+        if state['key'] not in {'strong', 'okay'}:
+            continue
+        support = state['support']
+        grounded.append({'label': state['label'], 'path': item.get('title') or '',
+                         'claim': support['claim'], 'source_path': support['support_path'],
+                         'support_kind': support['support_kind'],
+                         'limitation': support['limitation']})
+    unknowns = [{'path': item.get('title') or '', 'why': state['why']}
+                for item, state in conditions if state['key'] in {'unknown', 'verify'}]
+    return {
+        'phase_id': phase_id,
+        'focus': focus,
+        'supported': grounded[:3],
+        'unknowns': unknowns[:2],
+        'professional_questions': sum(f.get('review_scope') == 'professional_challenge' for f in active),
+        'boundary': ('This is preparation using the frozen repository snapshot and challengeable REVIEW interpretations. '
+                     'It does not predict an instructor decision or grade. A changed repository needs a new review.'),
+    }
+
+
 def build_board_readout(phase_id: str, evidence) -> dict:
     phase = get_phase(phase_id)
-    findings = list(getattr(evidence, "challenge_candidates", []) or getattr(evidence, "findings", []) or [])
-    findings = [f for f in findings if not f.get("positive")]
+    def field(name, default=None):
+        return evidence.get(name, default) if isinstance(evidence, dict) else getattr(evidence, name, default)
+
+    findings = list(field("challenge_candidates", []) or field("findings", []) or [])
+    findings = [f for f in findings if not f.get("positive")
+                and (f.get('lifecycle') or {}).get('status', 'open') not in {'corrected', 'resolved'}]
     findings.sort(key=lambda f: (int(f.get("rank_score", 0)), int(f.get("severity", 0))), reverse=True)
 
     counts = {"major": 0, "issue": 0, "observation": 0}
@@ -95,7 +160,7 @@ def build_board_readout(phase_id: str, evidence) -> dict:
     for name, _keywords in PHASE_DIMENSIONS.get(phase_id, []):
         dimensions.append({"name": name, "status": "Not independently assessed"})
 
-    primary = agenda[0] if agenda else None
+    primary = next((row for row in agenda if row['review_scope'] != 'professional_challenge'), None)
     if primary:
         assessment = (
             f"Let's improve your {phase_id} work before the instructor review. "
@@ -103,14 +168,14 @@ def build_board_readout(phase_id: str, evidence) -> dict:
         )
     else:
         assessment = (
-            f"Your {phase_id} repository review did not identify a pressing evidence gap. "
-            "Let's examine a consequential engineering decision together; a complete set of files alone cannot prove the work is ready."
+            f"No current course concern was selected from the {phase_id} snapshot. "
+            "Let's examine a consequential engineering decision together; this does not establish phase readiness."
         )
 
-    metrics = getattr(evidence, "repository_metrics", {}) or {}
+    metrics = field("repository_metrics", {}) or {}
     tags = list(metrics.get("tags") or [])
     tag_count = int(metrics.get("tag_count", 0) or 0)
-    current_sha = str(getattr(evidence, "commit_sha", "") or "")
+    current_sha = str(field("commit_sha", "") or "")
     matching_tags = [t.get("name") for t in tags if t.get("sha") and current_sha.startswith(str(t.get("sha")))]
     tag_note = ""
     if tag_count:
@@ -136,6 +201,7 @@ def build_board_readout(phase_id: str, evidence) -> dict:
         "assessment": assessment,
         "counts": counts,
         "strengths": strengths,
+        "preparation": build_phase_preparation(phase_id, evidence),
         "agenda": agenda[:6],
         "readiness_map": dimensions,
         "submission_baseline": submission_baseline,

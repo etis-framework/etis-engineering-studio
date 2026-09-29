@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from apps.api.app.services.board_readiness import build_board_readout
+from apps.api.app.services.board_readiness import build_board_readout, build_phase_preparation
 from apps.api.app.services.challenge_engine import ChallengeEngine
 from apps.api.app.services.repository_intelligence import analyze_local_repository
 
@@ -33,6 +33,64 @@ def test_no_keyword_match_is_not_presented_as_healthy_or_complete():
     result=build_board_readout("A2", e)
     assert all(d["status"] == "Not independently assessed" for d in result["readiness_map"])
     assert not any(d["status"] == "No material gap identified" for d in result["readiness_map"])
+
+
+def test_preparation_mixed_repository_never_promotes_presence_or_professional_stretch():
+    strong = {'expected_path': 'docs/planning/estimates.md', 'support_path': 'docs/planning/estimates.md',
+              'claim': 'Estimate names a range and owner', 'support_quote': 'Task T-12 took three days and was verified by a PR review.',
+              'support_kind': 'demonstrated', 'judgment': 'strong', 'confidence': 'high',
+              'rationale': 'One completed estimate is visible.', 'limitation': 'Other tasks are not shown.',
+              'next_step': 'Compare the rest.', 'inspection_scope': 'bounded_excerpt', 'provenance': 'REVIEW'}
+    defined = {**strong, 'expected_path': 'docs/ai/ai-use-log.md', 'support_path': 'docs/ai/ai-use-log.md',
+               'claim': 'Disclosure process is defined', 'support_quote': 'Document each material AI use and verification.',
+               'support_kind': 'defined', 'judgment': 'okay', 'limitation': 'No actual use is visible.'}
+    items = [
+        {'title': 'docs/planning/estimates.md', 'status': 'present', 'quality': 'reviewable', 'source_provenance': 'TEAM_ADAPTED'},
+        {'title': 'docs/ai/ai-use-log.md', 'status': 'present', 'quality': 'reviewable', 'source_provenance': 'TEAM_ADAPTED'},
+        {'title': 'docs/planning/scope.md', 'status': 'missing', 'quality': 'missing'},
+        {'title': 'docs/decisions/', 'status': 'present', 'quality': 'reviewable', 'source_provenance': 'TEAM_ADAPTED'},
+        {'title': 'docs/requirements/', 'status': 'uninspected', 'quality': 'too_large'},
+    ]
+    course = {'id': 'scope', 'title': 'Scope is missing', 'statement': 'No team scope was visible.',
+              'evidence_refs': ['PATH:docs/planning/scope.md'], 'review_scope': 'course_readiness',
+              'rank_score': 20, 'severity': 4}
+    stretch = {'id': 'tradeoff', 'title': 'Discuss technical debt', 'review_scope': 'professional_challenge',
+               'rank_score': 99, 'severity': 5}
+    data = {'items': items, 'findings': [stretch, course], 'challenge_candidates': [stretch, course],
+            'claim_support': [strong, defined], 'strengths': ['Scaffold is excellent'], 'coverage': 97}
+    p = build_phase_preparation('A2', data)
+    assert p['focus']['title'] == 'Scope is missing'
+    assert p['focus']['evidence_refs'] == ['PATH:docs/planning/scope.md']
+    assert p['professional_questions'] == 1
+    assert [(x['label'], x['support_kind']) for x in p['supported']] == [
+        ('Strong support', 'demonstrated'), ('Okay support', 'defined')]
+    assert p['unknowns'][0]['path'] == 'docs/decisions/'
+    assert 'grade' in p['boundary'] and '97' not in str(p)
+    assert 'Scaffold is excellent' not in str(p)
+    assert build_board_readout('A2', data)['preparation'] == p
+
+    # A challengeable contrary finding suppresses only its cited positive claim.
+    conflict = {'id': 'estimate-conflict', 'title': 'Estimate conflicts with schedule',
+                'evidence_refs': ['PATH:docs/planning/estimates.md'], 'review_scope': 'both',
+                'rank_score': 30, 'severity': 4, 'lifecycle': {'status': 'evidence_disputed'}}
+    data['findings'].append(conflict)
+    assert [x['path'] for x in build_phase_preparation('A2', data)['supported']] == ['docs/ai/ai-use-log.md']
+    conflict['lifecycle']['status'] = 'corrected'
+    assert len(build_phase_preparation('A2', data)['supported']) == 2
+    course['lifecycle'] = {'status': 'resolved'}
+    assert build_phase_preparation('A2', data)['focus']['kind'] == 'evidence_gap'
+    assert 'scope' not in [x['id'] for x in build_board_readout('A2', data)['agenda']]
+
+
+def test_preparation_empty_and_professional_only_remain_uncertain():
+    empty = {'items': [], 'findings': [], 'repository_metrics': {'tag_count': 1}}
+    p = build_phase_preparation('A5', empty)
+    assert p['focus'] is None and p['supported'] == []
+    assert 'instructor' in p['boundary']
+    only_stretch = {'items': [], 'findings': [{'id': 'p', 'review_scope': 'professional_challenge'}]}
+    assert build_phase_preparation('A2', only_stretch)['focus'] is None
+    readout = build_board_readout('A2', {**only_stretch, 'challenge_candidates': only_stretch['findings']})
+    assert 'No current course concern' in readout['assessment']
 
 
 def test_scaffold_praise_does_not_become_an_opening_strength():

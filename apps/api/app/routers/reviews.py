@@ -11,7 +11,7 @@ from ..db import get_db
 from ..models import EvidenceSnapshot, ReviewSession, ReviewTurn, Team, User, TeamSection, TeamMembership, ReviewFindingState
 from ..schemas import ReviewStartRequest, ReviewResponseRequest, ReviewClarifyRequest, ReviewCoachRequest, EvidenceDisputeRequest, FindingDispositionRequest
 from ..services.challenge_engine import ChallengeEngine, Challenge, reviewer_profile, default_memory
-from ..services.board_readiness import build_board_readout
+from ..services.board_readiness import build_board_readout, build_phase_preparation
 from ..services.review_orchestrator import ReviewOrchestrator
 from ..services.review_planning import (
     PlanningContext,
@@ -1266,13 +1266,6 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
     except RuntimeError as exc:
         raise HTTPException(502, str(exc)) from exc
     evidence.longitudinal = _longitudinal_summary(previous_data, evidence.to_dict())
-    # The executive Board readout is built after longitudinal comparison so repeat
-    # Studio use can orient the student to what changed while preserving the same
-    # phase-specific professional standard.
-    if req.mode == 'board_review':
-        challenge.board_readout = build_board_readout(req.phase_id, evidence)
-        if evidence.longitudinal.get("has_prior_snapshot"):
-            challenge.board_readout["since_last_review"] = evidence.longitudinal
     # Reuse the exact same frozen snapshot when the repository commit and phase have not changed.
     # This preserves team-level finding corrections/disputes across multiple student sessions and
     # prevents duplicate snapshot rows for identical evidence.
@@ -1308,6 +1301,12 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
                     )
         db.flush()
     evidence_payload=_decorate_finding_states(evidence.to_dict(),_finding_states(db,snapshot.id))
+    # Build the current preparation view after lifecycle decoration. Otherwise
+    # corrected interpretations on a reused snapshot can reappear as blockers.
+    if req.mode == 'board_review':
+        challenge.board_readout = build_board_readout(req.phase_id, evidence_payload)
+        if evidence.longitudinal.get("has_prior_snapshot"):
+            challenge.board_readout["since_last_review"] = evidence.longitudinal
 
     opening = engine.opening_message(challenge, user.display_name)
     memory = default_memory(challenge.lens)
@@ -1426,6 +1425,7 @@ def current_evidence(team_id: int, phase_id: str | None, request: Request, db: S
         "created_at": snapshot.created_at.isoformat(),
         "team": {"id": team.id, "name": team.name, "project_name": team.project_name, "repo_full_name": team.repo_full_name},
         "evidence": _public_evidence_snapshot(evidence),
+        "preparation": build_phase_preparation(evidence.get('phase_id') or phase_id or '', evidence),
     }
 
 
