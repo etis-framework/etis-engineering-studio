@@ -309,10 +309,11 @@ REPOSITORY_ASSESSMENT_SCHEMA = {
                 "properties": {
                     "expected_path": {"type": "string"},
                     "actual_path": {"type": "string"},
+                    "support_quote": {"type": "string"},
                     "explanation": {"type": "string"},
                     "confidence": {"type": "string", "enum": ["low", "moderate", "high"]},
                 },
-                "required": ["expected_path", "actual_path", "explanation", "confidence"],
+                "required": ["expected_path", "actual_path", "support_quote", "explanation", "confidence"],
                 "additionalProperties": False,
             },
         },

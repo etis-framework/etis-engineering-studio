@@ -18,6 +18,10 @@ BASELINE_MARKERS = [
     '[owner]', '[date]', '[team', '<team', '<project', 'placeholder'
 ]
 READY_CLAIM_RE = re.compile(r'\b(ready|complete|completed|done|release[- ]ready|launch[- ]ready|production[- ]ready)\b', re.I)
+REVIEW_SIGNAL_RE = re.compile(
+    r'\b(?:AI|assistant|human|verified|checked|reviewed|rejected|accepted|changed|'
+    r'requirement|estimate|dependency|owner|decision|scope|risk|acceptance|'
+    r'validation|test|issue|task|assumption|result|outcome)\b', re.I)
 
 
 @lru_cache
@@ -44,6 +48,7 @@ class ArtifactFact:
     summary: str = ''
     content_excerpt: str = ''
     review_content: str = ''
+    analysis_windows: list[dict] | None = None
     url: str = ''
     phase_scope: str = 'CURRENT_PHASE'
     scope_reason: str = ''
@@ -122,9 +127,34 @@ def artifact_from_bytes(path: str, data: bytes, url: str = '') -> ArtifactFact:
         compact = re.sub(r'\s+', ' ', text).strip()
         excerpt = compact if len(compact) <= 1200 else f"{compact[:600]} … {compact[-600:]}"
         review_content = text[:8000]
+        # Retain only a few exact, labelled windows from the frozen bytes.
+        # The semantic reviewer can inspect a later operating record without
+        # putting entire long documents or unbounded repositories in prompts.
+        windows = []
+        if len(text) > 1200:
+            candidates = []
+            for start in range(800, len(text), 900):
+                chunk = text[start:start + 900]
+                if not chunk.strip():
+                    continue
+                signals = len(REVIEW_SIGNAL_RE.findall(chunk))
+                scaffolds = len(re.findall(r'\b(?:TODO|TBD|placeholder|example only|fill in)\b', chunk, re.I))
+                candidates.append((signals - 2 * scaffolds, start, chunk))
+            # One informative interior window and the end. Exact offsets keep
+            # selected passages inspectable even after whitespace normalization.
+            interior = [c for c in candidates if c[1] + 900 < len(text) - 450]
+            if interior:
+                _, start, chunk = max(interior, key=lambda c: (c[0], c[1]))
+                windows.append({'start': start, 'end': start + len(chunk), 'text': chunk})
+            tail_start = max(0, len(text) - 900)
+            if not windows or tail_start >= windows[0]['end']:
+                windows.append({'start': tail_start, 'end': len(text), 'text': text[tail_start:]})
+        else:
+            windows = []
     else:
         excerpt = ''
         review_content = ''
+        windows = []
     return ArtifactFact(
         path=path,
         exists=True,
@@ -135,6 +165,7 @@ def artifact_from_bytes(path: str, data: bytes, url: str = '') -> ArtifactFact:
         summary=summary,
         content_excerpt=excerpt,
         review_content=review_content,
+        analysis_windows=windows,
         url=url,
     )
 

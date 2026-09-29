@@ -89,11 +89,21 @@ class EvidencePackageBuilder:
         artifact: dict,
         max_chars: int,
         content_field: str = "content_excerpt",
+        include_windows: bool = False,
     ) -> dict:
         path = artifact.get("path") or ""
+        content = artifact.get(content_field) or artifact.get("content_excerpt") or ""
+        if include_windows:
+            later = [w for w in (artifact.get("analysis_windows") or [])[:1 if max_chars < 3000 else 2]
+                     if isinstance(w, dict) and isinstance(w.get("text"), str)]
+            labelled = "".join(
+                f"\n\n[Frozen excerpt, characters {w.get('start')}–{w.get('end')}]\n{w['text'][:900]}"
+                for w in later
+            )
+            content = content[:max(0, max_chars - len(labelled))] + labelled[:max_chars]
         disclosure = sanitize_model_artifact(
             path,
-            (artifact.get(content_field) or artifact.get("content_excerpt") or "")[:max_chars],
+            content[:max_chars],
         )
 
         if "sensitive_file" in disclosure.redactions:
@@ -147,8 +157,9 @@ class EvidencePackageBuilder:
                 selected.append(
                     self._model_safe_artifact(
                         artifact,
-                        max_chars=8000,
+                        max_chars=8000 if len(selected_paths) == 1 else max(2200, 8000 // len(selected_paths)),
                         content_field="review_content",
+                        include_windows=True,
                     )
                 )
 
@@ -179,7 +190,7 @@ class EvidencePackageBuilder:
             path = art.get("path") or ""
             if path in paths or any(path.startswith(p.rstrip("/") + "/") for p in paths):
                 artifacts.append(
-                    self._model_safe_artifact(art, max_chars=1800)
+                    self._model_safe_artifact(art, max_chars=1800, include_windows=True)
                 )
         if not artifacts:
             # Include only a few high-information artifacts, never the entire repository.

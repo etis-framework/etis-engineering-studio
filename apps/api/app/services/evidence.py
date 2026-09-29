@@ -27,7 +27,7 @@ from .repository_intelligence import (
 
 # A frozen snapshot remains immutable. A new analysis contract may create a
 # second snapshot at the same commit instead of reusing an older interpretation.
-ANALYSIS_CONTRACT = 'practice_evidence_v2'
+ANALYSIS_CONTRACT = 'bounded_retrieval_v3'
 
 
 def supports_current_analysis_contract(data: dict) -> bool:
@@ -308,7 +308,7 @@ class GitHubEvidenceProvider:
                 if self.s.etis_semantic_repository_review and self.semantic_assessor.available():
                     try:
                         semantic = self.semantic_assessor.assess(phase_id, repo_full_name, sha, result.artifacts, metrics)
-                        result.semantic_review = {"enabled": True, "analysis_contract": ANALYSIS_CONTRACT, "strength_count": len(semantic.strengths), "claim_support_count": len(semantic.claim_support), "finding_count": len(semantic.findings), "model": self.s.openai_repository_model}
+                        result.semantic_review = {"enabled": True, "analysis_contract": ANALYSIS_CONTRACT, "strength_count": len(semantic.strengths), "claim_support_count": len(semantic.claim_support), "finding_count": len(semantic.findings), "inspection": semantic.inspection, "model": self.s.openai_repository_model}
                         result.ai_usage_events = list(semantic.usage_events or [])
                         for strength in semantic.strengths:
                             if strength not in result.strengths:

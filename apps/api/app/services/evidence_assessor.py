@@ -17,6 +17,7 @@ class SemanticAssessment:
     equivalent_evidence: list[dict]
     usage_events: list[dict]
     claim_support: list[dict] = field(default_factory=list)
+    inspection: dict = field(default_factory=dict)
 
 
 def _normalized_text(value: str) -> str:
@@ -54,6 +55,7 @@ class SemanticEvidenceAssessor:
         if not self.available():
             return SemanticAssessment([], [], [], [])
         phase = get_phase(phase_id)
+        expected_paths = [x.get('path', '') for x in phase.get('expected_evidence', [])]
         artifact_context = []
         for a in artifacts:
             disclosure = sanitize_model_artifact(
@@ -76,6 +78,15 @@ class SemanticEvidenceAssessor:
                         disclosure_status = 'redacted'
                     else:
                         operating_excerpt = later.text
+            windows = []
+            for window in (a.get('analysis_windows') or [])[:2]:
+                if not isinstance(window, dict) or not isinstance(window.get('text'), str):
+                    continue
+                safe = sanitize_model_artifact(a.get('path'), window['text'][:900])
+                if safe.redactions:
+                    disclosure_status = 'quarantined' if 'sensitive_file' in safe.redactions else 'redacted'
+                    continue
+                windows.append({'start': window.get('start'), 'end': window.get('end'), 'text': safe.text})
             artifact_context.append({
                 'path': a.get('path'),
                 'provenance': a.get('provenance'),
@@ -83,22 +94,37 @@ class SemanticEvidenceAssessor:
                 'summary': a.get('summary'),
                 'excerpt': disclosure.text,
                 'operating_excerpt': operating_excerpt,
+                'windows': windows,
                 'disclosure_status': disclosure_status,
                 'disclosure_reasons': list(disclosure.redactions),
             })
-        expected_paths = [x.get('path', '') for x in phase.get('expected_evidence', [])]
-        artifact_context.sort(key=lambda a: (
-            0 if a['path'] in expected_paths else
-            1 if any(p.endswith('/') and a['path'].startswith(p) for p in expected_paths) else 2
-        ))
+        # Round-robin evidence areas so a large planning directory cannot use
+        # the entire budget before a record in docs/ai/ or docs/decisions/.
+        areas: dict[str, list[dict]] = {}
+        for artifact in artifact_context:
+            path = str(artifact.get('path') or '')
+            parts = path.split('/')
+            area = '/'.join(parts[:2]) if parts[0] in {'docs', '.github'} and len(parts) > 2 else parts[0]
+            areas.setdefault(area, []).append(artifact)
+        for members in areas.values():
+            members.sort(key=lambda a: (a['path'] not in expected_paths,
+                                        not any(p.endswith('/') and a['path'].startswith(p) for p in expected_paths),
+                                        a['path']))
+        ordered = []
+        while any(areas.values()):
+            for members in areas.values():
+                if members:
+                    ordered.append(members.pop(0))
         # Supply complete JSON records, not an arbitrarily truncated JSON string.
         # Validate model citations against exactly the records the model saw.
         supplied_context = []
-        for artifact in artifact_context:
-            if len(json.dumps([*supplied_context, artifact])) > 28000:
-                break
-            supplied_context.append(artifact)
+        for artifact in ordered:
+            if len(json.dumps([*supplied_context, artifact])) <= 28000:
+                supplied_context.append(artifact)
         visible_paths = {a['path'] for a in supplied_context}
+        inspection = {'inspected_artifact_count': len(supplied_context),
+                      'omitted_artifact_count': len(artifact_context) - len(supplied_context),
+                      'scope': 'bounded_windows'}
         system = f"""
 You are the semantic evidence assessor for the ETIS Engineering Studio. You are NOT the conversational reviewer.
 Analyze only the supplied frozen repository evidence for COMP 330 phase {phase_id}.
@@ -121,6 +147,8 @@ AUTHORITY RULES
 - Studio is used DURING preparation. Absence of a phase-gate submission tag is not itself a defect. A required tag should identify the exact intended submission commit only when the package is submitted for final instructor review.
 - Only cite evidence_paths that appear in the supplied artifact list. If no supplied evidence supports a statement, do not cite a path.
 - Equivalent evidence is allowed: if the expected concept is credibly addressed in another supplied artifact, identify it rather than insisting on one filename.
+- A filename is a clue, not proof. For an equivalent location, provide an exact substantive support_quote visible in a supplied window. A blank form, policy promise, or illustrative sample does not establish an operating record. Do not claim absence across omitted files or uninspected portions of long files.
+- Supplied windows include exact character offsets into the frozen file. They are samples, not complete-file inspection. A missing or conflicting passage outside them remains unknown. Compare related supplied artifacts before judging a claim.
 - Keep strengths factual and specific. Do not praise template structure as if it were team-authored work.
 - For up to four expected phase claims, return affirmative claim_support only when a specific supplied excerpt supports it. Quote an exact continuous span from one team-authored artifact. The quote must demonstrate the stated claim rather than repeat a heading, template instruction, or aspiration. Use the expected_path exactly as listed and a supplied support_path. Describe the bounded claim, not the quality of an entire file.
 - Strong requires a demonstrated team decision or behavior, high confidence, and no material contradiction in supplied evidence. A defined policy without an operating example, counts of issues/PRs, or a polished plan without actual decisions is at most Okay. If context is missing, truncated, or conflicting, omit the positive claim rather than guess. State a meaningful limitation and next step even for Strong; never imply phase-gate approval or a grade.
@@ -139,6 +167,7 @@ DECISIONS TO DEFEND
         user = f"""
 Repository: {repo_full_name}
 Frozen commit: {commit_sha}
+Inspection: {json.dumps(inspection)}
 GitHub metrics: {json.dumps(metrics)}
 Artifacts and bounded excerpts:
 {json.dumps(supplied_context)}
@@ -180,11 +209,26 @@ For every finding, classify review_scope as course_readiness, professional_chall
         equivalent: list[dict] = []
         expected_paths = {x.get('path') for x in phase.get('expected_evidence', [])}
         for e in raw.get('equivalent_evidence', [])[:8]:
-            if e.get('actual_path') not in visible_paths or e.get('expected_path') not in expected_paths:
+            actual = e.get('actual_path')
+            source = next((a for a in supplied_context if a.get('path') == actual), None)
+            fact = next((a for a in artifacts if a.get('path') == actual), None)
+            quote = str(e.get('support_quote') or '').strip()
+            if (actual not in visible_paths or e.get('expected_path') not in expected_paths
+                or not source or not fact or source['disclosure_status'] != 'clear'
+                or fact.get('provenance') not in {'TEAM_ADDED', 'TEAM_ADAPTED'}
+                or fact.get('quality') != 'reviewable'
+                or len(quote) < 24 or len(quote) > 300
+                or _UNFILLED_EVIDENCE.search(quote)
+                or (e.get('expected_path') in _OPERATING_RECORD_CLAIMS and
+                    (_NON_OPERATING_EXAMPLE.search(quote) or not _HUMAN_CHECK_ACTION.search(quote)))
+                or not any(_normalized_text(quote) in _normalized_text(window)
+                           for window in [source['excerpt'], source['operating_excerpt'],
+                                          *(w['text'] for w in source['windows'])])):
                 continue
             equivalent.append({
                 'expected_path': e.get('expected_path'),
-                'actual_path': e.get('actual_path'),
+                'actual_path': actual,
+                'support_quote': quote,
                 'explanation': str(e.get('explanation', '')).strip(),
                 'confidence': e.get('confidence', 'moderate'),
                 'provenance': 'REVIEW',
@@ -219,9 +263,11 @@ For every finding, classify review_scope as course_readiness, professional_chall
                 or fact.get('quality') != 'reviewable' or source['disclosure_status'] != 'clear'
                 or len(quote) < 24 or len(quote) > 300
                 or _UNFILLED_EVIDENCE.search(quote)
-                or (kind == 'demonstrated' and _DESIGN_ONLY_LANGUAGE.search(quote))
+                or (kind == 'demonstrated' and _DESIGN_ONLY_LANGUAGE.search(quote)
+                    and not (expected in _OPERATING_RECORD_CLAIMS and _HUMAN_CHECK_ACTION.search(quote)))
                 or not any(_normalized_text(quote) in _normalized_text(window)
-                           for window in (source['excerpt'], source['operating_excerpt']))
+                           for window in [source['excerpt'], source['operating_excerpt'],
+                                          *(w['text'] for w in source['windows'])])
                 or kind not in {'defined', 'demonstrated'}
                 or judgment not in {'strong', 'okay'} or confidence not in {'moderate', 'high'}
                 or not rationale or not limitation or not next_step):
@@ -238,7 +284,8 @@ For every finding, classify review_scope as course_readiness, professional_chall
                     or _NON_OPERATING_EXAMPLE.search(operating_quote)
                     or not _HUMAN_CHECK_ACTION.search(operating_quote)
                     or not any(_normalized_text(operating_quote) in _normalized_text(window)
-                               for window in (operating_source['excerpt'], operating_source['operating_excerpt']))):
+                               for window in [operating_source['excerpt'], operating_source['operating_excerpt'],
+                                              *(w['text'] for w in operating_source['windows'])])):
                     continue
             # A short excerpt can substantiate a bounded claim, not whole-file quality.
             # A long artifact's decisive section may be beyond the retained 8000 chars.
@@ -256,4 +303,4 @@ For every finding, classify review_scope as course_readiness, professional_chall
             })
             seen_claims.add(expected)
         return SemanticAssessment(strengths, findings, equivalent,
-                                  [raw.get("_usage")] if raw.get("_usage") else [], support)
+                                  [raw.get("_usage")] if raw.get("_usage") else [], support, inspection)

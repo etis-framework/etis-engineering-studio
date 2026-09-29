@@ -24,6 +24,7 @@ class FakeAI:
                 {
                     'expected_path': 'docs/team/working-agreements.md',
                     'actual_path': 'docs/team/team-charter.md',
+                    'support_quote': 'Disputes escalate to the Team Lead after peer discussion.',
                     'explanation': 'The charter excerpt contains explicit conflict-resolution rules.',
                     'confidence': 'moderate',
                 }

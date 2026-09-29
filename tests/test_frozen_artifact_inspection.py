@@ -47,6 +47,19 @@ def test_selected_frozen_copy_is_authorized_bounded_and_not_in_bulk_response():
     assert client.get(f'/api/v1/reviews/evidence/{sid}/artifact', params={'path': 'docs/missing.md'}).status_code == 404
 
 
+def test_later_windows_are_visible_only_in_authorized_artifact_inspection():
+    path = 'docs/team/assistant-decisions.md'
+    later = 'Maya checked AI advice against REQ-04 and rejected its scope change.'
+    seed, sid = _snapshot([{'path': path, 'size': 21000, 'content_excerpt': 'Earlier summary',
+                           'review_content': 'Beginning of the document',
+                           'analysis_windows': [{'start': 14000, 'end': 14000 + len(later), 'text': later}]}])
+    listing = client.get(f"/api/v1/reviews/evidence/current?team_id={seed['team_id']}&phase_id=A2").json()
+    assert 'analysis_windows' not in listing['evidence']['artifacts'][0]
+    body = client.get(f'/api/v1/reviews/evidence/{sid}/artifact', params={'path': path}).json()
+    assert body['additional_windows'] == [{'start': 14000, 'end': 14000 + len(later), 'content': later}]
+    assert body['may_be_incomplete'] is True
+
+
 def test_sensitive_file_is_quarantined_and_old_snapshot_is_labeled_incomplete():
     secret = 'sk-proj-' + 'A' * 40
     seed, sid = _snapshot([
