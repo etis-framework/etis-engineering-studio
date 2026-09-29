@@ -210,6 +210,7 @@ def _public_evidence_snapshot(evidence: dict) -> dict:
     for artifact in evidence.get("artifacts", []):
         item = dict(artifact)
         item.pop("review_content", None)
+        item.pop("analysis_windows", None)
         disclosure = sanitize_model_artifact(
             item.get("path"), item.get("content_excerpt")
         )
@@ -230,14 +231,24 @@ def _frozen_artifact(snapshot: EvidenceSnapshot, path: str) -> dict:
     if fallback:
         review_copy = artifact.get("content_excerpt") or ""
     disclosure = sanitize_model_artifact(path, review_copy[:8000])
+    additional_windows = []
+    window_redacted = False
+    if "sensitive_file" not in disclosure.redactions:
+        for window in (artifact.get("analysis_windows") or [])[:2]:
+            if not isinstance(window, dict):
+                continue
+            safe = sanitize_model_artifact(path, str(window.get("text") or "")[:900])
+            window_redacted = window_redacted or bool(safe.redactions)
+            additional_windows.append({"start": window.get("start"), "end": window.get("end"), "content": safe.text})
     return {
         "path": path,
         "snapshot_id": snapshot.id,
         "commit_sha": snapshot.commit_sha,
         "content": disclosure.text,
+        "additional_windows": additional_windows,
         "source": "compact_excerpt" if fallback else "bounded_review_copy",
         "may_be_incomplete": fallback or len(review_copy) >= 8000 or int(artifact.get("size") or 0) > 8000,
-        "disclosure_status": "quarantined" if "sensitive_file" in disclosure.redactions else ("redacted" if disclosure.redactions else "clear"),
+        "disclosure_status": "quarantined" if "sensitive_file" in disclosure.redactions else ("redacted" if disclosure.redactions or window_redacted else "clear"),
         "provenance": artifact.get("provenance") or "UNKNOWN",
         "quality": artifact.get("quality") or "unknown",
         "summary": artifact.get("summary") or "",
