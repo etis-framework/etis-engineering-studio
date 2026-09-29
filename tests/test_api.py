@@ -268,6 +268,19 @@ def test_opening_is_personalized_and_one_question_at_a_time():
     assert 'who owns the next action' not in opening_lower
 
 
+def test_preparation_is_shared_by_new_review_and_current_evidence():
+    seed, started = _start_a1()
+    readout = started['challenge']['board_readout']
+    assert readout['not_a_grade'] is True
+    assert readout['preparation']['focus']['kind'] in {'review_interpretation', 'evidence_gap'}
+    assert 'grade' in readout['preparation']['boundary']
+    current = client.get('/api/v1/reviews/evidence/current', params={
+        'team_id': seed['team_id'], 'phase_id': 'A1',
+    })
+    assert current.status_code == 200
+    assert current.json()['preparation'] == readout['preparation']
+
+
 def test_review_start_retry_reuses_same_persisted_review_objective():
     seed = client.post('/api/v1/dev/seed').json()
     body = {

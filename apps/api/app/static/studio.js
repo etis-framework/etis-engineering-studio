@@ -384,6 +384,14 @@ function updateReadingCue(){const cue=$('#continueReading');if(!cue)return;cue.c
 els.transcript.addEventListener('scroll',updateReadingCue);
 $('#continueReading').onclick=()=>els.transcript.scrollBy({top:Math.max(160,els.transcript.clientHeight*.8),behavior:'smooth'});
 function renderStrengths(ev){const panel=$('#boardReadout .board-readout-details');if(!panel)return;panel.querySelector('.strengths-strip')?.remove();const strengths=(ev?.items||[]).filter(x=>['strong','okay'].includes(evidenceCondition(x).key)).slice(0,4).map(x=>{const c=evidenceCondition(x),s=c.support||{};return `${c.label} for ${x.title}: ${s.claim||''} (excerpt from ${s.support_path||'frozen source'}). Boundary: ${s.limitation||'Review the cited excerpt.'}`});if(!strengths.length&&!ev?.longitudinal?.has_prior_snapshot)return;const d=document.createElement('div');d.className='strengths-strip';let html='<b>Bounded phase support</b>';html+=strengths.length?'<ul>'+strengths.map(x=>`<li>${escapeHtml(x)}</li>`).join('')+'</ul>':'<p class="quiet">No specific strength identified from this snapshot.</p>';const l=ev?.longitudinal;if(l?.has_prior_snapshot){const improved=(l.improved_evidence||[]).length,regressed=(l.regressed_evidence||[]).length;html+=`<div class="longitudinal-note"><b>Since ${escapeHtml(l.previous_phase||'the prior review')}</b> · ${improved} improved · ${regressed} regressed</div>`}d.innerHTML=html;panel.appendChild(d)}
+function preparationHTML(p){
+ if(!p)return '';
+ const f=p.focus;
+ const focus=f?`<div><b>A course concern to examine · ${escapeHtml(f.title)}</b><span>${escapeHtml(f.why||'')}</span><small>Next: ${escapeHtml(f.next_step||'Ask the reviewer what evidence is needed.')}</small></div>`:'<div><b>No course concern selected for this snapshot</b><span>That does not establish readiness. Ask the reviewer to test a consequential decision against the frozen evidence.</span></div>';
+ const support=(p.supported||[]).map(x=>`<li><b>${escapeHtml(x.label)} · ${escapeHtml(x.path)}</b> · ${escapeHtml(x.claim)} <small>${x.support_kind==='demonstrated'?'Demonstrated in':'Defined in'} the cited excerpt at ${escapeHtml(x.source_path)}. Boundary: ${escapeHtml(x.limitation)}</small></li>`).join('');
+ const unknown=(p.unknowns||[]).map(x=>`<li>${escapeHtml(x.path)} · ${escapeHtml(x.why)}</li>`).join('');
+ return `<div class="preparation-focus">${focus}</div>${support?`<div><b>Supported here, with limits</b><ul>${support}</ul></div>`:'<p>No bounded positive phase claim is established in this snapshot.</p>'}${unknown?`<div><b>Still to verify</b><ul>${unknown}</ul></div>`:''}<small>${escapeHtml(p.boundary||'This is preparation, not an instructor decision.')}</small>`;
+}
 function renderChallengeBrief(c){
   currentChallenge=c;
   const ro=c.board_readout||null;
@@ -391,6 +399,7 @@ function renderChallengeBrief(c){
   if(panel)panel.open=false;
   if(ro&&panel){
     $('#boardReadoutTitle').textContent=`${ro.phase_id} · ${ro.phase_title}`;
+    $('#boardPreparation').innerHTML=preparationHTML(ro.preparation);
     panel.querySelector('summary span').textContent=`Explore your ${ro.phase_id} evidence and other concerns`;
     const agenda=ro.agenda||[];
     const ch=ro.since_last_review||null;
@@ -1336,7 +1345,7 @@ function renderEngineeringEvidence(evidence,payload){engineeringEvidenceData=evi
  const ordered=[...items].sort((a,b)=>(priority[evidenceCondition(a).key]??5)-(priority[evidenceCondition(b).key]??5));
  const ranked=(evidence.challenge_candidates||[]).map(f=>f.id);
  const first=ordered.find(x=>evidenceCondition(x).key==='concern'&&ranked.includes(evidenceCondition(x).finding_id))||ordered[0],state=first&&evidenceCondition(first);
- $('#evidenceNextAction').innerHTML=first?`<b>Start here: ${escapeHtml(evidenceActualPath(first))}</b><span>${escapeHtml(state.why)} ${escapeHtml(state.next_step)}</span><small>Review the evidence area below. A concern can be challenged with stronger frozen evidence.</small>`:'<b>No phase evidence areas are available in this snapshot.</b><span>Ask the reviewer what evidence would make the current engineering claim reviewable.</span>';
+ $('#evidenceNextAction').innerHTML=payload.preparation?preparationHTML(payload.preparation):(first?`<b>Start here: ${escapeHtml(evidenceActualPath(first))}</b><span>${escapeHtml(state.why)} ${escapeHtml(state.next_step)}</span><small>Review the evidence area below. A concern can be challenged with stronger frozen evidence.</small>`:'<b>No phase evidence areas are available in this snapshot.</b><span>Ask the reviewer what evidence would make the current engineering claim reviewable.</span>');
  const supported=items.filter(x=>['strong','okay'].includes(evidenceCondition(x).key));
  $('#engineeringEvidenceStrengths').innerHTML=supported.map(x=>{const condition=evidenceCondition(x),support=condition.support||{};return `<div class="strength-card"><span>•</span><p><b>${escapeHtml(condition.label)} · ${escapeHtml(x.title)}</b><br>${escapeHtml(support.claim||'')}<br><small>Excerpt from ${escapeHtml(support.support_path||'the frozen source')} · Boundary: ${escapeHtml(support.limitation||'Review the cited excerpt.')}</small></p></div>`}).join('')||'<p class="quiet">No phase claim has bounded support in this snapshot. Starter files and adapted locations are useful places to work, but do not establish what the team decided or demonstrated. Start with the concern above or ask the reviewer for help.</p>';
  const dims=(courseModel?.course?.judgment_dimensions||[]).filter(x=>(evidenceLensIds[evidence.phase_id]||[]).includes(x.id));const matrix=$('#evidenceMatrix');matrix.innerHTML='';dims.forEach(x=>{const related=items.filter(i=>relatedToLens(i,x)),attention=findings.filter(f=>relatedToLens(f,x)&&!['corrected','resolved'].includes(f.lifecycle?.status));const c=document.createElement('button');c.className='mcard';c.dataset.lens=x.id;c.innerHTML=`<div class="lens-card-head"><b>${escapeHtml(x.label)}</b><span class="lens-count ${attention.length?'warn':'good'}">${attention.length?attention.length+' to discuss':related.length+' evidence'}</span></div><p>${escapeHtml(x.question)}</p><span>View Evidence →</span>`;c.onclick=()=>renderEvidenceLensDetail(x,evidence);matrix.appendChild(c)});
