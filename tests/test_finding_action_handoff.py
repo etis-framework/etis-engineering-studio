@@ -12,9 +12,10 @@ SOURCE = Path('apps/api/app/static/studio.js').read_text()
 
 def test_completed_review_prepares_new_finding_session():
     assert "if(sessionId&&document.body.classList.contains('review-session-active'))" in SOURCE
-    assert 'if(sessionId)newReviewHome();prepareEntryContext(' in SOURCE
+    assert 'if(sessionId)newReviewHome();const findings=' in SOURCE
     assert 'const findings=engineeringEvidenceData?.findings||currentEvidence?.findings||[]' in SOURCE
-    assert "findings.some(x=>x.id===fid)?findings:[f,...findings]" in SOURCE
+    assert "selectReviewMode('finding',{findings:available})" in SOURCE
+    assert 'if(options.findings){renderFindingPicker(options.findings);updateReviewModeSummary();return}' in SOURCE
     assert 'Use Start Finding Review above to begin.' in SOURCE
 
 
@@ -49,6 +50,57 @@ async function scenario(intent,{session=37,pending=false,draft=''}={}){
  assert(!draft.calls.includes('send')&&!draft.calls.includes('context')&&draft.calls.includes('draft-scroll'));
  assert.strictEqual(draft.value,'My own unfinished answer');
  const noSession=await scenario('discuss',{session:null});assert.deepStrictEqual(noSession.calls,['prepare']);
+})().catch(e=>{console.error(e);process.exitCode=1});
+'''
+    subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)
+
+
+@pytest.mark.skipif(not shutil.which('node'), reason='Node needed for UI-state simulation')
+def test_evidence_handoff_uses_saved_findings_without_repository_analysis():
+    script = r'''
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync('apps/api/app/static/studio.js','utf8');
+const start=source.indexOf('async function configureFindingFromEvidence(');
+const fn=source.slice(start,source.indexOf('function renderEvidenceLensDetail(',start));
+const selected=new Set(),finding={id:'F-12',title:'AI-use disclosure',statement:'Blank form'};
+const rows=Array.from({length:12},(_,i)=>({id:'F-'+i,title:'Concern '+i})).concat(finding);
+const calls=[],purpose={classList:{remove:()=>{}},set innerHTML(v){this.html=v}};
+const context={fid:finding.id,intent:'discuss',source:'engineering_evidence',
+ sessionId:null,currentView:'evidence',engineeringEvidenceData:{findings:rows},currentEvidence:null,
+ selectedFindingIds:selected,currentFindingById:()=>finding,prepareEntryContext:x=>calls.push('context'),
+ switchView:()=>calls.push('view'),selectReviewMode:async(m,o)=>{calls.push('mode');assert(selected.has(finding.id));assert(o.findings.includes(finding));},
+ $:s=>s==='#reviewSessionPurpose'?purpose:{checked:true},CSS:{escape:x=>x},
+ updateReviewModeSummary:()=>calls.push('summary'),requestAnimationFrame:()=>{},
+ window:{scrollTo:()=>{}},toast:()=>{},escapeHtml:x=>x};
+vm.runInNewContext(fn+';configureFindingFromEvidence(fid,intent,source)',context);
+setImmediate(()=>{assert.deepStrictEqual(calls.slice(0,3),['context','view','mode']);assert(selected.has(finding.id));assert(purpose.html.includes(finding.title))});
+'''
+    subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)
+
+
+@pytest.mark.skipif(not shutil.which('node'), reason='Node needed for UI-state simulation')
+def test_late_repository_analysis_cannot_replace_evidence_handoff():
+    script = r'''
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync('apps/api/app/static/studio.js','utf8');
+const start=source.indexOf('let findingPickerRequestId=0;');
+const fn=source.slice(start,source.indexOf('async function prepareLauncherEvidence(',start))
+  +source.slice(source.indexOf('async function selectReviewMode(',start),source.indexOf('function renderSessionPurpose(',start));
+let complete;const pending=new Promise(resolve=>complete=resolve),shown=[];
+const picker={innerHTML:''},panel={classList:{toggle:()=>{}}},choice={dataset:{reviewMode:'finding'},classList:{toggle:()=>{}},setAttribute:()=>{}};
+const context={sessionId:null,reviewMode:'board',appRole:'student',currentEvidence:null,
+ $$:()=>[choice],$:s=>s==='#findingPicker'?picker:panel,
+ studentReviewReadiness:()=>({ready:true}),updateReviewModeSummary:()=>{},
+ prepareLauncherEvidence:()=>pending,renderFindingPicker:fs=>shown.push(fs.map(x=>x.id).join(',')),
+ renderFindings:()=>shown.push('stale-render'),escapeHtml:x=>x,toast:()=>{}};
+const choose=vm.runInNewContext(fn+';selectReviewMode',context);
+(async()=>{
+ const earlier=choose('finding');
+ await choose('finding',{findings:[{id:'selected'}]});
+ complete({findings:[{id:'stale'}]});
+ await earlier;
+ assert.deepStrictEqual(shown,['selected']);
+ assert.equal(context.currentEvidence,null);
 })().catch(e=>{console.error(e);process.exitCode=1});
 '''
     subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)
