@@ -13,7 +13,8 @@ SOURCE = Path('apps/api/app/static/studio.js').read_text()
 def test_completed_review_prepares_new_finding_session():
     assert "if(sessionId&&document.body.classList.contains('review-session-active'))" in SOURCE
     assert 'if(sessionId)newReviewHome();prepareEntryContext(' in SOURCE
-    assert 'renderFindingPicker(currentEvidence?.findings||engineeringEvidenceData?.findings||[])' in SOURCE
+    assert 'const findings=engineeringEvidenceData?.findings||currentEvidence?.findings||[]' in SOURCE
+    assert "findings.some(x=>x.id===fid)?findings:[f,...findings]" in SOURCE
     assert 'Use Start Finding Review above to begin.' in SOURCE
 
 
@@ -49,5 +50,23 @@ async function scenario(intent,{session=37,pending=false,draft=''}={}){
  assert.strictEqual(draft.value,'My own unfinished answer');
  const noSession=await scenario('discuss',{session:null});assert.deepStrictEqual(noSession.calls,['prepare']);
 })().catch(e=>{console.error(e);process.exitCode=1});
+'''
+    subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)
+
+
+@pytest.mark.skipif(not shutil.which('node'), reason='Node needed for UI-state simulation')
+def test_picker_keeps_selected_finding_beyond_first_eight_visible():
+    script = r'''
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync('apps/api/app/static/studio.js','utf8');
+const fn=source.slice(source.indexOf('function renderFindingPicker('),source.indexOf('function findingPrimaryPath(',source.indexOf('function renderFindingPicker(')));
+const rows=[],box={set innerHTML(v){rows.length=0},appendChild:v=>rows.push(v)};
+const findings=Array.from({length:12},(_,i)=>({id:'F-'+i,title:'Concern '+i,statement:'Evidence '+i}));
+const context={selectedFindingIds:new Set(['F-11']),$:(id)=>box,findingStatus:()=> 'open',
+ escapeHtml:v=>v,document:{createElement:()=>({querySelector:()=>({}),set innerHTML(v){this.html=v},className:''})}};
+vm.runInNewContext(fn+';renderFindingPicker(findings)',{...context,findings});
+assert.equal(rows.length,8);
+assert(rows[0].html.includes('value="F-11" checked'));
+assert(!rows.some(r=>r.html.includes('value="F-8"')));
 '''
     subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)
