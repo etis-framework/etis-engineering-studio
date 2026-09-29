@@ -144,7 +144,9 @@ def test_current_evidence_api_decorates_saved_claim_without_exposing_full_conten
 
 
 def test_snapshot_roundtrip_keeps_claim_support_and_legacy_snapshot_works():
-    from apps.api.app.services.evidence import snapshot_from_dict
+    from apps.api.app.services.evidence import (
+        ANALYSIS_CONTRACT, snapshot_from_dict, supports_current_analysis_contract,
+    )
     support = assess([candidate()]).claim_support
     base = {'phase_id': 'A2', 'repo_full_name': 'team/repo', 'commit_sha': 'frozen',
             'items': [{**item(), 'ref': 'EV-001', 'kind': 'repository',
@@ -152,3 +154,8 @@ def test_snapshot_roundtrip_keeps_claim_support_and_legacy_snapshot_works():
             'findings': [], 'artifacts': [artifact()]}
     assert snapshot_from_dict({**base, 'claim_support': support}).to_dict()['claim_support'] == support
     assert snapshot_from_dict(base).to_dict()['claim_support'] == []
+    assert not supports_current_analysis_contract(base)
+    assert not supports_current_analysis_contract({**base, 'semantic_review': {'enabled': True}})
+    assert supports_current_analysis_contract({**base, 'semantic_review': {
+        'enabled': False, 'analysis_contract': ANALYSIS_CONTRACT,
+    }})
