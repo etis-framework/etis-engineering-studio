@@ -84,3 +84,6 @@ def test_guidance_placeholders_are_not_shown_as_broken_links():
     assert normalize_guidance_mentions('See [ES-103](ES-103) for the relevant guidance.', refs) == ''
     assert normalize_guidance_mentions('Review [ES-103](ES-103) with your team.', refs) == 'Review ES-103 with your team.'
     assert normalize_guidance_mentions('Review [ES-104](ES-104).', refs) == 'Review ES-104.'
+    production = 'Use the team record. See [ES-103: Planning evidence and ownership]\\(ES-103). Which outcome applies?'
+    assert normalize_guidance_mentions(production, refs) == 'Use the team record.  Which outcome applies?'
+    assert normalize_guidance_mentions('Review [ES-103: Planning evidence and ownership]\\(ES-103) with your team.', refs) == 'Review ES-103 with your team.'
