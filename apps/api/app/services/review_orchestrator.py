@@ -117,7 +117,7 @@ class ReviewOrchestrator:
                 level=1, noticed="The student chose a specific engineering concern for senior review.",
                 significance="Focused reviews help teams improve artifacts and decisions before the next phase-gate conversation.",
                 decision_question=f"What would you like the senior board to help you understand or improve about: {focus}?",
-                finding=None, strengths=list(evidence.strengths or []),
+                finding=None, strengths=challenge.strengths,
             )
         if selected_ids:
             related=[x for x in evidence.findings if x.get('id') in selected_ids]
@@ -171,7 +171,7 @@ class ReviewOrchestrator:
                         'What should the team change first to act on this finding, and what evidence would show the concern is closed?' if entry_intent=='resolve' else
                         'Should the team resolve this now, accept the risk, or defer it—and why?'
                     ),
-                    finding=primary, strengths=list(evidence.strengths or []),
+                    finding=primary, strengths=challenge.strengths,
                 )
                 if len(related)>1:
                     challenge.significance += " Related findings in this same review: " + "; ".join(x.get('title','') for x in related[1:])

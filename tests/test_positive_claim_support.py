@@ -1,6 +1,6 @@
 """Positive claim support is bounded to frozen, team-authored excerpts."""
 
-from apps.api.app.services.artifact_condition import condition_for, decorate_conditions
+from apps.api.app.services.artifact_condition import condition_for, decorate_conditions, supported_observations
 from apps.api.app.services.evidence_assessor import SemanticEvidenceAssessor
 
 
@@ -111,6 +111,42 @@ def test_multiple_artifacts_conflict_disputed_stays_visible():
                'evidence_refs': ['PATH:docs/planning/schedule.md', 'PATH:' + PATH],
                'lifecycle': {'status': 'evidence_disputed'}}
     assert condition_for(item(), [finding], support)['key'] == 'concern'
+
+
+def test_positive_observations_use_the_same_current_conditions_as_cards():
+    from types import SimpleNamespace
+    from apps.api.app.services.board_readiness import build_board_readout
+    from apps.api.app.services.challenge_engine import ChallengeEngine
+    support = assess([candidate()]).claim_support
+    evidence = SimpleNamespace(items=[SimpleNamespace(**item())], findings=[],
+                               challenge_candidates=[], claim_support=support,
+                               strengths=['The starter scaffold is present.'],
+                               repository_metrics={})
+    expected = supported_observations(evidence)
+    assert len(expected) == 1 and 'Strong support' in expected[0]
+    assert 'Boundary:' in expected[0]
+    assert build_board_readout('A2', evidence)['strengths'] == expected
+    assert expected[0] in ChallengeEngine(ai=object()).start('A2', evidence).prompt
+    evidence.findings = [{'id': 'F', 'review_scope': 'both', 'severity': 3,
+                          'evidence_refs': ['PATH:' + PATH],
+                          'lifecycle': {'status': 'evidence_disputed'}}]
+    assert supported_observations(evidence) == []
+    assert build_board_readout('A2', evidence)['strengths'] == []
+    assert supported_observations({'items': [item()], 'findings': [], 'strengths': ['Scaffold']}) == []
+
+
+def test_defined_and_equivalent_support_stay_bounded_in_board_opening():
+    from types import SimpleNamespace
+    from apps.api.app.services.challenge_engine import ChallengeEngine
+    support = assess([candidate(support_kind='defined', judgment='strong')]).claim_support
+    evidence = SimpleNamespace(items=[SimpleNamespace(**item())], findings=[],
+                               challenge_candidates=[], claim_support=support,
+                               strengths=['Unvalidated praise'], repository_metrics={})
+    opening = ChallengeEngine(ai=object()).start('A2', evidence).prompt
+    assert 'Okay support' in opening and 'Strong support' not in opening
+    assert 'reasonably strong shape' not in opening
+    evidence.items = [SimpleNamespace(**item(status='equivalent', equivalent_path=PATH))]
+    assert supported_observations(evidence)[0].startswith('Okay support')
 
 
 def test_current_evidence_api_decorates_saved_claim_without_exposing_full_content():

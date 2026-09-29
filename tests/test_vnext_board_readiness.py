@@ -35,6 +35,20 @@ def test_no_keyword_match_is_not_presented_as_healthy_or_complete():
     assert not any(d["status"] == "No material gap identified" for d in result["readiness_map"])
 
 
+def test_scaffold_praise_does_not_become_an_opening_strength():
+    e = evidence()
+    e.strengths = ['The official scaffold is present.']
+    challenge = ChallengeEngine(ai=SimpleNamespace()).start('A2', e)
+    assert 'A strength to build on' not in challenge.prompt
+    assert 'official scaffold' not in challenge.prompt
+    assert challenge.strengths == []
+    e.challenge_candidates = []
+    e.findings = []
+    quiet = ChallengeEngine(ai=SimpleNamespace()).start('A2', e)
+    assert 'reasonably strong shape' not in quiet.prompt
+    assert 'does not establish phase readiness' in quiet.prompt
+
+
 def test_missing_submission_tag_is_not_a_preparation_defect(tmp_path):
     result=analyze_local_repository(tmp_path, "A5", metrics={"tag_count":0})
     assert not any(f["id"] == "release-baseline-missing" for f in result["findings"])

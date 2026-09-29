@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .course_model import get_phase
+from .artifact_condition import supported_observations
 
 # Student-facing readiness dimensions are deliberately phase-specific and non-numeric.
 # They orient coaching; they are not a grade prediction or an autonomous gate verdict.
@@ -86,7 +87,7 @@ def build_board_readout(phase_id: str, evidence) -> dict:
             "reasoning_pattern": f.get("reasoning_pattern", "other"),
         })
 
-    strengths = [str(x) for x in (getattr(evidence, "strengths", []) or []) if str(x).strip()][:3]
+    strengths = supported_observations(evidence)[:3]
     dimensions = []
     # A phrase in a finding is not a validated assessment of an entire phase
     # dimension. Preserve the useful phase topics without inferring health or

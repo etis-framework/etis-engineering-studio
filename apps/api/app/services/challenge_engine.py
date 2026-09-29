@@ -6,6 +6,7 @@ from dataclasses import dataclass, asdict
 
 from .course_model import get_phase
 from .board_readiness import build_board_readout
+from .artifact_condition import supported_observations
 from .ai_provider import OpenAIResponsesProvider
 from .guidance import guidance_for, verified_guidance
 from .model_disclosure import sanitize_model_text
@@ -165,7 +166,7 @@ class ChallengeEngine:
 
     def start(self, phase_id, evidence, scenario_id=None):
         phase = get_phase(phase_id)
-        strengths = list(getattr(evidence, "strengths", []) or [])
+        strengths = supported_observations(evidence)
         board_readout = build_board_readout(phase_id, evidence)
         if scenario_id:
             for scenario in phase["scenario_library"]:
@@ -195,9 +196,9 @@ class ChallengeEngine:
                 "operational_gap": "What operational claim is not yet supported, and what evidence would make it defensible?",
             }
             dq = decision_questions.get(category, "What should the team do now, given what the repository evidence actually supports?")
-            strength_intro = strengths[0] if strengths else "The repository has enough structure to support a focused review."
+            strength_intro = f"A bounded claim supported in this snapshot: {strengths[0]} " if strengths else ""
             prompt = (
-                f"A strength to build on: {strength_intro} "
+                f"{strength_intro}"
                 f"Evidence in the repository snapshot used for this review: {f.get('statement','')} "
                 f"Why it matters: {f.get('significance') or 'The team needs evidence to support its engineering claim.'} "
                 "Check the cited evidence with your team. If I missed something, show me where; otherwise, correct the work and record how you verified it. "
@@ -213,13 +214,13 @@ class ChallengeEngine:
             )
 
         decision = phase["decisions_to_defend"][0]
-        strength_intro = strengths[0] if strengths else "No material evidence gap ranked above the decision-review threshold."
+        strength_intro = f"One bounded claim supported in this snapshot: {strengths[0]} " if strengths else ""
         return Challenge(
             "decision-defense", phase_id, "chief_architect", "Defend a Consequential Decision",
-            f"The repository is in reasonably strong shape for this phase. {strength_intro} I want to move beyond completeness and test the team's judgment. {decision}",
+            f"No finding was selected for this opening review. That does not establish phase readiness. {strength_intro}Let's test a consequential engineering decision: {decision}",
             "Move from completeness to judgment.", [], phase["priority_dimensions"],
             "State decision, evidence, consequence, owner, risk, and change trigger.", 1,
-            "The evidence scan found strengths and no higher-ranked blocking condition for this review.",
+            "No ranked finding was selected for this opening review; phase readiness remains an instructor decision.",
             "Strong engineering teams still need to defend consequential decisions; complete folders do not end the review.",
             decision, None, strengths, board_readout,
         )
