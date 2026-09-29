@@ -59,7 +59,7 @@
         </div>
         <div id="focusedReviewPanel" class="focus-panel hidden"><label for="reviewFocus">What should the board focus on?</label><div><input id="reviewFocus" placeholder="Examples: authentication architecture, our risk register, PR #27, database choice, AI verification"></div></div>
         <div id="findingReviewPanel" class="finding-review-panel hidden"><div class="finding-picker-head"><b>Select up to three related findings</b><span>The board keeps this session coherent rather than trying to solve everything at once.</span></div><div id="findingPicker" class="finding-picker"></div></div>
-        <div class="review-launcher-action"><div><b id="reviewModeSummary">Board Review · the board chooses the agenda.</b><span class="launcher-hint">Use the large Start Review button in the context bar when you are ready.</span></div></div>
+        <div class="review-launcher-action"><div><b id="reviewModeSummary">Board Review · the board chooses the agenda.</b><span class="launcher-hint">To begin, use the Start Review button above. Selecting a review type does not start a session.</span></div></div>
       </div>
 
       <div class="apprentice-strip" id="guideStrip">
@@ -192,7 +192,7 @@
         <div class="page-heading"><div><span class="eyebrow">ENGINEERING EVIDENCE</span><h2>See what needs work and what to check next</h2><p>These are coaching signals from a frozen repository snapshot, not a grade or a phase-gate decision. A file can be present and still fail to support its engineering claim.</p></div><button class="secondary" data-help-topic="evidence-map">How to use this page</button></div>
         <div id="evidenceWorkspaceStatus" class="evidence-workspace-status"><span class="mini-spinner"></span><span>Loading the latest frozen evidence snapshot…</span></div>
         <div id="evidenceWorkspace" class="hidden">
-          <div class="evidence-workspace-head"><div><span class="eyebrow">LATEST SAVED EVIDENCE SNAPSHOT</span><h3 id="evidenceWorkspaceTitle">Current phase evidence</h3><p id="evidenceWorkspaceMeta"></p><p id="evidenceSnapshotNote" class="evidence-snapshot-note"></p></div><div class="evidence-workspace-actions"><button id="startBoardFromEvidence" class="primary compact">Start Board Review</button><button id="backToStudio" class="secondary">Open Review Room</button></div></div>
+          <div class="evidence-workspace-head"><div><span class="eyebrow">LATEST SAVED EVIDENCE SNAPSHOT</span><h3 id="evidenceWorkspaceTitle">Current phase evidence</h3><p id="evidenceWorkspaceMeta"></p><p id="evidenceSnapshotNote" class="evidence-snapshot-note"></p></div><div class="evidence-workspace-actions"><button id="startBoardFromEvidence" class="primary compact">Choose Board Review →</button><button id="backToStudio" class="secondary">Open Review Room</button></div></div>
           <div class="evidence-summary-strip" id="engineeringEvidenceSummary"></div>
           <div id="evidenceNextAction" class="evidence-next-action"></div>
           <section class="evidence-strengths-section"><div class="section-heading"><div><span class="eyebrow">BOUNDED SUPPORT</span><h3>Supported phase claims</h3></div><small>Each observation points to a frozen excerpt and its limit. It does not approve the whole artifact or predict the phase gate.</small></div><div id="engineeringEvidenceStrengths" class="strength-grid"></div></section>
