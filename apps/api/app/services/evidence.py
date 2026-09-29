@@ -27,7 +27,7 @@ from .repository_intelligence import (
 
 # A frozen snapshot remains immutable. A new analysis contract may create a
 # second snapshot at the same commit instead of reusing an older interpretation.
-ANALYSIS_CONTRACT = 'practice_maturity_v4'
+ANALYSIS_CONTRACT = 'claim_equivalence_v5'
 
 
 def supports_current_analysis_contract(data: dict) -> bool:
@@ -89,6 +89,34 @@ def _path_matches(expected: str, actual_paths: set[str]) -> bool:
         return any(p.startswith(prefix) for p in actual_paths)
 
     return normalized in actual_paths
+
+
+def apply_equivalent_support(result: EvidenceSnapshotData) -> None:
+    """Promote a location only when the same frozen claim has validated support."""
+    supported = {
+        s['expected_path']: {s['support_path'],
+            *(r['path'] for r in s.get('corroborating_evidence', []))}
+        for s in result.claim_support or []
+    }
+    equivalents = {x['expected_path']: x for x in result.equivalent_evidence or []
+                   if x.get('confidence') in {'moderate', 'high'}
+                   and x.get('actual_path') in supported.get(x.get('expected_path'), set())}
+    promoted = set()
+    for item in result.items:
+        eq = equivalents.get(item.title)
+        if eq and item.status == 'missing':
+            item.status = 'equivalent'
+            item.quality = 'reviewable'
+            item.source_provenance = 'TEAM_ADDED'
+            item.equivalent_path = eq['actual_path']
+            item.scope_reason = f"Equivalent evidence supported at {eq['actual_path']}"
+            promoted.add(item.title)
+    result.findings = [f for f in result.findings if not (
+        f.get('category') == 'missing_evidence' and
+        any(ref == f'PATH:{path}' for path in promoted for ref in f.get('evidence_refs', [])))]
+    result.gaps = [g for g in result.gaps if not any(g.startswith(path + ':') for path in promoted)]
+    result.coverage = round(100 * sum(i.status in {'present', 'equivalent'} for i in result.items)
+                            / max(1, len(result.items)))
 
 
 class GitHubEvidenceProvider:
@@ -323,19 +351,7 @@ class GitHubEvidenceProvider:
                         result.equivalent_evidence = semantic.equivalent_evidence
                         result.claim_support = semantic.claim_support
                         if semantic.equivalent_evidence:
-                            equivalents = {x.get('expected_path'): x for x in semantic.equivalent_evidence if x.get('confidence') in {'moderate','high'}}
-                            for item in result.items:
-                                eq = equivalents.get(item.title)
-                                if eq and item.status == 'missing':
-                                    item.status = 'equivalent'
-                                    item.quality = 'reviewable'
-                                    item.source_provenance = 'TEAM_ADDED'
-                                    item.equivalent_path = eq.get('actual_path','')
-                                    item.scope_reason = f"Equivalent evidence detected at {eq.get('actual_path','')}"
-                            eq_paths=set(equivalents)
-                            result.findings = [f for f in result.findings if not (f.get('category')=='missing_evidence' and any(ref == f"PATH:{ep}" for ep in eq_paths for ref in f.get('evidence_refs',[])))]
-                            result.gaps = [g for g in result.gaps if not any(g.startswith(ep + ':') for ep in eq_paths)]
-                            result.coverage = round(100 * sum(i.status in {'present','equivalent'} for i in result.items) / max(1,len(result.items)))
+                            apply_equivalent_support(result)
                         all_findings = [
                             ReviewFinding(**{k: v for k, v in x.items() if k in ReviewFinding.__dataclass_fields__})
                             for x in result.findings
@@ -386,7 +402,8 @@ def build_snapshot(phase_id: str, repo_full_name: str, sha: str, actual_paths: I
                 source_prov = 'BASELINE' if children and all(a.provenance == 'BASELINE' for a in children) else ('TEAM_ADAPTED' if children else 'UNKNOWN')
                 quality = ('scaffold' if source_prov == 'BASELINE' else
                            'uninspected' if children and all(a.quality in {'uninspected', 'too_large'} for a in children) else
-                           'reviewable' if children else 'uninspected' if ok else 'missing')
+                           'reviewable' if children and all(a.quality == 'reviewable' and a.provenance in {'TEAM_ADDED', 'TEAM_ADAPTED'} for a in children) else
+                           'partial' if children else 'uninspected' if ok else 'missing')
             else:
                 source_prov = art.provenance if art else 'UNKNOWN'
                 quality = art.quality if art else ('uninspected' if ok else 'missing')

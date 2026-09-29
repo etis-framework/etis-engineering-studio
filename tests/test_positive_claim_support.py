@@ -99,7 +99,7 @@ def test_equivalent_source_concern_prevents_positive_label():
     alt = 'docs/decisions/estimate-record.md'
     support = assess([candidate(support_path=alt)], [artifact(path=alt)]).claim_support
     expected = item(status='equivalent', equivalent_path=alt)
-    assert condition_for(expected, [], support)['key'] == 'okay'
+    assert condition_for(expected, [], support)['key'] == 'strong'
     finding = {'id': 'F-alt', 'review_scope': 'course_readiness', 'severity': 3,
                'evidence_refs': ['PATH:' + alt], 'lifecycle': {'status': 'open'}}
     assert condition_for(expected, [finding], support)['key'] == 'concern'

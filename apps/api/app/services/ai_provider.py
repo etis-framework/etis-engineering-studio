@@ -262,6 +262,12 @@ REPOSITORY_ASSESSMENT_SCHEMA = {
                     "expected_path": {"type": "string"},
                     "support_path": {"type": "string"},
                     "support_quote": {"type": "string"},
+                    "corroborating_evidence": {
+                        "type": "array", "maxItems": 2,
+                        "items": {"type": "object", "properties": {
+                            "path": {"type": "string"}, "quote": {"type": "string"}},
+                            "required": ["path", "quote"], "additionalProperties": False},
+                    },
                     "operating_evidence_path": {"type": "string"},
                     "operating_evidence_quote": {"type": "string"},
                     "support_kind": {"type": "string", "enum": ["defined", "demonstrated"]},
@@ -271,7 +277,7 @@ REPOSITORY_ASSESSMENT_SCHEMA = {
                     "limitation": {"type": "string"},
                     "next_step": {"type": "string"},
                 },
-                "required": ["expected_path", "support_path", "support_quote", "operating_evidence_path",
+                "required": ["expected_path", "support_path", "support_quote", "corroborating_evidence", "operating_evidence_path",
                              "operating_evidence_quote", "support_kind",
                              "judgment", "confidence", "rationale", "limitation", "next_step"],
                 "additionalProperties": False,
