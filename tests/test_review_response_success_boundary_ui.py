@@ -37,7 +37,7 @@ def test_successful_review_turn_cannot_be_recast_as_failed_by_ui_error():
 
 def _add_turn_block() -> str:
     start = JS.index("function addTurn(")
-    end = JS.index("\nfunction renderStrengths(", start)
+    end = JS.index("\nfunction showSubmittedExchange(", start)
     return JS[start:end]
 
 
