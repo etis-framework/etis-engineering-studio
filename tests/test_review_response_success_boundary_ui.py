@@ -5,7 +5,7 @@ JS = (ROOT / "apps/api/app/static/studio.js").read_text()
 
 
 def _send_block() -> str:
-    start = JS.index("async function send(){")
+    start = JS.index("async function send(challengeTurn=null){")
     end = JS.index("\nfunction updateStartReviewButton()", start)
     return JS[start:end]
 
@@ -57,7 +57,7 @@ def test_student_review_has_one_conversational_next_step():
 
 
 def test_direct_help_is_visible_in_live_and_restored_conversations():
-    coach = JS[JS.index("$('#coachButton').onclick=async()=>"):JS.index("\nasync function send(){")]
+    coach = JS[JS.index("$('#coachButton').onclick=async()=>"):JS.index("\nasync function send(challengeTurn=null){")]
     assert coach.index("if(!r.ok)") < coach.index("addTurn('student','conversation'") < coach.index("addTurn(\n      'reviewer'")
     assert "meta.kind==='student_coach_request'?'Explain this and show me how.':text" in JS
     assert "{...t.signals,reviewer:t.signals?.reviewer" in JS

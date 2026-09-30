@@ -201,6 +201,16 @@
   outline-offset:4px;
 }
 
+.challenge-dialog{max-height:calc(100vh - 32px);overflow-y:auto}
+.challenge-choices{border:1px solid #36515d;border-radius:10px;padding:10px 12px;margin:10px 0}
+.challenge-choices legend{font-weight:700;padding:0 5px}
+.challenge-choices label{display:flex;align-items:flex-start;flex-wrap:wrap;gap:6px;font-size:14px;margin:4px 0 10px;cursor:pointer}
+.challenge-choices input{width:auto;flex:none;margin:3px 3px 0 0}
+.challenge-choices small{flex-basis:100%;margin-left:23px;color:#a9bac1}
+.challenge-dialog .challenge-hint{display:block;color:#a9bac1;margin:5px 0}
+.challenge-dialog .challenge-error{color:#ffd8d3;background:#4a2027;border:1px solid #d88687;border-radius:8px;padding:9px 11px;margin:10px 0 0}
+.challenge-dialog [aria-invalid="true"]{border-color:#ffaaa6!important;outline:2px solid #a14c53}
+
 .instructor-review-meta{
   grid-template-columns:
     repeat(auto-fit,minmax(140px,1fr));

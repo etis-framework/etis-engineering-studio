@@ -867,12 +867,12 @@ $('#coachButton').onclick=async()=>{
   }
 };
 
-async function send(){
+async function send(challengeTurn=null){
   if(!semanticReady){openHelp('semantic-required');return}
   if(!sessionId){toast('Start a review first.');return}
   if(pending)return;
 
-  const text=els.response.value.trim();
+  const text=(challengeTurn?.text??els.response.value).trim();
   if(!text){
     toast('Type a thought or question first.');
     return;
@@ -881,9 +881,10 @@ async function send(){
   const body={
     response:text,
     evidence_refs:contextRefs(),
-    decision:els.decision.value||null,
-    intent:interactionMode==='ask'?'discuss':'decision',
+    decision:challengeTurn?null:els.decision.value||null,
+    intent:challengeTurn||interactionMode==='ask'?'discuss':'decision',
   };
+  if(challengeTurn)body.evidence_refs=challengeTurn.evidenceRefs;
 
   const mutation=reviewMutationRequest(
     'respond',
@@ -893,19 +894,22 @@ async function send(){
 
   body.client_turn_id=mutation.id;
 
+  let studentTurn=null;
   if(!mutation.rendered){
-    addTurn(
+    studentTurn=addTurn(
       'student',
       'conversation',
       text,
-      {kind:interactionMode}
+      {kind:challengeTurn?'ask':interactionMode}
     );
     markReviewMutationRendered(mutation);
   }
 
-  saveDraft();
-  els.response.value='';
-  updateDraftHint();
+  if(!challengeTurn){
+    saveDraft();
+    els.response.value='';
+    updateDraftHint();
+  }
 
   setPending(
     true,
@@ -935,7 +939,7 @@ async function send(){
     // rendering/refresh problem must never restore the draft or tell the
     // student that the review turn itself failed.
     serverAccepted=true;
-    clearDraft();
+    if(!challengeTurn)clearDraft();
     clearReviewMutation(mutation);
 
     const reply=responseBody.follow_up;
@@ -982,7 +986,7 @@ async function send(){
       $('#defense').textContent='Recommendation ready';
     }
 
-    setComposerContext(null);
+    if(!challengeTurn)setComposerContext(null);
     await loadHistory();
 
   }catch(e){
@@ -996,7 +1000,7 @@ async function send(){
     }else{
       toast(safeErrorMessage(e,'Studio could not confirm that response.'));
 
-      if(!els.response.value){
+      if(!challengeTurn&&!els.response.value){
         els.response.value=text;
         updateDraftHint();
         saveDraft();
@@ -1022,8 +1026,9 @@ async function send(){
 
   }finally{
     setPending(false);
-    els.response.focus();
+    if(!challengeTurn)els.response.focus();
   }
+  return serverAccepted?studentTurn||true:false;
 }
 
 function reviewModeLabel(mode){
@@ -1222,22 +1227,36 @@ $('#reviewExitOverlay').onclick=e=>{if(e.target.id==='reviewExitOverlay')closeRe
 $('#leaveReviewOpen').onclick=()=>{if(finishingReview)return;closeReviewExit();newReviewHome('Choose a new review. Your earlier review remains open in history.',true)};
 $('#confirmFinishReview').onclick=async()=>{const startAnother=reviewExitIntent==='new';if(await finishReview()&&startAnother)newReviewHome()};
 let disputePath='',disputeFindingId=null;
-function openEvidenceDispute(path='',findingId=null){if(!sessionId){toast('Begin or resume a review first.');return}disputePath=path||'';disputeFindingId=findingId||null;$('#evidenceDisputePath').value=disputePath;$('#evidenceDisputeExplanation').value='';$('#evidenceDisputeOverlay').classList.remove('hidden');setTimeout(()=>$('#evidenceDisputeExplanation').focus(),30)}
+function disputeKind(){return document.querySelector('input[name="evidenceDisputeKind"]:checked')?.value||'interpretation'}
+function clearDisputeError(){const error=$('#evidenceDisputeError');error.textContent='';error.classList.add('hidden');$('#evidenceDisputePath').removeAttribute('aria-invalid');$('#evidenceDisputeExplanation').removeAttribute('aria-invalid')}
+function showDisputeError(message,field){const error=$('#evidenceDisputeError');error.textContent=message;error.classList.remove('hidden');field.setAttribute('aria-invalid','true');field.focus()}
+function updateDisputeKind(){const evidence=disputeKind()==='evidence';$('#evidenceDisputePathGroup').classList.toggle('hidden',!evidence);$('#submitEvidenceDispute').textContent=evidence?'Ask Maya to re-check →':'Ask reviewer to reconsider →';clearDisputeError()}
+document.querySelectorAll('input[name="evidenceDisputeKind"]').forEach(input=>input.onchange=updateDisputeKind);
+function openEvidenceDispute(path='',findingId=null){if(!sessionId){toast('Begin or resume a review first.');return}disputePath=path||'';disputeFindingId=findingId||null;$('#evidenceDisputePath').value=disputePath;$('#evidenceDisputeExplanation').value='';document.querySelector(`input[name="evidenceDisputeKind"][value="${path?'evidence':'interpretation'}"]`).checked=true;updateDisputeKind();$('#evidenceDisputeOverlay').classList.remove('hidden');setTimeout(()=>$('#evidenceDisputeExplanation').focus(),30)}
 function closeEvidenceDispute(){$('#evidenceDisputeOverlay').classList.add('hidden');disputePath='';disputeFindingId=null}
 $('#closeEvidenceDispute').onclick=closeEvidenceDispute;$('#cancelEvidenceDispute').onclick=closeEvidenceDispute;$('#evidenceDisputeOverlay').onclick=e=>{if(e.target.id==='evidenceDisputeOverlay')closeEvidenceDispute()};
 $('#submitEvidenceDispute').onclick=async()=>{
+  if(pending)return;
   const path=$('#evidenceDisputePath').value.trim();
   const explanation=$('#evidenceDisputeExplanation').value.trim();
-
-  if(!path||!explanation){
-    toast(
-      'Give the repository path and explain what the board should reconsider.'
-    );
+  clearDisputeError();
+  if(!explanation){showDisputeError('Explain what you want the reviewer to reconsider.',$('#evidenceDisputeExplanation'));return}
+  if(disputeKind()==='evidence'&&!path){showDisputeError('Enter the real repository path Maya should check, or choose “I disagree with the interpretation.”',$('#evidenceDisputePath'));return}
+  const fid=disputeFindingId;
+  if(disputeKind()==='evidence'){
+    await disputeEvidence(path,explanation,fid);
     return;
   }
-
-  const fid=disputeFindingId;
-  await disputeEvidence(path,explanation,fid);
+  const finding=(currentEvidence?.findings||[]).find(item=>String(item.id)===String(fid));
+  if(!finding){showDisputeError('This finding is no longer in the current snapshot. Close this dialog and reload Engineering Evidence.',$('#evidenceDisputeExplanation'));return}
+  const submit=$('#submitEvidenceDispute');
+  submit.disabled=true;
+  submit.textContent='The reviewer is considering your challenge…';
+  try{
+    const result=await send({text:`I challenge the finding “${finding.title}”: ${explanation}`,evidenceRefs:[`FINDING:${fid}`,...(finding.evidence_refs||[])]});
+    if(result){closeEvidenceDispute();switchView('studio');if(result!==true)showSubmittedExchange(result)}
+    else showDisputeError('Studio could not confirm this challenge. Your explanation is still here; wait a moment and try again.',$('#evidenceDisputeExplanation'));
+  }finally{submit.disabled=false;submit.textContent='Ask reviewer to reconsider →'}
 };
 
 async function disputeEvidence(path,explanation,findingId=null){
