@@ -12,11 +12,11 @@ SOURCE = Path('apps/api/app/static/studio.js').read_text()
 
 def test_completed_review_prepares_new_finding_session():
     assert "if(sessionId&&document.body.classList.contains('review-session-active'))" in SOURCE
-    assert 'if(sessionId)newReviewHome();const findings=' in SOURCE
+    assert 'if(sessionId)newReviewHome();' in SOURCE
     assert 'const findings=engineeringEvidenceData?.findings||currentEvidence?.findings||[]' in SOURCE
     assert "selectReviewMode('finding',{findings:available})" in SOURCE
     assert 'if(options.findings){renderFindingPicker(options.findings);updateReviewModeSummary();return}' in SOURCE
-    assert 'Use Start Finding Review above to begin.' in SOURCE
+    assert 'startReviewAction();' in SOURCE[SOURCE.index('async function configureFindingFromEvidence('):SOURCE.index('function renderEvidenceLensDetail(')]
 
 
 @pytest.mark.skipif(not shutil.which('node'), reason='Node needed for UI-state simulation')
@@ -136,15 +136,55 @@ const fn=source.slice(start,source.indexOf('function renderEvidenceLensDetail(',
 const selected=new Set(),finding={id:'F-12',title:'AI-use disclosure',statement:'Blank form'};
 const rows=Array.from({length:12},(_,i)=>({id:'F-'+i,title:'Concern '+i})).concat(finding);
 const calls=[],purpose={classList:{remove:()=>{}},set innerHTML(v){this.html=v}};
+const checkbox={checked:false,closest:()=>({classList:{add:()=>calls.push('selected')}})};
 const context={fid:finding.id,intent:'discuss',source:'engineering_evidence',
- sessionId:null,currentView:'evidence',engineeringEvidenceData:{findings:rows},currentEvidence:null,
+ sessionId:null,pending:false,finishingReview:false,currentView:'evidence',engineeringEvidenceData:{findings:rows},currentEvidence:null,
  selectedFindingIds:selected,currentFindingById:()=>finding,prepareEntryContext:x=>calls.push('context'),
  switchView:()=>calls.push('view'),selectReviewMode:async(m,o)=>{calls.push('mode');assert(selected.has(finding.id));assert(o.findings.includes(finding));},
- $:s=>s==='#reviewSessionPurpose'?purpose:{checked:true},CSS:{escape:x=>x},
+ $:s=>s==='#reviewSessionPurpose'?purpose:checkbox,CSS:{escape:x=>x},
  updateReviewModeSummary:()=>calls.push('summary'),requestAnimationFrame:()=>{},
- window:{scrollTo:()=>{}},toast:()=>{},escapeHtml:x=>x};
+ window:{scrollTo:()=>{}},toast:()=>{},escapeHtml:x=>x,
+ startReviewAction:()=>{assert(checkbox.checked);assert(selected.has(finding.id));calls.push('start')}};
 vm.runInNewContext(fn+';configureFindingFromEvidence(fid,intent,source)',context);
-setImmediate(()=>{assert.deepStrictEqual(calls.slice(0,3),['context','view','mode']);assert(selected.has(finding.id));assert(purpose.html.includes(finding.title))});
+setImmediate(()=>{assert.deepStrictEqual(calls.slice(0,3),['context','view','mode']);assert(selected.has(finding.id));assert(purpose.html.includes(finding.title));assert.equal(calls.filter(x=>x==='start').length,1)});
+'''
+    subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)
+
+
+@pytest.mark.skipif(not shutil.which('node'), reason='Node needed for UI-state simulation')
+def test_finding_actions_start_once_or_fail_visibly_for_missing_busy_and_active_states():
+    script = r'''
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync('apps/api/app/static/studio.js','utf8');
+const start=source.indexOf('async function configureFindingFromEvidence(');
+const fn=source.slice(start,source.indexOf('function renderEvidenceLensDetail(',start));
+async function scenario(intent,{missing=false,busy=false,active=false,pickerMissing=false,completed=false}={}){
+ const calls=[],finding={id:'F-17',title:'Actual finding'},selected=new Set();
+ const checkbox={checked:false,closest:()=>({classList:{add:()=>{}}})};
+ const ctx={fid:finding.id,intent,source:'engineering_evidence',sessionId:active||completed?91:null,
+  pending:busy,finishingReview:false,document:{body:{classList:{contains:()=>active}}},
+  currentFindingById:()=>missing?null:finding,engineeringEvidenceData:{findings:[finding]},currentEvidence:null,
+  selectedFindingIds:selected,toast:s=>calls.push('toast:'+s),actOnFinding:async()=>calls.push('active'),
+  newReviewHome:()=>calls.push('home'),prepareEntryContext:x=>calls.push('entry:'+x.entry_intent),
+  switchView:()=>calls.push('view'),selectReviewMode:async()=>calls.push('mode'),
+  $:s=>s==='#reviewSessionPurpose'?{classList:{remove:()=>{}},innerHTML:''}:pickerMissing?null:checkbox,
+  CSS:{escape:x=>x},updateReviewModeSummary:()=>{},requestAnimationFrame:()=>{},
+  window:{scrollTo:()=>{}},escapeHtml:x=>x,startReviewAction:()=>{
+   assert(checkbox.checked);assert.deepStrictEqual([...selected],[finding.id]);calls.push('start')
+  }};
+ await vm.runInNewContext(fn+';configureFindingFromEvidence(fid,intent,source)',ctx);
+ return {calls,selected};
+}
+(async()=>{
+ for(const intent of ['discuss','challenge','resolve']){
+  const good=await scenario(intent);assert(good.calls.includes('entry:'+intent));assert.equal(good.calls.filter(x=>x==='start').length,1);
+  const active=await scenario(intent,{active:true});assert.deepStrictEqual(active.calls,['active']);
+ }
+ const busy=await scenario('challenge',{busy:true});assert(!busy.calls.includes('start')&&busy.calls[0].startsWith('toast:'));
+ const missing=await scenario('discuss',{missing:true});assert(!missing.calls.includes('start')&&missing.calls[0].startsWith('toast:'));
+ const noPicker=await scenario('resolve',{pickerMissing:true});assert(!noPicker.calls.includes('start')&&noPicker.selected.size===0);
+ const completed=await scenario('discuss',{completed:true});assert(completed.calls[0]==='home'&&completed.calls.includes('start'));
+})().catch(e=>{console.error(e);process.exitCode=1});
 '''
     subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)
 

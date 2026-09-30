@@ -7,5 +7,5 @@ greenlet==3.2.5
 alembic==1.19.1
 psycopg[binary]==3.3.4
 httpx==0.28.1
-PyJWT[crypto]==2.14.0
+PyJWT[crypto]==2.15.1
 python-multipart==0.0.32
