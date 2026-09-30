@@ -65,6 +65,14 @@ def _decorate_finding_states(evidence:dict, states:dict[str,dict]):
     return decorate_conditions(evidence)
 
 
+def _snapshot_finding(evidence: dict, finding_id: str | None) -> dict | None:
+    """Only a finding in this frozen snapshot can acquire lifecycle state."""
+    if not finding_id:
+        return None
+    return next((f for f in evidence.get('findings', [])
+                 if isinstance(f, dict) and str(f.get('id')) == str(finding_id)), None)
+
+
 def _planner_finding_projection(value: dict) -> dict:
     return {
         key: value.get(key)
@@ -1997,6 +2005,9 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
 
         evidence = _safe_json(snapshot.summary_json, {})
 
+        if req.finding_id and not _snapshot_finding(evidence, req.finding_id):
+            raise HTTPException(422, "That finding is not in this frozen review snapshot")
+
         path = req.path.strip().lstrip("/")
         artifact = next(
             (
@@ -2168,16 +2179,17 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
 
         if artifact:
             text = (
-                f"Good catch. `{path}` is in the frozen snapshot, so the board should consider it. "
+                f"`{path}` is in this review's frozen snapshot, so we can check it. "
                 f"I see it as {artifact.get('provenance','UNKNOWN').lower().replace('_',' ')} "
                 f"evidence with quality `{artifact.get('quality','unknown')}`. "
-                "That may change the finding. I have recorded your dispute rather than treating "
-                "the original review statement as unquestionable. "
-                "Now let's test whether the artifact actually supports the claim you say it supports."
+                "Its presence alone does not establish your claim or clear the concern. "
+                "I have recorded your challenge; now let's inspect the relevant content and "
+                "decide what it supports, what remains uncertain, and whether the original "
+                "reviewer interpretation needs correction."
             )
             disposition = "artifact_found"
 
-            if finding_id:
+            if _snapshot_finding(evidence, finding_id):
                 _upsert_finding_state(
                     db,
                     team_id=session.team_id,
@@ -2313,6 +2325,14 @@ def finding_disposition(
         )
         if session.status != "active":
             raise HTTPException(409, "Review session is not active")
+
+        frozen = _safe_json(snapshot.summary_json, {})
+        if not _snapshot_finding(frozen, finding_id):
+            raise HTTPException(422, "That finding is not in this frozen review snapshot")
+        if req.status == "resolved":
+            raise HTTPException(409, "This finding remains in the frozen snapshot. Review updated repository work in a new snapshot; use corrected only when the original interpretation was wrong.")
+        if req.status == "corrected" and not req.rationale.strip():
+            raise HTTPException(422, "Explain why the original finding interpretation was wrong")
 
         _upsert_finding_state(
             db,
