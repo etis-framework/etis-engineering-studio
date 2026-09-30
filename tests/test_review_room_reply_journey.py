@@ -35,7 +35,7 @@ def test_new_and_returning_students_are_told_which_room_holds_what():
     assert 'role="status"' in HTML[HTML.index('id="evidenceSnapshotNote"'):][:100]
     assert 'SAVED SNAPSHOT FINDINGS' in HTML
     assert 'Current review evidence' in HTML
-    assert "$('#evCoverage').textContent='Review not started'" in JS
+    assert "$('#evCoverage').textContent='No review open'" in JS
     assert 'Saved ${snapshotCaptureLabel(payload.created_at)}' in JS
 
 

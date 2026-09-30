@@ -224,12 +224,14 @@ const fs=require('fs'),vm=require('vm'),assert=require('assert');
 const source=fs.readFileSync('apps/api/app/static/studio.js','utf8');
 const fn=source.slice(source.indexOf('function renderFindingPicker('),source.indexOf('function findingPrimaryPath(',source.indexOf('function renderFindingPicker(')));
 const rows=[],box={set innerHTML(v){rows.length=0},appendChild:v=>rows.push(v)};
+const scope={classList:{toggle:()=>{}},textContent:''};
 const findings=Array.from({length:12},(_,i)=>({id:'F-'+i,title:'Concern '+i,statement:'Evidence '+i}));
-const context={selectedFindingIds:new Set(['F-11']),$:(id)=>box,findingStatus:()=> 'open',
+const context={selectedFindingIds:new Set(['F-11']),$:(id)=>id==='#findingPickerScope'?scope:box,findingStatus:()=> 'open',
  escapeHtml:v=>v,document:{createElement:()=>({querySelector:()=>({}),set innerHTML(v){this.html=v},className:''})}};
 vm.runInNewContext(fn+';renderFindingPicker(findings)',{...context,findings});
 assert.equal(rows.length,8);
 assert(rows[0].html.includes('value="F-11" checked'));
 assert(!rows.some(r=>r.html.includes('value="F-8"')));
+assert(scope.textContent.includes('Showing 8 of 12 open findings'));
 '''
     subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)

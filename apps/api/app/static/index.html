@@ -51,14 +51,14 @@
       </div>
       <div id="reviewSessionPurpose" class="session-purpose hidden"></div>
       <div id="reviewLauncher" class="review-launcher-wrap">
-        <div class="review-launcher-heading"><div><span class="eyebrow">START HERE · REVIEW ROOM</span><h3>How do you want the senior board to engage?</h3></div><small>Start a Board Review here and talk with the reviewer. Engineering Evidence is your source notebook: inspect the saved snapshot and challenge a specific concern there. You can move between rooms without ending a review.</small></div>
+        <div class="review-launcher-heading"><div><span class="eyebrow">START HERE · REVIEW ROOM</span><h3>How do you want the senior board to engage?</h3></div><small id="reviewModeIntro" aria-live="polite">Let the board choose a phase question from your repository evidence. Select Start Board Review to begin. Engineering Evidence holds saved sources and concerns. You can move between rooms without ending a review.</small></div>
         <div class="review-launcher">
           <button type="button" class="review-choice selected" data-review-mode="board" aria-pressed="true"><b>Board Review</b><span>Let the senior board choose the most valuable phase-gate question from your current evidence.</span><em>Normal phase-gate review</em></button>
           <button type="button" class="review-choice" data-review-mode="focused" aria-pressed="false"><b>Focused Review</b><span>Bring a decision, artifact, PR, architecture choice, risk, AI-use question, or concern you want challenged.</span><em>You choose the engineering subject</em></button>
           <button type="button" class="review-choice" data-review-mode="finding" aria-pressed="false"><b>Review Findings</b><span>Understand, challenge, resolve, accept, defer, or ask questions about findings the board already identified.</span><em>Work directly with board findings</em></button>
         </div>
         <div id="focusedReviewPanel" class="focus-panel hidden"><label for="reviewFocus">What should the board focus on?</label><div><input id="reviewFocus" placeholder="Examples: authentication architecture, our risk register, PR #27, database choice, AI verification"></div></div>
-        <div id="findingReviewPanel" class="finding-review-panel hidden"><div class="finding-picker-head"><b>Select up to three related findings</b><span>The board keeps this session coherent rather than trying to solve everything at once.</span></div><div id="findingPicker" class="finding-picker"></div></div>
+        <div id="findingReviewPanel" class="finding-review-panel hidden"><div class="finding-picker-head"><b>Select up to three related findings</b><span>The board keeps this session coherent rather than trying to solve everything at once.</span><span id="findingPickerScope" class="hidden"></span></div><div id="findingPicker" class="finding-picker"></div></div>
         <div class="review-launcher-action"><div><b id="reviewModeSummary">Board Review · the board chooses the agenda.</b><span class="launcher-hint">Use the Start button above to begin the selected review. Selecting a review type does not start a session. In Engineering Evidence, a concern action starts a Finding Review directly.</span></div></div>
       </div>
 
@@ -80,7 +80,7 @@
         <article class="pulse">
           <div class="pulse-head"><span>ENGINEERING SIGNALS</span><b id="coverage">—</b></div>
           <div class="meter"><i id="meter"></i></div>
-          <div class="signal-grid"><div><small>Current review evidence</small><b id="evCoverage">Review not started</b></div><div><small>Position</small><b id="defense">Not started</b></div><div><small>Reasoning Moves</small><b id="depth">—</b></div><div><small>Instructor Visibility</small><b>On</b></div></div>
+          <div class="signal-grid"><div><small>Current review evidence</small><b id="evCoverage">No review open</b></div><div><small>Position</small><b id="defense">Not started</b></div><div><small>Reasoning Moves</small><b id="depth">—</b></div><div><small>Instructor Visibility</small><b>On</b></div></div>
           <p class="quiet">Signals help you navigate the review. They are not an autonomous course grade.</p>
         </article>
       </div>
@@ -186,7 +186,7 @@
         </aside>
       </div>
 
-      <div class="history-card"><div><span class="eyebrow">YOUR REVIEW HISTORY</span><h3>Practice is cumulative</h3><p>Early reviews may include substantial coaching. Over the semester, the board will expect more independent engineering reasoning.</p></div><div><div id="reviewHistory" class="history-list"><span class="quiet">No review history loaded yet.</span></div><button id="viewAllHistory" class="text-button" type="button">See more recent reviews →</button></div></div>
+      <div class="history-card"><div><span class="eyebrow">YOUR REVIEW HISTORY</span><h3>Practice is cumulative</h3><p>Early reviews may include substantial coaching. Over the semester, the board will expect more independent engineering reasoning.</p><p>“Saved for later” means a review is still open. Select its session to resume the original frozen conversation.</p></div><div><div id="reviewHistory" class="history-list"><span class="quiet">No review history loaded yet.</span></div><button id="viewAllHistory" class="text-button" type="button">See more recent reviews →</button></div></div>
     </section>
 
     <section id="history" class="view"><div class="page-card"><div class="page-heading"><div><span class="eyebrow">MY REVIEW HISTORY</span><h2>How your engineering judgment is developing</h2><p>Your conversations are individual, but every review remains tied to the same frozen team evidence used at that moment.</p></div></div><div id="reviewHistoryPage" class="history-list large-history"></div></div></section>
@@ -204,7 +204,7 @@
           <section class="evidence-strengths-section" id="evidenceSupportedSection"><div class="section-heading"><div><span class="eyebrow">BOUNDED SUPPORT</span><h3>Supported phase claims</h3></div><small>Each observation points to a frozen excerpt and its limit. It does not approve the whole artifact or predict the phase gate.</small></div><div id="engineeringEvidenceStrengths" class="strength-grid"></div></section>
           <details class="evidence-lenses-section"><summary><span><b>Explore other engineering questions</b><small>Optional perspectives on cost, risk, traceability, and more</small></span></summary><div id="evidenceMatrix" class="matrix evidence-lens-grid"></div><div id="evidenceLensDetail" class="evidence-lens-detail hidden"></div></details>
           <details class="evidence-inventory-section"><summary><span><b>Browse evidence areas</b><small>Open file conditions, frozen sources, and questions about a specific artifact</small></span></summary><label class="check-line"><input id="showOutOfScopeEvidence" type="checkbox"> Show future/out-of-scope scaffold</label><div id="engineeringEvidenceInventory" class="evidence-inventory"></div></details>
-          <section class="evidence-findings-section"><div class="section-heading"><div><span class="eyebrow">SAVED SNAPSHOT FINDINGS</span><h3>Questions or concerns worth examining</h3></div><small>Findings are REVIEW interpretations, not immutable facts. Ask, challenge, resolve, accept, or defer them.</small></div><div id="engineeringEvidenceFindings" class="evidence-findings-grid"></div></section>
+          <section class="evidence-findings-section"><div class="section-heading"><div><span class="eyebrow">SAVED SNAPSHOT FINDINGS</span><h3>Questions or concerns worth examining <small id="evidenceFindingCount"></small></h3></div><small>Findings are the board’s interpretations. You can ask about, challenge, resolve, accept, or defer them.</small></div><div id="engineeringEvidenceFindings" class="evidence-findings-grid"></div></section>
           <section class="traceability-section"><div class="section-heading"><div><span class="eyebrow">ENGINEERING STORY</span><h3>Traceability signals</h3></div><small>The Studio shows relationships it can support from the frozen snapshot; it does not invent missing links.</small></div><div id="engineeringTraceability" class="traceability-board"></div></section>
         </div>
       </div>
