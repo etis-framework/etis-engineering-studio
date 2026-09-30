@@ -35,7 +35,7 @@ def test_finish_action_is_in_conversation_and_handoff_uses_existing_evidence():
     html = (ROOT / 'apps/api/app/static/index.html').read_text()
     js = (ROOT / 'apps/api/app/static/studio.js').read_text()
     status = html[html.index('id="reviewStatus"'):html.index('id="activeReviewer"')]
-    controls = html[html.index('id="conversationControls"'):html.index('class="composer"')]
+    controls = html[html.index('id="conversationControls"'):html.index('</section>', html.index('id="conversationControls"'))]
     assert 'id="completeReview"' not in status
     assert controls.count('id="completeReview"') == 1
     assert 'id="startAnotherReview"' in controls

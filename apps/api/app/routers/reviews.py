@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 import threading
 from datetime import datetime, timezone
 
@@ -71,6 +72,31 @@ def _snapshot_finding(evidence: dict, finding_id: str | None) -> dict | None:
         return None
     return next((f for f in evidence.get('findings', [])
                  if isinstance(f, dict) and str(f.get('id')) == str(finding_id)), None)
+
+
+def _ai_nonuse_dispute_reply(path: str, explanation: str) -> str | None:
+    """Answer a reported non-use case without treating it as verified fact."""
+    if not re.search(r"ai[-_/ ]?use[-_/ ]?log|ai[-_/ ]?usage", path, re.I):
+        return None
+    report = re.search(
+        r"\b(?:no|never|not|haven't|have not|didn't|did not|wasn't|isn't)\b.{0,45}"
+        r"\b(?:AI|artificial intelligence)\b|"
+        r"\b(?:AI|artificial intelligence)\b.{0,45}"
+        r"\b(?:not|never|none|unused|wasn't|isn't)\b",
+        explanation, re.I,
+    )
+    if not report:
+        return None
+    return (
+        "If your team did not use AI for this work, you do not need to invent "
+        "log entries. Check with the team and its work history; if non-use is "
+        "supportable, record a dated statement identifying the period and who "
+        "confirmed it, then begin logging any material AI use if it starts. "
+        "That statement is a team attestation, not independent proof of every "
+        "action. The frozen snapshot shows the log file, but an empty table "
+        "alone cannot establish non-use. Which period can your team actually "
+        "confirm?"
+    )
 
 
 def _planner_finding_projection(value: dict) -> dict:
@@ -2178,14 +2204,16 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
         )
 
         if artifact:
+            nonuse_answer = _ai_nonuse_dispute_reply(path, req.explanation)
             text = (
-                f"`{path}` is in this review's frozen snapshot, so we can check it. "
-                f"I see it as {artifact.get('provenance','UNKNOWN').lower().replace('_',' ')} "
-                f"evidence with quality `{artifact.get('quality','unknown')}`. "
-                "Its presence alone does not establish your claim or clear the concern. "
-                "I have recorded your challenge; now let's inspect the relevant content and "
-                "decide what it supports, what remains uncertain, and whether the original "
-                "reviewer interpretation needs correction."
+                f"I found `{path}` in this review's frozen snapshot. "
+                + (nonuse_answer if nonuse_answer else (
+                    "Finding the file does not by itself settle the concern. "
+                    "I have recorded your challenge. Which passage in this frozen "
+                    "file changes the board's interpretation? If you are asking "
+                    "what the team should do, tell me here and I will help you "
+                    "work through it."
+                ))
             )
             disposition = "artifact_found"
 
