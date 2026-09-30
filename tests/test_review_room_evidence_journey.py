@@ -31,5 +31,5 @@ def test_empty_positive_section_collapses_without_hiding_real_support():
     assert "$('#evidenceSupportedSection').classList.toggle('hidden',!supported.length)" in JS
     assert "supported.map(x=>" in JS
     assert 'id="engineeringEvidenceSummary"' in HTML
-    assert "Supported phase claims</span>" in JS
+    assert "Areas with supported claims</span>" in JS
     assert "start.textContent=active?'Return to active review'" in JS
