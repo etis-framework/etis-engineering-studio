@@ -1427,7 +1427,33 @@ async function configureFocusedFromEvidence(focus,path=''){
   $('#reviewSessionPurpose').classList.remove('hidden');
   startReviewAction();
 }
-async function configureFindingFromEvidence(fid,intent='discuss',source='engineering_evidence'){const f=currentFindingById(fid);if(!f){toast('That finding is not available in the current frozen snapshot. Refresh Engineering Evidence and try again.');return}if(sessionId&&document.body.classList.contains('review-session-active')){await actOnFinding(f,intent,source);return}if(sessionId)newReviewHome();const findings=engineeringEvidenceData?.findings||currentEvidence?.findings||[];const available=findings.some(x=>String(x.id)===String(fid))?findings:[f,...findings];selectedFindingIds.clear();selectedFindingIds.add(fid);prepareEntryContext({source_view:source,entry_intent:intent,finding_ids:[fid],finding_id:fid,title:f.title});switchView('studio');await selectReviewMode('finding',{findings:available});const cb=$(`#findingPicker input[value="${CSS.escape(fid)}"]`);if(!cb){toast('The selected finding could not be placed in the review picker. Refresh the evidence snapshot before starting.');selectedFindingIds.clear()}updateReviewModeSummary();const action=intent==='resolve'?'Help resolve':intent==='challenge'?'Challenge':'Discuss';$('#reviewSessionPurpose').innerHTML=`<div><b>Prepared from Engineering Evidence · ${escapeHtml(action)}</b><span>${escapeHtml(f.title)}</span></div>`;$('#reviewSessionPurpose').classList.remove('hidden');requestAnimationFrame(()=>window.scrollTo({top:0,behavior:'auto'}));toast(`${action} Finding Review is ready. Use Start Finding Review above to begin.`)}
+async function configureFindingFromEvidence(fid,intent='discuss',source='engineering_evidence'){
+  if(pending||finishingReview){toast('The current review action is still completing. Try again in a moment.');return}
+  const f=currentFindingById(fid);
+  if(!f){toast('That finding is not available in the current frozen snapshot. Refresh Engineering Evidence and try again.');return}
+  if(sessionId&&document.body.classList.contains('review-session-active')){await actOnFinding(f,intent,source);return}
+  if(sessionId)newReviewHome();
+  const findings=engineeringEvidenceData?.findings||currentEvidence?.findings||[];
+  const available=findings.some(x=>String(x.id)===String(fid))?findings:[f,...findings];
+  selectedFindingIds.clear();selectedFindingIds.add(fid);
+  prepareEntryContext({source_view:source,entry_intent:intent,finding_ids:[fid],finding_id:fid,title:f.title});
+  switchView('studio');
+  await selectReviewMode('finding',{findings:available});
+  const cb=$(`#findingPicker input[value="${CSS.escape(fid)}"]`);
+  if(!cb){
+    selectedFindingIds.clear();updateReviewModeSummary();
+    toast('The selected finding could not be placed in the review picker. Refresh Engineering Evidence and try again.');
+    return;
+  }
+  cb.checked=true;
+  cb.closest('.finding-pick')?.classList.add('selected');
+  updateReviewModeSummary();
+  const action=intent==='resolve'?'Help resolve':intent==='challenge'?'Challenge':'Discuss';
+  $('#reviewSessionPurpose').innerHTML=`<div><b>Starting ${escapeHtml(action)} Finding Review</b><span>${escapeHtml(f.title)}</span></div>`;
+  $('#reviewSessionPurpose').classList.remove('hidden');
+  requestAnimationFrame(()=>window.scrollTo({top:0,behavior:'auto'}));
+  startReviewAction();
+}
 function renderEvidenceLensDetail(dimension,evidence){activeEvidenceLens=dimension.id;$$('.mcard').forEach(c=>c.classList.toggle('selected',c.dataset.lens===dimension.id));const items=(evidence.items||[]).filter(x=>relatedToLens(x,dimension));const findings=(evidence.findings||[]).filter(x=>relatedToLens(x,dimension));const box=$('#evidenceLensDetail');box.classList.remove('hidden');box.innerHTML=`<div class="lens-detail-head"><div><span class="eyebrow">${escapeHtml(dimension.label.toUpperCase())}</span><h3>${escapeHtml(dimension.question)}</h3><p>${items.length} related evidence item(s) · ${findings.length} related finding(s) in the frozen ${escapeHtml(evidence.phase_id)} snapshot.</p></div><button class="primary compact" id="focusLensReview">Ask the Board about ${escapeHtml(dimension.label)}</button></div><div class="lens-detail-grid"><div><b>Related evidence</b>${items.slice(0,8).map(x=>`<span class="lens-evidence ${evidenceStatusClass(x)}">${escapeHtml(evidenceStatusLabel(x))} · ${escapeHtml(x.equivalent_path||x.title)}</span>`).join('')||'<span class="quiet">No direct evidence relationship was identified in this snapshot. That may itself be worth asking about.</span>'}</div><div><b>Related findings</b>${findings.slice(0,6).map(f=>`<button class="lens-finding" data-finding="${escapeHtml(f.id)}">${escapeHtml((f.lifecycle?.status||'open').replaceAll('_',' '))} · ${escapeHtml(f.title)}</button>`).join('')||'<span class="quiet">No current board finding is tied to this lens.</span>'}</div></div>`;$('#focusLensReview').onclick=()=>configureFocusedFromEvidence(`${dimension.label}: ${dimension.question}`);$$('.lens-finding').forEach(b=>b.onclick=()=>configureFindingFromEvidence(b.dataset.finding,'discuss','engineering_evidence_lens'));box.scrollIntoView({behavior:'smooth',block:'nearest'})}
 function snapshotCaptureLabel(value){if(!value)return 'capture time unavailable';const stamped=/Z$|[+-]\d{2}:\d{2}$/.test(value)?value:`${value}Z`;const date=new Date(stamped);return Number.isNaN(date.getTime())?'capture time unavailable':date.toLocaleString()}
 function renderEngineeringEvidence(evidence,payload){engineeringEvidenceData=evidence;const title=$('#evidenceWorkspaceTitle'),meta=$('#evidenceWorkspaceMeta');title.textContent=`${evidence.phase_id} · ${phaseQuestions[evidence.phase_id]||'Current phase'}`;meta.textContent=`${payload.team?.project_name||payload.team?.name||'Team project'} · saved snapshot #${payload.snapshot_id??'—'} · ${snapshotCaptureLabel(payload.created_at)} · commit ${String(evidence.commit_sha||'').slice(0,8)||'local'} · ${evidence.coverage??'—'}% expected-evidence coverage (not a quality score)`;const sameActive=!!sessionId&&document.body.classList.contains('review-session-active');const snapshotNote=sameActive&&Number(reviewSnapshotId)===Number(payload.snapshot_id)?'This saved snapshot is used by your active review.':sameActive?'This is the latest saved team snapshot. Your active review keeps its original frozen snapshot; open the Review Room to inspect that conversation.':'Saved evidence from an earlier analysis, not a live scan. Start a new review to check current repository work.';const omitted=evidence.semantic_review?.inspection?.omitted_artifact_count||0;$('#evidenceSnapshotNote').textContent=snapshotNote+(omitted?` The semantic reviewer sampled excerpts from ${evidence.semantic_review.inspection.inspected_artifact_count} artifacts; ${omitted} artifacts were outside its context. Point the reviewer to a specific file if something was missed.`:'');
