@@ -97,6 +97,10 @@
             <div class="review-status-actions"><button id="retryStartReview" class="secondary hidden" type="button">Retry Review</button></div>
           </div>
           <div id="reviewCompletionSummary" class="review-completion-summary hidden" aria-live="polite"></div>
+          <div id="reviewJourney" class="review-journey" aria-label="How to use this review">
+            <div><b>Continue here with your reviewer.</b><span>Ask a question, respond, or say where you are stuck. Inspect evidence when you want to check a repository fact, then return to this conversation.</span></div>
+            <div class="review-journey-actions"><button id="inspectCurrentConcern" class="secondary compact" type="button">Inspect cited frozen source</button><button id="browseReviewEvidence" class="secondary compact" type="button">Browse Engineering Evidence</button></div>
+          </div>
 
           <div id="activeReviewer" class="active-reviewer hidden" aria-live="polite">
             <img id="activeReviewerPortrait" alt="">
@@ -104,7 +108,7 @@
           </div>
 
           <details id="boardReadout" class="board-readout hidden">
-            <summary><span>Explore your A2 evidence and other concerns</span><small>Open for the wider review picture</small></summary>
+            <summary><span>Other concerns in this review</span><small>For files and excerpts, open Engineering Evidence above</small></summary>
             <div class="board-readout-head"><div><span class="eyebrow">REVIEW CONTEXT</span><h3 id="boardReadoutTitle">Current phase</h3></div><span class="readout-not-grade">Preparation · not a grade</span></div>
             <div id="boardChanges" class="board-changes hidden"></div>
             <div class="board-readout-details">
@@ -195,7 +199,7 @@
           <div class="evidence-workspace-head"><div><span class="eyebrow">LATEST SAVED EVIDENCE SNAPSHOT</span><h3 id="evidenceWorkspaceTitle">Current phase evidence</h3><p id="evidenceWorkspaceMeta"></p><p id="evidenceSnapshotNote" class="evidence-snapshot-note"></p></div><div class="evidence-workspace-actions"><button id="startBoardFromEvidence" class="primary compact">Choose Board Review →</button><button id="backToStudio" class="secondary">Open Review Room</button></div></div>
           <div class="evidence-summary-strip" id="engineeringEvidenceSummary"></div>
           <div id="evidenceNextAction" class="evidence-next-action"></div>
-          <section class="evidence-strengths-section"><div class="section-heading"><div><span class="eyebrow">BOUNDED SUPPORT</span><h3>Supported phase claims</h3></div><small>Each observation points to a frozen excerpt and its limit. It does not approve the whole artifact or predict the phase gate.</small></div><div id="engineeringEvidenceStrengths" class="strength-grid"></div></section>
+          <section class="evidence-strengths-section" id="evidenceSupportedSection"><div class="section-heading"><div><span class="eyebrow">BOUNDED SUPPORT</span><h3>Supported phase claims</h3></div><small>Each observation points to a frozen excerpt and its limit. It does not approve the whole artifact or predict the phase gate.</small></div><div id="engineeringEvidenceStrengths" class="strength-grid"></div></section>
           <details class="evidence-lenses-section"><summary><span><b>Explore other engineering questions</b><small>Optional perspectives on cost, risk, traceability, and more</small></span></summary><div id="evidenceMatrix" class="matrix evidence-lens-grid"></div><div id="evidenceLensDetail" class="evidence-lens-detail hidden"></div></details>
           <section class="evidence-inventory-section"><div class="section-heading"><div><span class="eyebrow">EVIDENCE IN THE CURRENT PHASE</span><h3>What each evidence area supports so far</h3></div><label class="check-line"><input id="showOutOfScopeEvidence" type="checkbox"> Show future/out-of-scope scaffold</label></div><div id="engineeringEvidenceInventory" class="evidence-inventory"></div></section>
           <section class="evidence-findings-section"><div class="section-heading"><div><span class="eyebrow">CURRENT FINDINGS</span><h3>Questions or concerns worth examining</h3></div><small>Findings are REVIEW interpretations, not immutable facts. Ask, challenge, resolve, accept, or defer them.</small></div><div id="engineeringEvidenceFindings" class="evidence-findings-grid"></div></section>

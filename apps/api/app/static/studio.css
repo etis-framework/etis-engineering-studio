@@ -614,3 +614,12 @@
 }
 /* The concern title and its explanation must remain separate at every width. */
 .evidence-next-action .preparation-focus>div{display:grid;gap:5px}
+
+/* Keep the conversation as the student's home while making source inspection explicit. */
+.review-journey{display:none;align-items:center;justify-content:space-between;gap:14px;margin:0 0 14px;padding:13px 15px;border:1px solid #31545b;border-radius:10px;background:#0d2029}
+.review-session-active .review-journey{display:flex}
+.review-journey b,.review-journey span{display:block}
+.review-journey b{font-size:13px}
+.review-journey span{max-width:640px;margin-top:4px;color:#b9cbd3;font-size:11px;line-height:1.45}
+.review-journey-actions{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
+@media(max-width:900px){.review-journey{flex-direction:column;align-items:stretch}.review-journey-actions{flex-direction:column}.review-journey-actions button{width:100%}}
