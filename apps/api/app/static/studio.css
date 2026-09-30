@@ -210,6 +210,9 @@
 .challenge-dialog .challenge-hint{display:block;color:#a9bac1;margin:5px 0}
 .challenge-dialog .challenge-error{color:#ffd8d3;background:#4a2027;border:1px solid #d88687;border-radius:8px;padding:9px 11px;margin:10px 0 0}
 .challenge-dialog [aria-invalid="true"]{border-color:#ffaaa6!important;outline:2px solid #a14c53}
+.challenge-dialog .challenge-progress{color:#b7d9d3;background:#102b2b;border:1px solid #3d7771;border-radius:8px;padding:9px 11px;margin:10px 0 0}
+.challenge-dialog #submitEvidenceDispute.challenge-working::before{content:"";display:inline-block;width:12px;height:12px;margin-right:8px;border:2px solid rgba(5,32,29,.3);border-top-color:#05201d;border-radius:50%;vertical-align:-2px;animation:spin .8s linear infinite}
+@media(prefers-reduced-motion:reduce){.challenge-dialog #submitEvidenceDispute.challenge-working::before{animation:none;border-color:#05201d}}
 
 .instructor-review-meta{
   grid-template-columns:

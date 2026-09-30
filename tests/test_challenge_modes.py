@@ -37,7 +37,7 @@ async function run({path='',kind,explanation='',draft='',finding=true,accepted=t
   switchView:x=>events.push(['view',x]),showSubmittedExchange:x=>events.push(['exchange',x.id]),
   toast:x=>events.push(['toast',x]),
   $:el,document:{querySelector:q=>q.includes(':checked')?Object.values(radios).find(x=>x.checked):q.includes('value="evidence"')?radios.evidence:radios.interpretation,
-    querySelectorAll:()=>Object.values(radios)},setTimeout:f=>f()};
+    querySelectorAll:()=>Object.values(radios)},setTimeout:f=>f(),clearTimeout:()=>{}};
  vm.runInNewContext(code,ctx);
  ctx.openEvidenceDispute(path,'F-weak');
  if(kind){Object.values(radios).forEach(r=>r.checked=r.value===kind);ctx.updateDisputeKind()}
