@@ -1226,17 +1226,37 @@ $('#keepReviewing').onclick=closeReviewExit;
 $('#reviewExitOverlay').onclick=e=>{if(e.target.id==='reviewExitOverlay')closeReviewExit()};
 $('#leaveReviewOpen').onclick=()=>{if(finishingReview)return;closeReviewExit();newReviewHome('Choose a new review. Your earlier review remains open in history.',true)};
 $('#confirmFinishReview').onclick=async()=>{const startAnother=reviewExitIntent==='new';if(await finishReview()&&startAnother)newReviewHome()};
-let disputePath='',disputeFindingId=null;
+let disputePath='',disputeFindingId=null,challengeInFlight=false,challengeSpinnerTimer=null,challengeSlowTimer=null;
+function beginChallengeProgress(){
+  challengeInFlight=true;
+  const submit=$('#submitEvidenceDispute'),status=$('#challengeProgress');
+  submit.disabled=true;$('#cancelEvidenceDispute').textContent='Close while waiting';
+  $('#closeEvidenceDispute').setAttribute('aria-label','Close dialog; challenge continues');
+  $('#evidenceDisputePath').disabled=true;$('#evidenceDisputeExplanation').disabled=true;
+  document.querySelectorAll('input[name="evidenceDisputeKind"]').forEach(input=>input.disabled=true);
+  status.textContent='';status.classList.add('hidden');
+  challengeSpinnerTimer=setTimeout(()=>{submit.classList.add('challenge-working');status.textContent='Studio is sending your challenge and waiting for a response.';status.classList.remove('hidden')},450);
+  challengeSlowTimer=setTimeout(()=>{status.textContent='Still waiting for a response. Please do not submit the challenge again.';status.classList.remove('hidden')},5000);
+}
+function endChallengeProgress(){
+  clearTimeout(challengeSpinnerTimer);clearTimeout(challengeSlowTimer);
+  challengeSpinnerTimer=null;challengeSlowTimer=null;challengeInFlight=false;
+  $('#submitEvidenceDispute').classList.remove('challenge-working');$('#submitEvidenceDispute').disabled=false;
+  $('#cancelEvidenceDispute').textContent='Cancel';$('#closeEvidenceDispute').setAttribute('aria-label','Close challenge');
+  $('#evidenceDisputePath').disabled=false;$('#evidenceDisputeExplanation').disabled=false;
+  document.querySelectorAll('input[name="evidenceDisputeKind"]').forEach(input=>input.disabled=false);
+  $('#challengeProgress').textContent='';$('#challengeProgress').classList.add('hidden');
+}
 function disputeKind(){return document.querySelector('input[name="evidenceDisputeKind"]:checked')?.value||'interpretation'}
 function clearDisputeError(){const error=$('#evidenceDisputeError');error.textContent='';error.classList.add('hidden');$('#evidenceDisputePath').removeAttribute('aria-invalid');$('#evidenceDisputeExplanation').removeAttribute('aria-invalid')}
 function showDisputeError(message,field){const error=$('#evidenceDisputeError');error.textContent=message;error.classList.remove('hidden');field.setAttribute('aria-invalid','true');field.focus()}
 function updateDisputeKind(){const evidence=disputeKind()==='evidence';$('#evidenceDisputePathGroup').classList.toggle('hidden',!evidence);$('#submitEvidenceDispute').textContent=evidence?'Ask Maya to re-check →':'Ask reviewer to reconsider →';clearDisputeError()}
 document.querySelectorAll('input[name="evidenceDisputeKind"]').forEach(input=>input.onchange=updateDisputeKind);
-function openEvidenceDispute(path='',findingId=null){if(!sessionId){toast('Begin or resume a review first.');return}disputePath=path||'';disputeFindingId=findingId||null;$('#evidenceDisputePath').value=disputePath;$('#evidenceDisputeExplanation').value='';document.querySelector(`input[name="evidenceDisputeKind"][value="${path?'evidence':'interpretation'}"]`).checked=true;updateDisputeKind();$('#evidenceDisputeOverlay').classList.remove('hidden');setTimeout(()=>$('#evidenceDisputeExplanation').focus(),30)}
-function closeEvidenceDispute(){$('#evidenceDisputeOverlay').classList.add('hidden');disputePath='';disputeFindingId=null}
+function openEvidenceDispute(path='',findingId=null){if(!sessionId){toast('Begin or resume a review first.');return}if(challengeInFlight){toast('Your earlier challenge is still being reviewed. Please wait for its response.');return}disputePath=path||'';disputeFindingId=findingId||null;$('#evidenceDisputePath').value=disputePath;$('#evidenceDisputeExplanation').value='';document.querySelector(`input[name="evidenceDisputeKind"][value="${path?'evidence':'interpretation'}"]`).checked=true;updateDisputeKind();$('#evidenceDisputeOverlay').classList.remove('hidden');setTimeout(()=>$('#evidenceDisputeExplanation').focus(),30)}
+function closeEvidenceDispute(){$('#evidenceDisputeOverlay').classList.add('hidden');if(challengeInFlight){toast('The challenge is still running. The Review Room will open when the response arrives.');return}disputePath='';disputeFindingId=null}
 $('#closeEvidenceDispute').onclick=closeEvidenceDispute;$('#cancelEvidenceDispute').onclick=closeEvidenceDispute;$('#evidenceDisputeOverlay').onclick=e=>{if(e.target.id==='evidenceDisputeOverlay')closeEvidenceDispute()};
 $('#submitEvidenceDispute').onclick=async()=>{
-  if(pending)return;
+  if(pending||challengeInFlight)return;
   const path=$('#evidenceDisputePath').value.trim();
   const explanation=$('#evidenceDisputeExplanation').value.trim();
   clearDisputeError();
@@ -1250,20 +1270,22 @@ $('#submitEvidenceDispute').onclick=async()=>{
   const finding=(currentEvidence?.findings||[]).find(item=>String(item.id)===String(fid));
   if(!finding){showDisputeError('This finding is no longer in the current snapshot. Close this dialog and reload Engineering Evidence.',$('#evidenceDisputeExplanation'));return}
   const submit=$('#submitEvidenceDispute');
-  submit.disabled=true;
+  beginChallengeProgress();
   submit.textContent='The reviewer is considering your challenge…';
   try{
     const result=await send({text:`I challenge the finding “${finding.title}”: ${explanation}`,evidenceRefs:[`FINDING:${fid}`,...(finding.evidence_refs||[])]});
+    endChallengeProgress();
     if(result){closeEvidenceDispute();switchView('studio');if(result!==true)showSubmittedExchange(result)}
-    else showDisputeError('Studio could not confirm this challenge. Your explanation is still here; wait a moment and try again.',$('#evidenceDisputeExplanation'));
-  }finally{submit.disabled=false;submit.textContent='Ask reviewer to reconsider →'}
+    else{$('#evidenceDisputeOverlay').classList.remove('hidden');showDisputeError('Studio could not confirm this challenge. Your explanation is still here; wait a moment and try again.',$('#evidenceDisputeExplanation'))}
+  }catch(e){
+    $('#evidenceDisputeOverlay').classList.remove('hidden');
+    showDisputeError('Studio could not complete the challenge. Your explanation is still here; try again.',$('#evidenceDisputeExplanation'));
+  }finally{if(challengeInFlight)endChallengeProgress();submit.textContent='Ask reviewer to reconsider →'}
 };
 
 async function disputeEvidence(path,explanation,findingId=null){
-  if(!sessionId||pending)return;
+  if(!sessionId||pending||challengeInFlight)return;
   const submit=$('#submitEvidenceDispute');
-  submit.disabled=true;
-  submit.textContent='Maya is checking the frozen snapshot…';
 
   const body={
     path,
@@ -1278,6 +1300,8 @@ async function disputeEvidence(path,explanation,findingId=null){
   );
 
   body.client_turn_id=mutation.id;
+  beginChallengeProgress();
+  submit.textContent='Maya is checking the frozen snapshot…';
 
   setPending(
     true,
@@ -1331,10 +1355,12 @@ async function disputeEvidence(path,explanation,findingId=null){
     }
 
     clearReviewMutation(mutation);
+    endChallengeProgress();
     closeEvidenceDispute();
     showSubmittedExchange(studentTurn);
 
   }catch(e){
+    endChallengeProgress();
     // Keep the overlay and its exact path/explanation open. If the server
     // committed before delivery failed, retrying this unchanged form will
     // reuse the same client_turn_id and recover the original result.
@@ -1354,6 +1380,7 @@ async function disputeEvidence(path,explanation,findingId=null){
     disputeFindingId=findingId;
 
   }finally{
+    if(challengeInFlight)endChallengeProgress();
     setPending(false);
     submit.disabled=false;
     submit.textContent='Ask Maya to re-check →';
