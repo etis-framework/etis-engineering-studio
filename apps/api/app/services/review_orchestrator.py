@@ -156,13 +156,19 @@ class ReviewOrchestrator:
                     id=str(primary.get('id') or 'finding-review'), phase_id=phase_id, lens=lens,
                     title=f"Finding Review · {primary.get('title','Finding')[:70]}" + (f" + {len(related)-1} related" if len(related)>1 else ""),
                     prompt=(
-                        f"You selected the finding: {primary.get('title','Finding')}. "
-                        f"The board's current interpretation is: {primary.get('statement','')} "
-                        f"{directive} Start with this finding only; do not switch to a generic repository concern."
+                        f"Let's examine this finding: {primary.get('title','Finding')}. "
+                        f"The board currently interprets the frozen evidence this way: {primary.get('statement','')} "
+                        "That interpretation may be incomplete. What did we miss? "
+                        "If you have contrary or equivalent evidence in this review's frozen snapshot, "
+                        "point me to the specific file and explain what it shows."
+                        if entry_intent == 'challenge' else
+                        f"Let's examine this finding: {primary.get('title','Finding')}. "
+                        f"The board currently interprets the frozen evidence this way: {primary.get('statement','')} "
+                        "What would you like to understand or improve first?"
                     ),
-                    why_now=f"Student-selected Finding Review from {entry_intent} intent.",
+                    why_now=f"Student-selected Finding Review from {entry_intent} intent. Focus on this finding only.",
                     evidence_refs=refs, dimensions=[],
-                    expected_move='Understand the finding, test the evidence, and choose an evidence-backed next action when one is needed.',
+                    expected_move=directive,
                     level=1, noticed=primary.get('statement','The board identified a review finding.'),
                     significance=primary.get('significance','The finding affects what the team can responsibly claim or do at this phase.'),
                     decision_question=(
