@@ -104,7 +104,10 @@ def _active_review_with_staff(role: str):
             phase_id="A1",
             source="authority-boundary-test",
             commit_sha=f"sha-{suffix}",
-            summary_json=json.dumps({"findings": []}),
+            summary_json=json.dumps({"findings": [
+                {"id": "finding-1", "evidence_refs": ["PATH:docs/evidence.md"],
+                 "title": "Evidence needs checking", "severity": 3}
+            ]}),
         )
         db.add(snapshot)
         db.flush()
