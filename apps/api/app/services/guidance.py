@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -23,6 +24,26 @@ def guidance_for(phase_id: str, target_move: str | None = None, limit: int = 3):
         matches.append((score, item))
     matches.sort(key=lambda pair: pair[0], reverse=True)
     return [item for _score, item in matches[:limit]]
+
+
+def guidance_for_topic(phase_id: str, question: str, target_move: str | None = None,
+                       limit: int = 3):
+    """Choose a verified course reference for the student's actual question."""
+    choices = guidance_for(phase_id, target_move, limit=20)
+    preferred = None
+    if phase_id == 'A1':
+        preferred = ('ETIS-ES101-CONTEXT' if re.search(
+            r'\b(problem|scope|stakeholder|success|outcome|launch)\b', question, re.I)
+            else 'ETIS-ES100-PRINCIPLES' if re.search(
+                r'\b(owner|decision|authority|escalat|govern)', question, re.I) else None)
+    elif phase_id == 'A2':
+        preferred = ('ETIS-ES103-CONTEXT' if re.search(
+            r'\b(plan|estimat|schedule|task|dependenc|risk|re.estimat)', question, re.I)
+            else 'ETIS-ES102-READINESS' if re.search(
+                r'\b(requirement|constraint|acceptance)', question, re.I) else None)
+    if preferred:
+        choices.sort(key=lambda item: item['id'] != preferred)
+    return choices[:limit]
 
 
 def verified_guidance(ids: list[str] | None):

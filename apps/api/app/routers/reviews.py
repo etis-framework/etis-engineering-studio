@@ -26,6 +26,8 @@ from ..services.review_planning import (
 )
 from ..services.evidence import snapshot_from_dict, supports_current_analysis_contract
 from ..services.evidence_package import EvidencePackageBuilder
+from ..services.cumulative_phase import turn_coaching_phase
+from ..config import get_settings
 from ..services.artifact_condition import decorate_conditions
 from ..services.model_disclosure import sanitize_model_artifact
 from ..services.usage_store import record_usage_events
@@ -494,8 +496,21 @@ def _evidence_context(
     db: Session,
     state: dict,
     evidence_refs: list[str] | tuple[str, ...] = (),
+    student_text: str = '',
 ):
     snapshot_id = state.get("evidence_snapshot_id")
+    challenge = _challenge_from_state(state)
+    topic = turn_coaching_phase(challenge.phase_id, student_text,
+                                (state.get('conversation_memory') or {}).get('coaching_phase'),
+                                evidence_refs)
+
+    if topic != challenge.phase_id and snapshot_id:
+        snapshot = db.get(EvidenceSnapshot, snapshot_id)
+        if snapshot:
+            evidence = snapshot_from_dict(_safe_json(snapshot.summary_json, {}))
+            return evidence_package_builder.build_for_phase(
+                evidence.to_dict(), challenge.to_dict(), topic, evidence_refs,
+            ).to_prompt_text(max_chars=get_settings().etis_review_context_chars)
 
     # An explicit evidence selection gets a turn-specific package built only
     # from the persisted frozen snapshot. This lets the reviewer inspect the
@@ -504,7 +519,6 @@ def _evidence_context(
         snapshot = db.get(EvidenceSnapshot, snapshot_id)
         if snapshot:
             evidence = snapshot_from_dict(_safe_json(snapshot.summary_json, {}))
-            challenge = _challenge_from_state(state)
             package = evidence_package_builder.build_for_turn(
                 evidence.to_dict(),
                 challenge.to_dict(),
@@ -1604,7 +1618,7 @@ def clarify(session_id: int, req: ReviewClarifyRequest, request:Request, db: Ses
         history_payload = _history_payload(turns)
         reply, merged, evaluation = engine.converse(
             challenge, req.question, prior, intent="clarify",
-            coaching_level=state.get("coaching_level", 0), evidence_context=_evidence_context(db, state),
+            coaching_level=state.get("coaching_level", 0), evidence_context=_evidence_context(db, state, student_text=req.question),
             conversation_history=history_payload, conversation_memory=state.get("conversation_memory") or {},
             student_name=student.display_name if student else "",
         )
@@ -1749,7 +1763,7 @@ def coach(session_id: int, req: ReviewCoachRequest, request:Request, db: Session
         prior = state.get("reasoning_state") or {}
         reply, merged, evaluation = engine.converse(
             challenge, text, prior, intent="coach", decision=req.decision,
-            coaching_level=level, evidence_context=_evidence_context(db, state), conversation_history=history_payload,
+            coaching_level=level, evidence_context=_evidence_context(db, state, student_text=text), conversation_history=history_payload,
             conversation_memory=state.get("conversation_memory") or {}, student_name=student.display_name if student else "",
         )
         proposal_updates, proposal_intent = _reasoning_proposal_from_reply(reply)
@@ -1899,7 +1913,7 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
         follow_up, merged, evaluation = engine.converse(
             challenge, req.response, prior, intent=req.intent, decision=req.decision,
             evidence_refs=req.evidence_refs, coaching_level=state.get("coaching_level", 0),
-            evidence_context=_evidence_context(db, state, req.evidence_refs), conversation_history=history_payload,
+            evidence_context=_evidence_context(db, state, req.evidence_refs, student_text=req.response), conversation_history=history_payload,
             conversation_memory=state.get("conversation_memory") or {},
             student_name=student.display_name if student else "",
         )

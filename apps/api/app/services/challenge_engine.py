@@ -8,8 +8,8 @@ from .course_model import get_phase
 from .board_readiness import build_board_readout
 from .artifact_condition import supported_observations
 from .ai_provider import OpenAIResponsesProvider
-from .guidance import guidance_for, verified_guidance
-from .cumulative_phase import coaching_phase
+from .guidance import guidance_for, guidance_for_topic, verified_guidance
+from .cumulative_phase import coaching_phase, turn_coaching_phase
 from .model_disclosure import sanitize_model_text
 from ..config import get_settings
 
@@ -992,18 +992,15 @@ If the draft fails any of these, set acceptable=false and write a complete revis
         if decision:
             memory["last_decision"] = decision
         target = self.next_move(prior)
-        topic_phase = coaching_phase(challenge.phase_id, text, memory.get('coaching_phase'))
-        # An explicitly selected artifact can change the topic, but its path
-        # may itself be earlier-phase evidence. Do not default every click to
-        # the current gate.
-        if evidence_refs and not re.search(r'\bA[1-6]\b', text, re.I):
-            topic_phase = coaching_phase(challenge.phase_id, ' '.join(map(str, evidence_refs)), topic_phase)
+        topic_phase = turn_coaching_phase(challenge.phase_id, text, memory.get('coaching_phase'), evidence_refs)
         memory['coaching_phase'] = topic_phase
-        guidance = guidance_for(topic_phase, target, limit=4)
+        guidance = guidance_for_topic(topic_phase, text, target, limit=4)
         history = (conversation_history or [])[-20:]
         last_reviewer = next((str(turn.get('content') or '') for turn in reversed(conversation_history or [])
                               if turn.get('actor') == 'reviewer'), '')
         earlier_topic = topic_phase != challenge.phase_id
+        if earlier_topic:
+            guidance = guidance_for_topic(topic_phase, f'{text} {last_reviewer}', target, limit=4)
         if earlier_topic:
             # Do not repeat the A3 opening and its long A3 evidence package in
             # an A1 pronoun follow-up. Start at the student's last explicit
@@ -1033,6 +1030,18 @@ If the draft fails any of these, set acceptable=false and write a complete revis
                    "exact equivalent source. Keep a current-phase finding open when the conversation turns elsewhere. "
                    "When asked about an earlier phase, use that phase's guidance; do not cite a later-stage link "
                    "or recommend inspecting an unrelated artifact.")
+        if earlier_topic:
+            focus = {
+                'A1': 'project problem, stakeholder, bounded launch scope, observable first outcome, and decision owner',
+                'A2': 'requirements, Cycle 1 tasks, estimates, dependencies, ownership, and re-estimation triggers',
+                'A3': 'architecture boundaries, responsibilities, contracts, assumptions, and design review',
+                'A4': 'implemented behavior, substantive peer review, integration, and executed checks',
+                'A5': 'acceptance results, release baseline, residual risk, and release decision',
+            }.get(topic_phase, 'the requested phase decisions and their operating evidence')
+            system += (f"\n\nILLUSTRATIVE EXAMPLE SCOPE: For {topic_phase}, use {focus}. "
+                       "Do not import later-phase deliverables into an early-phase example. "
+                       "In particular A1 project launch is not production acceptance or release approval. "
+                       "Cite exact supplied paths only for repository facts; label invented values illustrative.")
         review_context_chars = get_settings().etis_review_context_chars
         safe_evidence_context = sanitize_model_text(
             evidence_context[:review_context_chars]
@@ -1047,15 +1056,16 @@ If the draft fails any of these, set acceptable=false and write a complete revis
                 package = json.loads(safe_evidence_context)
                 if not isinstance(package, dict):
                     raise ValueError('not a package')
-                safe = {key: package[key] for key in
-                        ('phase_id', 'repo_full_name', 'commit_sha', 'github_signals', 'evidence_boundary')
-                        if key in package}
-                selected = {str(ref)[5:] for ref in (evidence_refs or [])
-                            if str(ref).startswith('PATH:')}
-                if selected:
-                    safe['selected_artifacts'] = [a for a in (package.get('relevant_artifacts') or [])
-                                                  if a.get('path') in selected]
-                safe_evidence_context = json.dumps(safe, ensure_ascii=False)
+                if package.get('topic_phase') != topic_phase:
+                    safe = {key: package[key] for key in
+                            ('phase_id', 'repo_full_name', 'commit_sha', 'github_signals', 'evidence_boundary')
+                            if key in package}
+                    selected = {str(ref)[5:] for ref in (evidence_refs or [])
+                                if str(ref).startswith('PATH:')}
+                    if selected:
+                        safe['selected_artifacts'] = [a for a in (package.get('relevant_artifacts') or [])
+                                                      if a.get('path') in selected]
+                    safe_evidence_context = json.dumps(safe, ensure_ascii=False)
             except (ValueError, TypeError):
                 safe_evidence_context = 'Earlier-phase artifact excerpts were not supplied for this turn.'
         project_context = sanitize_model_text(str(memory.get("project_name") or "")[:120]).text.replace("\n", " ").replace("\r", " ")
@@ -1063,8 +1073,8 @@ If the draft fails any of these, set acceptable=false and write a complete revis
                              f"The last reviewer answer was: {last_reviewer[:1800]}. "
                              "Resolve 'that', 'this', and 'it' against that answer. "
                              "The current-gate finding remains open but is not the question being asked. "
-                             "If earlier-phase artifact excerpts are unavailable, give a useful illustrative "
-                             "evidence pattern and say that its presence in this repository is unknown." if earlier_topic else '')
+                             "Use only the earlier-phase excerpts actually supplied; where they are absent or "
+                             "uninspected, give a useful illustrative pattern and state what remains unknown." if earlier_topic else '')
         board_context = ('' if earlier_topic else
                          f"Original board finding: {challenge.prompt}\nWhy now: {challenge.why_now}\n"
                          f"Reviewer objective (internal guidance): {challenge.expected_move}")
@@ -1123,7 +1133,7 @@ The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the stu
         must_teach = direct_signal or auto_teach
 
         if must_teach and parsed.get("response_mode") != "teach":
-            rescue_guidance = guidance_for(topic_phase, self.next_move(merged), limit=4)
+            rescue_guidance = guidance_for_topic(topic_phase, f'{text} {last_reviewer}', self.next_move(merged), limit=4)
             rescue_system = self._semantic_system_prompt(
                 challenge, merged, memory, decision, student_name, self.next_move(merged), rescue_guidance
             ) + f"\n\nThe current question concerns {topic_phase} within the {challenge.phase_id} frozen review. Only recommend guidance for {topic_phase}. RESCUE MODE IS ACTIVE. Stop questioning. Teach the missing concept directly. Give a reasonable professional answer grounded only in the supplied evidence/context, optionally point to verified ETIS/LMU guidance, and end with one short teach-back/application question."
@@ -1139,7 +1149,7 @@ The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the stu
         requested_ids = parsed.get("guidance_ids") or []
         refs = [item for item in verified_guidance(requested_ids) if topic_phase in item.get('phase_ids', [])]
         if (must_teach or parsed.get('response_mode') == 'teach') and not refs:
-            refs = guidance_for(topic_phase, self.next_move(merged) or target, limit=1)
+            refs = guidance_for_topic(topic_phase, f'{text} {last_reviewer}', self.next_move(merged) or target, limit=1)
         lens = memory.get("active_lens") or challenge.lens
         handoff = parsed.get("handoff_lens")
         if handoff in REVIEWERS and handoff != lens and evaluation.get("learning_score", 0) >= 5 and not must_teach:

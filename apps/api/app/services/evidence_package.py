@@ -18,6 +18,7 @@ class CompactEvidencePackage:
     github_signals: dict
     longitudinal: dict
     evidence_boundary: str
+    topic_phase: str = ''
 
     def to_dict(self):
         return asdict(self)
@@ -180,6 +181,79 @@ class EvidencePackageBuilder:
 
         base = self.build(evidence, challenge)
         base.relevant_artifacts = selected
+        return base
+
+    def build_for_phase(self, evidence: dict, challenge: dict, topic_phase: str,
+                        evidence_refs=()) -> CompactEvidencePackage:
+        """Retrieve bounded earlier-phase sources from the same frozen snapshot.
+
+        Paths are discovery clues, not proof of a practice. Uninspected and
+        scaffold sources remain labeled as such in the model package.
+        """
+        terms = {
+            'A1': ('readme', 'team/', 'roles', 'working.agreement', 'stakeholder',
+                   'requirements', 'launch', 'scope', 'decision'),
+            'A2': ('requirements', 'planning/', 'estimate', 'risk', 'schedule',
+                   'traceab', 'task', 'decision'),
+            'A3': ('architecture', 'interface', 'contract', 'data.context', 'decision'),
+            'A4': ('src/', 'tests/', 'testing', 'implementation', '.github/workflows', 'review'),
+            'A5': ('release', 'acceptance', 'test.evidence', 'quality', 'risk'),
+            'A6': ('operations', 'runbook', 'observab', 'recovery', 'security'),
+        }.get(topic_phase, ())
+        selected = {str(ref)[5:] for ref in (evidence_refs or [])
+                    if str(ref).startswith('PATH:')}
+        later_terms = {
+            'A1': ('architecture', 'testing/', 'release/', 'src/', 'tests/', 'planning/estimat'),
+            'A2': ('architecture/', 'release/', 'src/', 'tests/'),
+            'A3': ('release/',),
+        }.get(topic_phase, ())
+        content_signals = {
+            'A1': ('problem', 'stakeholder', 'scope', 'success', 'decision owner'),
+            'A2': ('requirement', 'estimate', 'dependency', 'schedule', 'risk'),
+            'A3': ('component', 'interface', 'boundary', 'data flow', 'architecture'),
+            'A4': ('implementation', 'pull request', 'test result', 'integration', 'review'),
+            'A5': ('acceptance', 'release', 'defect', 'residual risk', 'verification'),
+            'A6': ('runbook', 'monitor', 'restore', 'incident', 'operation'),
+        }.get(topic_phase, ())
+        ranked = []
+        for artifact in evidence.get('artifacts') or []:
+            path = str(artifact.get('path') or '')
+            if not path or not (path.startswith(('docs/', 'src/', 'tests/', '.github/'))
+                                or path in {'README.md', 'CONTRIBUTING.md'}):
+                continue
+            lower = path.lower()
+            if path not in selected and any(term in lower for term in later_terms):
+                continue
+            score = sum(3 if term in lower else 0 for term in terms)
+            excerpt = str(artifact.get('content_excerpt') or '')[:4000].lower()
+            content_hits = sum(term in excerpt for term in content_signals)
+            if path.startswith('docs/') and content_hits >= 2:
+                score += min(content_hits, 3)
+            if path in selected:
+                score += 100
+            if score:
+                # Team-authored content gets inspection priority, but the
+                # evidence package does not turn that into a quality verdict.
+                score += 4 if artifact.get('provenance') in {'TEAM_ADDED', 'TEAM_ADAPTED'} else 0
+                ranked.append((score, path, artifact))
+        ranked.sort(key=lambda row: (-row[0], row[1]))
+        candidates = [a for _, _, a in ranked[:7]]
+        base = self.build(evidence, challenge)
+        base.topic_phase = topic_phase
+        base.challenge = {'active_topic': topic_phase, 'current_gate': evidence.get('phase_id')}
+        base.strengths = []  # current-gate praise does not establish earlier work
+        base.relevant_items = []  # these are current-gate expected locations
+        base.relevant_artifacts = [self._model_safe_artifact(
+            a, max_chars=2200 if a.get('path') in selected else 1300,
+            content_field='review_content' if a.get('path') in selected else 'content_excerpt',
+            include_windows=True,
+        ) for a in candidates]
+        base.evidence_boundary = (
+            f'Frozen {evidence.get("phase_id")} snapshot; these are bounded, path-discovered '
+            f'{topic_phase} candidates, not a complete earlier-phase assessment. '
+            'A filename or polished policy alone does not prove performed practice. '
+            'Uninspected, omitted, or equivalent evidence elsewhere remains unknown.'
+        )
         return base
 
     def build(self, evidence: dict, challenge: dict) -> CompactEvidencePackage:
