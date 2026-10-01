@@ -211,11 +211,65 @@ def evidence_authority_contract(student_text: str, evidence_refs=()) -> str:
         "- If the student points to contrary/equivalent evidence that is present in the supplied frozen package, inspect it yourself and explicitly correct or narrow the REVIEW interpretation when it invalidates the finding. Do not defend the reviewer for consistency's sake.\n"
         "- When an exact selected PATH is present, use its hydration_status as an authority boundary. FOUND_AND_SUPPLIED means you may inspect and reason from the supplied frozen content; FOUND_BUT_EMPTY means you may state the frozen file is empty; FOUND_BUT_UNINSPECTED, FOUND_BUT_QUARANTINED, FOUND_BUT_UNAVAILABLE, and PATH_NOT_IN_SNAPSHOT mean you must not claim to have inspected file contents.\n"
         "- When hydration_status is FOUND_AND_SUPPLIED, do not make the student re-identify the passage as the first response. Inspect the selected frozen content yourself, state what it does or does not establish, then ask for a narrower passage only when the supplied content is genuinely ambiguous.\n"
+        "- Provenance matters: BASELINE means unchanged official starter-kit scaffold, TEAM_ADAPTED means a starter path materially changed by the team, and TEAM_ADDED means new team evidence. Do not describe unchanged BASELINE scaffold as student-authored failure; say the starter structure is present and project-specific evidence has not yet been added.\n"
         "- A challenge can also contain a coaching/readiness question. Answer that question in the same turn while preserving the challenge boundary; do not force the student through a second turn merely to switch from 'challenge' to 'help'.\n"
         "- If the claimed source is not in the supplied package, say it cannot be verified in this review. Ask for an exact in-snapshot source when appropriate, or explain that post-snapshot work requires a new review.\n"
         "- Keep three states distinct in wording: demonstrated by snapshot / reported by student / still unknown. Do not turn uncertainty into accusation or acceptance.\n"
         f"- Turn signals: student_report={str(report).lower()}; coaching_question={str(coaching_question).lower()}; selected_paths={json.dumps(selected_paths)}; selected_findings={json.dumps(selected_findings)}."
     )
+
+
+def selected_evidence_focus(evidence_context: str, evidence_refs=()) -> str:
+    """Promote exact selected frozen evidence above broader board context."""
+    selected = [str(ref)[5:] for ref in (evidence_refs or ())
+                if isinstance(ref, str) and str(ref).startswith("PATH:") and str(ref)[5:]]
+    if not selected:
+        return ""
+    try:
+        package = json.loads(evidence_context or "{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return ""
+    if not isinstance(package, dict):
+        return ""
+    artifacts = package.get("relevant_artifacts") or package.get("selected_artifacts") or []
+    by_path = {str(a.get("path") or ""): a for a in artifacts if isinstance(a, dict)}
+    blocks = []
+    for path in selected[:3]:
+        art = by_path.get(path)
+        if not art:
+            blocks.append(f"SELECTED FROZEN ARTIFACT: {path}\nStatus: no hydrated artifact record was supplied for this turn.")
+            continue
+        status = str(art.get("hydration_status") or "UNKNOWN")
+        provenance = str(art.get("provenance") or "UNKNOWN")
+        quality = str(art.get("quality") or "unknown")
+        if provenance == "BASELINE":
+            provenance_rule = (
+                "This is unchanged official COMP 330 starter-kit scaffold. Treat it as evidence that a structure/place exists, "
+                "not as student-authored failed work and not as evidence that the represented practice is operating."
+            )
+        elif provenance == "TEAM_ADAPTED":
+            provenance_rule = "This starter-kit path was materially changed by the team; assess the changed content on its merits."
+        elif provenance == "TEAM_ADDED":
+            provenance_rule = "This is team-added evidence; assess what its frozen content actually demonstrates."
+        else:
+            provenance_rule = "Provenance is unknown; do not infer authorship or completion from the path alone."
+        content = str(art.get("content_excerpt") or "")
+        blocks.append(
+            f"SELECTED FROZEN ARTIFACT: {path}\n"
+            f"Hydration: {status}; provenance: {provenance}; quality: {quality}.\n"
+            f"Provenance rule: {provenance_rule}\n"
+            + (f"Actual supplied frozen content follows:\n---\n{content}\n---" if status == "FOUND_AND_SUPPLIED"
+               else "Actual file content was not supplied; do not claim inspection beyond the stated status.")
+        )
+    active = (package.get("challenge") or {}).get("finding")
+    finding_block = ""
+    if isinstance(active, dict) and active:
+        finding_block = (
+            "ACTIVE SELECTED FINDING FOR THIS TURN: "
+            f"{active.get('title') or active.get('id') or 'selected finding'} — "
+            f"{active.get('statement') or ''}\n"
+        )
+    return finding_block + "\n\n".join(blocks)
 
 
 def earlier_topic_drift(reply: str, topic_phase: str, gate_phase: str) -> bool:
@@ -1131,6 +1185,11 @@ If the draft fails any of these, set acceptable=false and write a complete revis
         safe_evidence_context = sanitize_model_text(
             evidence_context[:review_context_chars]
         ).text
+        selected_focus = selected_evidence_focus(safe_evidence_context, evidence_refs)
+        if selected_focus:
+            system += ("\n\nHIGH-PRIORITY SELECTED EVIDENCE FOR THIS TURN\n" + selected_focus +
+                       "\nUse this exact selected evidence before broader board context. If it is unchanged starter-kit BASELINE, "
+                       "describe readiness/scaffolding accurately rather than framing intentional starter content as failed team work.")
         if earlier_topic:
             # The compact package was built around the original current-gate
             # finding. Retain only snapshot identity and phase-neutral GitHub

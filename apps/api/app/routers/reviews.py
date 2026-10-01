@@ -232,6 +232,58 @@ def _challenge_from_state(state: dict) -> Challenge:
     return Challenge(**raw)
 
 
+def _active_finding_id(evidence_refs) -> str | None:
+    for ref in evidence_refs or ():
+        if isinstance(ref, str) and ref.startswith("FINDING:") and ref[8:]:
+            return ref[8:]
+    return None
+
+
+def _challenge_for_turn(db: Session, state: dict, evidence_refs=()) -> Challenge:
+    """Align semantic dialogue with the finding the student actually selected.
+
+    Review sessions open on one ranked finding, but students may later choose a
+    different finding from Engineering Evidence. The opening challenge must not
+    remain the referent merely because it started the session.
+    """
+    base = _challenge_from_state(state)
+    finding_id = _active_finding_id(evidence_refs)
+    snapshot_id = state.get("evidence_snapshot_id")
+    if not finding_id or not snapshot_id:
+        return base
+    snapshot = db.get(EvidenceSnapshot, snapshot_id)
+    if not snapshot:
+        return base
+    evidence = _safe_json(snapshot.summary_json, {})
+    findings = [*(evidence.get("findings") or []), *(evidence.get("challenge_candidates") or [])]
+    finding = next((f for f in findings if str(f.get("id")) == str(finding_id)), None)
+    if not finding:
+        return base
+    statement = str(finding.get("statement") or finding.get("title") or "Selected finding under review.")
+    significance = str(finding.get("significance") or "The finding affects what the team can responsibly claim from the frozen evidence.")
+    title = str(finding.get("title") or "Selected Finding")
+    lens = str(finding.get("suggested_lens") or base.lens)
+    return Challenge(
+        id=str(finding.get("id") or base.id),
+        phase_id=base.phase_id,
+        lens=lens,
+        title=title,
+        prompt=(f"Selected finding: {title}. Frozen-evidence observation: {statement} "
+                f"Why it matters: {significance}"),
+        why_now="Selected by the student for this turn from the current frozen review.",
+        evidence_refs=list(finding.get("evidence_refs") or []),
+        dimensions=base.dimensions,
+        expected_move=base.expected_move,
+        level=base.level,
+        noticed=statement,
+        significance=significance,
+        decision_question="What does the selected frozen evidence actually support, and what should the team do next?",
+        finding=finding,
+        strengths=base.strengths,
+        board_readout=base.board_readout,
+    )
+
+
 def _safe_json(value, default):
     try:
         return json.loads(value or "")
@@ -499,7 +551,7 @@ def _evidence_context(
     student_text: str = '',
 ):
     snapshot_id = state.get("evidence_snapshot_id")
-    challenge = _challenge_from_state(state)
+    challenge = _challenge_for_turn(db, state, evidence_refs)
     topic = turn_coaching_phase(challenge.phase_id, student_text,
                                 (state.get('conversation_memory') or {}).get('coaching_phase'),
                                 evidence_refs)
@@ -571,7 +623,7 @@ def _semantic_evidence_dispute_reply(
     refs = [f"PATH:{path}"]
     if finding_id:
         refs.append(f"FINDING:{finding_id}")
-    challenge = _challenge_from_state(state)
+    challenge = _challenge_for_turn(db, state, refs)
     turns = (
         db.query(ReviewTurn)
         .filter_by(session_id=session.id)
@@ -1968,7 +2020,7 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
             }
 
         state = _safe_json(session.challenge_state_json, {})
-        challenge = _challenge_from_state(state)
+        challenge = _challenge_for_turn(db, state, req.evidence_refs)
         turns = db.query(ReviewTurn).filter_by(session_id=session_id).order_by(ReviewTurn.sequence).all()
         sequence = (turns[-1].sequence if turns else 0) + 1
         student = _student_for_session(db, session)

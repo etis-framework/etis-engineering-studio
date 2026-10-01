@@ -212,14 +212,43 @@ class EvidencePackageBuilder:
                     "content_truncated": False,
                 })
 
-        base = self.build(evidence, challenge)
-        base.relevant_artifacts = selected
-        base.evidence_boundary = (
-            f'Frozen {evidence.get("phase_id")} snapshot at {evidence.get("commit_sha")}; '
-            'exact selected paths take precedence for this turn. Each selected artifact includes '
-            'an explicit hydration_status describing whether frozen content was actually supplied. '
-            'Do not claim to have inspected file contents unless hydration_status is FOUND_AND_SUPPLIED '
-            'or FOUND_BUT_EMPTY. Absence in the snapshot is not proof of absence everywhere.'
+        # Exact-path turns need a deliberately small package. Building the normal
+        # board package first can exhaust the prompt budget and force
+        # CompactEvidencePackage.to_prompt_text() to fall back to snapshot identity
+        # only, which silently drops the very artifact the student selected.
+        # Preserve the active finding and selected frozen artifacts ahead of all
+        # board/global context.
+        metrics = evidence.get("repository_metrics") or {}
+        base = CompactEvidencePackage(
+            phase_id=evidence.get("phase_id", ""),
+            repo_full_name=evidence.get("repo_full_name", ""),
+            commit_sha=evidence.get("commit_sha", ""),
+            strengths=[],
+            challenge={
+                "title": challenge.get("title"),
+                "finding": challenge.get("finding"),
+                "decision_question": challenge.get("decision_question"),
+                "why_now": challenge.get("why_now"),
+            },
+            relevant_items=[],
+            relevant_artifacts=selected,
+            github_signals={
+                "issue_count": metrics.get("issue_count", 0),
+                "pr_count": metrics.get("pr_count", 0),
+                "actions_runs": metrics.get("actions_runs", 0),
+                "tag_count": metrics.get("tag_count", 0),
+                "commit_count": metrics.get("commit_count", 0),
+            },
+            longitudinal={},
+            evidence_boundary=(
+                f'Frozen {evidence.get("phase_id")} snapshot at {evidence.get("commit_sha")}; '
+                'exact selected paths take precedence for this turn. Each selected artifact includes '
+                'an explicit hydration_status describing whether frozen content was actually supplied. '
+                'Do not claim to have inspected file contents unless hydration_status is FOUND_AND_SUPPLIED '
+                'or FOUND_BUT_EMPTY. Absence in the snapshot is not proof of absence everywhere. '
+                'BASELINE provenance means unchanged official starter-kit scaffold, not student-authored failure; '
+                'TEAM_ADAPTED means a starter path materially changed by the team; TEAM_ADDED means new team evidence.'
+            ),
         )
         return base
 
