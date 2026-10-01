@@ -177,3 +177,90 @@ def test_post_snapshot_claim_remains_report_and_requires_new_review_for_verifica
     contract = evidence_authority_contract("We fixed it after the snapshot and tested it today.")
     assert "student_report=true" in contract
     assert "post-snapshot work requires a new review" in contract
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("We are not this far yet; do we have enough evidence to start?", True),
+        ("What I really need to know is if we are ready to begin.", True),
+        ("We did this already.", False),
+        ("The board missed docs/decisions/README.md.", False),
+    ],
+)
+def test_mixed_challenge_can_also_be_a_coaching_question(text, expected):
+    from apps.api.app.services.challenge_engine import student_coaching_question_signal
+
+    assert student_coaching_question_signal(text) is expected
+
+
+def test_turn_contract_requires_exact_selected_source_to_be_inspected_first():
+    contract = evidence_authority_contract(
+        "We are not this far yet; do we have enough evidence to start?",
+        ["PATH:docs/architecture/architecture.md", "FINDING:F-arch"],
+    )
+    assert "coaching_question=true" in contract
+    assert "inspect it yourself" in contract
+    assert "do not make the student re-identify the passage" in contract
+    assert "Answer that question in the same turn" in contract
+
+
+class MixedIntentProbe(TruthfulnessProbe):
+    def reviewer_turn(self, system, user):
+        self.reviewer_calls.append((system, user))
+        return {
+            "student_intent": "evidence_dispute",
+            "understood_points": [],
+            "reasoning_updates": blank_reasoning(),
+            "stuck": False,
+            "frustrated": False,
+            "needs_direct_teaching": False,
+            "response_mode": "challenge",
+            "next_target": "evidence_boundary_visible",
+            "reply": "I found the file. Which passage changes the board's interpretation?",
+            "guidance_ids": [],
+            "handoff_lens": None,
+            "teach_back": False,
+        }
+
+    def critique_reviewer_turn(self, system, user):
+        self.critic_calls.append((system, user))
+        return {
+            "acceptable": False,
+            "issues": ["made student re-identify selected evidence", "ignored readiness question"],
+            "revised_reply": (
+                "I inspected the selected frozen source. It gives the team a place to begin, "
+                "but the bounded content does not yet demonstrate a completed baseline. "
+                "So you have enough structure to start the phase work; you do not yet have "
+                "enough demonstrated content to claim the phase baseline is established."
+            ),
+        }
+
+
+@pytest.mark.parametrize("phase", ["A1", "A2", "A3", "A4", "A5", "A6"])
+def test_mixed_challenge_readiness_is_answered_in_one_turn_across_a1_a6(phase):
+    path, content = PHASE_SOURCE[phase]
+    a = artifact(path, "average", content)
+    evidence = build_snapshot(phase, "team/repo", "frozen-sha", [path], artifacts=[a])
+    challenge = ChallengeEngine(ai=object()).start(phase, evidence)
+    package = EvidencePackageBuilder().build_for_turn(
+        evidence.to_dict(), challenge.to_dict(), [f"PATH:{path}"]
+    ).to_prompt_text()
+    probe = MixedIntentProbe()
+
+    reply, _, _ = ChallengeEngine(ai=probe).converse(
+        challenge,
+        "We are not this far yet; do we have enough evidence to start?",
+        blank_reasoning(),
+        intent="evidence_dispute",
+        evidence_refs=[f"PATH:{path}", f"FINDING:{challenge.id}"],
+        evidence_context=package,
+        conversation_memory={},
+        student_name="Taylor",
+    )
+
+    assert probe.critic_calls
+    assert "enough structure to start" in reply["text"]
+    assert "Which passage" not in reply["text"]
+    _, critic_user = probe.critic_calls[-1]
+    assert path in critic_user
+    assert "coaching_question=true" in critic_user
