@@ -9,6 +9,7 @@ from .board_readiness import build_board_readout
 from .artifact_condition import supported_observations
 from .ai_provider import OpenAIResponsesProvider
 from .guidance import guidance_for, verified_guidance
+from .cumulative_phase import coaching_phase
 from .model_disclosure import sanitize_model_text
 from ..config import get_settings
 
@@ -196,6 +197,7 @@ class ChallengeEngine:
                 "workflow_gap": "What engineering control is missing from the workflow, and what consequence does that create now?",
                 "unsupported_claim": "What can the team actually claim from the evidence today, and what claim is not yet defensible?",
                 "release_control": "Can the team defend a stable release baseline yet? Decide what must happen before that claim is credible.",
+                "foundation_gap": "Which earlier foundation is the first blocker, and what real team evidence would let us proceed with the current phase?",
                 "operational_gap": "What operational claim is not yet supported, and what evidence would make it defensible?",
             }
             dq = decision_questions.get(category, "What should the team do now, given what the repository evidence actually supports?")
@@ -975,12 +977,24 @@ If the draft fails any of these, set acceptable=false and write a complete revis
         if decision:
             memory["last_decision"] = decision
         target = self.next_move(prior)
-        guidance = guidance_for(challenge.phase_id, target, limit=4)
+        topic_phase = coaching_phase(challenge.phase_id, text, memory.get('coaching_phase'))
+        memory['coaching_phase'] = topic_phase
+        guidance = guidance_for(topic_phase, target, limit=4)
         transcript = "\n".join(
             f"{turn.get('actor','').upper()}[{turn.get('lens','')}]: {turn.get('content','')}"
             for turn in (conversation_history or [])[-20:]
         )
         system = self._semantic_system_prompt(challenge, prior, memory, decision, student_name, target, guidance)
+        system += (f"\n\nCUMULATIVE PHASE COACHING: The frozen gate is {challenge.phase_id}; "
+                   f"the student's current question is about {topic_phase}. Earlier phases through the frozen gate "
+                   "may be discussed and prioritized by demonstrated repository evidence. Answer the newest question "
+                   "before returning to the board agenda. If an earlier foundation is weak, explain its consequence "
+                   "for the current gate and give one achievable next action. Treat file presence and polished prose "
+                   "as insufficient proof of performed practice. Do not assert a whole phase is complete or assign a "
+                   "grade. If an earlier source is outside the inspected snapshot, say what is unknown and invite the "
+                   "exact equivalent source. Keep a current-phase finding open when the conversation turns elsewhere. "
+                   "When asked about an earlier phase, use that phase's guidance; do not cite a later-stage link "
+                   "or recommend inspecting an unrelated artifact.")
         review_context_chars = get_settings().etis_review_context_chars
         safe_evidence_context = sanitize_model_text(
             evidence_context[:review_context_chars]
@@ -1028,10 +1042,10 @@ The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the stu
         must_teach = direct_signal or auto_teach
 
         if must_teach and parsed.get("response_mode") != "teach":
-            rescue_guidance = guidance_for(challenge.phase_id, self.next_move(merged), limit=4)
+            rescue_guidance = guidance_for(topic_phase, self.next_move(merged), limit=4)
             rescue_system = self._semantic_system_prompt(
                 challenge, merged, memory, decision, student_name, self.next_move(merged), rescue_guidance
-            ) + "\n\nRESCUE MODE IS ACTIVE. Stop questioning. Teach the missing concept directly. Give a reasonable professional answer grounded only in the supplied evidence/context, optionally point to verified ETIS/LMU guidance, and end with one short teach-back/application question."
+            ) + f"\n\nThe current question concerns {topic_phase} within the {challenge.phase_id} frozen review. Only recommend guidance for {topic_phase}. RESCUE MODE IS ACTIVE. Stop questioning. Teach the missing concept directly. Give a reasonable professional answer grounded only in the supplied evidence/context, optionally point to verified ETIS/LMU guidance, and end with one short teach-back/application question."
             rescue_user = user + f"\n\nThe prior draft did not teach strongly enough: {parsed.get('reply','')}"
             parsed = self.ai.reviewer_turn(rescue_system, rescue_user)
             if parsed.get("_usage"):
@@ -1042,9 +1056,9 @@ The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the stu
 
         evaluation = self.evaluate_cumulative(merged, decision)
         requested_ids = parsed.get("guidance_ids") or []
-        refs = [item for item in verified_guidance(requested_ids) if challenge.phase_id in item.get('phase_ids', [])]
+        refs = [item for item in verified_guidance(requested_ids) if topic_phase in item.get('phase_ids', [])]
         if (must_teach or parsed.get('response_mode') == 'teach') and not refs:
-            refs = guidance_for(challenge.phase_id, self.next_move(merged) or target, limit=1)
+            refs = guidance_for(topic_phase, self.next_move(merged) or target, limit=1)
         lens = memory.get("active_lens") or challenge.lens
         handoff = parsed.get("handoff_lens")
         if handoff in REVIEWERS and handoff != lens and evaluation.get("learning_score", 0) >= 5 and not must_teach:
@@ -1093,6 +1107,7 @@ The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the stu
             "ready_to_commit": evaluation["ready_to_commit"],
             "understood_points": parsed.get("understood_points") or [],
             "guidance_refs": refs,
+            "coaching_phase": topic_phase,
             "teach_back": memory["teach_back_pending"],
             "conversation_memory": memory,
             "usage_events": usage_events,

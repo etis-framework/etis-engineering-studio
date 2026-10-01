@@ -10,6 +10,7 @@ import httpx
 
 from ..config import get_settings
 from .course_model import get_phase
+from .cumulative_phase import foundation_concern
 from .evidence_assessor import SemanticEvidenceAssessor
 from .github_app import manager as github_app_manager
 from .repository_policy import is_comp330_starter_kit
@@ -27,7 +28,7 @@ from .repository_intelligence import (
 
 # A frozen snapshot remains immutable. A new analysis contract may create a
 # second snapshot at the same commit instead of reusing an older interpretation.
-ANALYSIS_CONTRACT = 'claim_equivalence_v5'
+ANALYSIS_CONTRACT = 'cumulative_foundations_v1'
 
 
 def supports_current_analysis_contract(data: dict) -> bool:
@@ -422,6 +423,9 @@ def build_snapshot(phase_id: str, repo_full_name: str, sha: str, actual_paths: I
 
     coverage = round(100 * sum(i.status in {'present','equivalent'} for i in items) / max(1, len(items)))
     findings = build_findings(phase_id, artifacts, metrics, phase['expected_evidence'])
+    upstream = foundation_concern(phase_id, [a.to_dict() for a in artifacts])
+    if upstream:
+        findings.insert(0, upstream)
     strengths = summarize_strengths(phase_id, artifacts, metrics)
     if not strengths and any(i.status in {'present', 'scaffold'} for i in items):
         strengths.append('The repository has a recognizable phase structure that can support progressively stronger engineering evidence.')
@@ -462,6 +466,9 @@ def demo_snapshot(phase_id: str, repo_full_name='demo/comp330-f26-team-01', prio
         items.append(EvidenceItem(ref=f'EV-{idx:03d}', kind='repository', status='scaffold', title=path, detail=exp['claim'], freshness='demo', source_provenance='BASELINE', quality='scaffold'))
     metrics = {'issue_count': 0, 'pr_count': 0, 'actions_runs': 0, 'tag_count': 0, 'commit_count': 1}
     findings = build_findings(phase_id, artifacts, metrics, phase['expected_evidence'])
+    upstream = foundation_concern(phase_id, [a.to_dict() for a in artifacts])
+    if upstream:
+        findings.insert(0, upstream)
     strengths = ['The COMP 330 starter scaffold is structurally organized for lifecycle evidence.']
     return EvidenceSnapshotData(
         phase_id, repo_full_name, 'demo-baseline', 0, items, strengths,

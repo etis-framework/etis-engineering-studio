@@ -438,6 +438,7 @@ def _idempotent_result(
             "model": rs.get("model"),
             "target_move": rs.get("target_move"),
             "guidance_refs": rs.get("guidance_refs", []),
+            "coaching_phase": rs.get("coaching_phase"),
             "teach_back": rs.get("teach_back", False),
         },
     }
@@ -462,6 +463,7 @@ def _add_reviewer_turn(db: Session, session_id: int, sequence: int, payload: dic
                     "target_move": payload.get("target_move"),
                     "interpreted_intent": payload.get("interpreted_intent"),
                     "guidance_refs": payload.get("guidance_refs", []),
+                    "coaching_phase": payload.get("coaching_phase"),
                     "understood_points": payload.get("understood_points", []),
                     "teach_back": payload.get("teach_back", False),
                     "model": payload.get("model"),
@@ -2134,6 +2136,7 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
                         "guidance_refs",
                         [],
                     ),
+                    "coaching_phase": reviewer_signals.get("coaching_phase"),
                     "teach_back": reviewer_signals.get(
                         "teach_back",
                         False,
