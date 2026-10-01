@@ -15,6 +15,7 @@ The following items are **not** release blockers for the accepted 2026-08-21 pro
 - instructor GitHub diagnostics (owner, installation, scope, last verification) without exposing secrets;
 - additional multi-student live acceptance scenarios when appropriate test identities exist;
 - dedicated accessibility/keyboard/screen-reader pass;
+- reviewer-confirmed finding-correction handoff: when a dialogue inspection validates frozen counterevidence and the reviewer explicitly corrects/narrows its REVIEW interpretation, provide a clear, low-friction UI/state path to reflect that outcome on the finding card without silently auto-resolving the finding or conflating dialogue with evidence-backed lifecycle authority;
 - A3-A6 deep phase-specific reviewer content as those assignments approach;
 - research/export tooling only after explicit privacy/data-governance review.
 
