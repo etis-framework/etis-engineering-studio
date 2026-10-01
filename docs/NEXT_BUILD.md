@@ -16,7 +16,7 @@ The following items are **not** release blockers for the accepted 2026-08-21 pro
 - additional multi-student live acceptance scenarios when appropriate test identities exist;
 - dedicated accessibility/keyboard/screen-reader pass;
 - reviewer-confirmed finding-correction handoff: when a dialogue inspection validates frozen counterevidence and the reviewer explicitly corrects/narrows its REVIEW interpretation, provide a clear, low-friction UI/state path to reflect that outcome on the finding card without silently auto-resolving the finding or conflating dialogue with evidence-backed lifecycle authority;
-- semantic equivalent-evidence discovery beyond exact paths: when a student cannot name the exact source, use bounded semantic retrieval across the frozen snapshot to locate plausible equivalent evidence in unexpected paths, clearly label retrieval uncertainty, and never turn candidate discovery into proof until the source is inspected;
+- one-click evidence-discovery affordance: now that bounded equivalent-evidence discovery exists in conversation, consider a clearly labeled “Find supporting evidence” action on an active finding that starts the same bounded search without attaching the canonical PATH and without implying that the search is exhaustive; validate the interaction carefully so it does not replace normal Discuss/Challenge flows or encourage students to hunt for confirmation rather than evaluate evidence;
 - A3-A6 deep phase-specific reviewer content as those assignments approach;
 - research/export tooling only after explicit privacy/data-governance review.
 
