@@ -154,6 +154,48 @@ def normalize_guidance_mentions(reply: str, refs: list[dict]) -> str:
     return re.sub(r"\n{3,}", "\n\n", reply).strip()
 
 
+REPORT_SIGNAL_RE = re.compile(
+    r"\b(?:we|our team|i)\s+(?:are|were|have|had|do|did|use|used|test|tested|check|checked|verify|verified|review|reviewed|work|worked|document|documented|record|recorded|meet|met|decide|decided|agree|agreed|approve|approved|deploy|deployed|monitor|monitored|fix|fixed)\b",
+    re.I,
+)
+
+
+def student_report_signal(text: str) -> bool:
+    """Return whether the turn likely reports team activity or practice.
+
+    This signal only controls dialogue-quality review. It never upgrades the
+    student's statement into frozen repository evidence.
+    """
+    raw = (text or "").strip()
+    if re.match(r"^(?:what|why|how|which|who|when|where|can|could|would|should|does|do|is|are)\b", raw, re.I):
+        return False
+    return bool(REPORT_SIGNAL_RE.search(raw))
+
+
+def evidence_authority_contract(student_text: str, evidence_refs=()) -> str:
+    """Build a deterministic per-turn epistemic contract for reviewer and critic."""
+    selected_paths = [
+        str(ref)[5:] for ref in (evidence_refs or ())
+        if isinstance(ref, str) and str(ref).startswith("PATH:") and str(ref)[5:]
+    ]
+    selected_findings = [
+        str(ref)[8:] for ref in (evidence_refs or ())
+        if isinstance(ref, str) and str(ref).startswith("FINDING:") and str(ref)[8:]
+    ]
+    report = student_report_signal(student_text)
+    return (
+        "TURN EVIDENCE-AUTHORITY CONTRACT\n"
+        "- Repository/GitHub content in the supplied review package is frozen evidence. A REVIEW interpretation may change; frozen FACT observations do not.\n"
+        "- A student's description of what the team did is a student report. Take it seriously, but do not silently promote it to repository proof.\n"
+        "- Absence of demonstrated evidence does not prove the activity never happened. Say 'the snapshot does not demonstrate/show this' rather than 'you did not do this' unless the evidence actually establishes nonoccurrence.\n"
+        "- Manual/offline practices can be legitimate. If the team reports one, discuss whether it is adequate for the engineering risk, then identify the smallest inspectable operating record that would make the practice reviewable; do not require a canonical filename or fabricated history.\n"
+        "- If the student points to contrary/equivalent evidence that is present in the supplied frozen package, inspect it and explicitly correct or narrow the REVIEW interpretation when it invalidates the finding. Do not defend the reviewer for consistency's sake.\n"
+        "- If the claimed source is not in the supplied package, say it cannot be verified in this review. Ask for an exact in-snapshot source when appropriate, or explain that post-snapshot work requires a new review.\n"
+        "- Keep three states distinct in wording: demonstrated by snapshot / reported by student / still unknown. Do not turn uncertainty into accusation or acceptance.\n"
+        f"- Turn signals: student_report={str(report).lower()}; selected_paths={json.dumps(selected_paths)}; selected_findings={json.dumps(selected_findings)}."
+    )
+
+
 def earlier_topic_drift(reply: str, topic_phase: str, gate_phase: str) -> bool:
     """Catch an overt return to the gate as the answer to an earlier topic."""
     if topic_phase == gate_phase:
@@ -878,6 +920,8 @@ CONVERSATION RULES
 56. If a student asks a broad question such as “is this good enough?”, do not answer only yes/no. Give a short professional assessment tied to evidence: what is already defensible, what remains uncertain, and what would most improve the artifact or decision.
 57. When a student starts a new review after completing another one, preserve conversational continuity without assuming they remember terminology. Briefly orient them to the new purpose, acknowledge relevant prior learning if useful, and make clear that the new session may have a different evidence scope.
 58. If a student appears lost in the product rather than the engineering concept, answer the workflow question directly: where they are, what this review is for, what they can do next, and how to return to Board/Focused/Finding review. Product confusion is not engineering weakness.
+59. Preserve epistemic status in every evidence dispute or team-practice claim. Repository facts, reviewer interpretations, student reports, illustrative examples, and unknowns are different kinds of information. A credible student report can change what you ask next without becoming proof. Missing demonstrated evidence means the practice is not demonstrated in this snapshot, not automatically that the team never performed it.
+60. When actual frozen counterevidence invalidates a REVIEW interpretation, say so plainly and correct the interpretation. Do not make the student keep defending a point the evidence already establishes. If only a student assertion conflicts with the finding, acknowledge the report, keep the evidence boundary explicit, and give the smallest useful way to make the practice inspectable.
 
 BOARD REVIEW COACHING CONTRACT
 - A1-A6 use industry-level expert review standards. Raise the questions a strong professional review board would raise for that phase.
@@ -952,7 +996,11 @@ SEMANTIC INTERPRETATION EXAMPLES
 Return the required structured object. The reply should normally be 35-120 words, conversational, and focused on one useful next move.
 """.strip()
 
-    def _critic_prompt(self, challenge, student_text, transcript, draft_reply, student_name, must_teach=False):
+    def _critic_prompt(
+        self, challenge, student_text, transcript, draft_reply, student_name,
+        must_teach=False, evidence_refs=(), evidence_context="",
+    ):
+        truth_contract = evidence_authority_contract(student_text, evidence_refs)
         return f"""
 You are a senior coaching-quality reviewer for the ETIS Engineering Studio. Evaluate the proposed senior-reviewer reply before it reaches the student.
 
@@ -965,6 +1013,11 @@ Recent transcript:
 Proposed reviewer reply:
 {draft_reply}
 
+{truth_contract}
+
+Bounded frozen evidence package for this turn:
+{evidence_context[:6000]}
+
 A high-quality reply must:
 - respond directly to what the student just meant;
 - recognize tentative but valid reasoning, including answers phrased as questions;
@@ -973,6 +1026,9 @@ A high-quality reply must:
 - repair the conversation if the reviewer caused confusion;
 - avoid canned filler and robotic rubric language;
 - avoid invented evidence;
+- preserve demonstrated/reported/unknown distinctions instead of treating a student report as proof or as falsehood;
+- say the reviewer interpretation should change when supplied frozen counterevidence actually invalidates it;
+- never convert 'not demonstrated in this snapshot' into 'the team did not do it' without evidence of nonoccurrence;
 - sound like a capable, patient senior engineer coaching a junior;
 - ask at most one main question unless teaching;
 - preserve the student's agency after teaching through teach-back/application.
@@ -1017,6 +1073,7 @@ If the draft fails any of these, set acceptable=false and write a complete revis
             for turn in history
         )
         system = self._semantic_system_prompt(challenge, prior, memory, decision, student_name, target, guidance)
+        system += "\n\n" + evidence_authority_contract(text, evidence_refs)
         system += (f"\n\nCUMULATIVE PHASE COACHING: The frozen gate is {challenge.phase_id}; "
                    f"the student's current question is about {topic_phase}. Earlier phases through the frozen gate "
                    "may be discussed and prioritized by demonstrated repository evidence. Answer the newest question "
@@ -1165,13 +1222,21 @@ The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the stu
         critic_mode = getattr(self.settings, "etis_conversation_critic_mode", "selective")
         critic_needed = bool(
             must_teach
-            or intent_name in {"meta_repair", "meta_misunderstood", "frustration"}
+            or intent_name in {
+                "meta_repair", "meta_misunderstood", "frustration",
+                "evidence_dispute", "disagreement", "authority_claim",
+            }
+            or student_report_signal(text)
+            or bool(evidence_refs)
             or parsed.get("response_mode") in {"repair", "teach"}
             or len(reply) > 900
         )
         if self.settings.etis_conversation_critic and hasattr(self.ai, "critique_reviewer_turn") and (critic_mode == "always" or critic_needed):
             critic_system = "You are an independent conversation-quality gate. Protect the junior engineer from confusing, repetitive, unresponsive, or pedagogically poor reviewer dialogue."
-            critic_user = self._critic_prompt(challenge, text, transcript, reply, student_name, must_teach=must_teach)
+            critic_user = self._critic_prompt(
+                challenge, text, transcript, reply, student_name,
+                must_teach=must_teach, evidence_refs=evidence_refs, evidence_context=safe_evidence_context,
+            )
             if earlier_topic:
                 critic_user += (f"\n\nThe active topic is {topic_phase}. Resolve the student's follow-up "
                                 "against the last reviewer answer, not the original gate finding. "
