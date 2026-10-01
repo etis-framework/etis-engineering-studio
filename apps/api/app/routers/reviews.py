@@ -544,6 +544,28 @@ def _student_for_session(db: Session, session: ReviewSession):
     return db.get(User, session.user_id)
 
 
+
+
+_DISCOVERY_REQUEST_RE = re.compile(
+    r"(?:\b(?:find|search|look for|locate|discover)\b.{0,45}\b(?:evidence|proof|record|artifact|file|repo|repository)\b"
+    r"|\b(?:evidence|proof|record|artifact|file)\b.{0,45}\b(?:somewhere|elsewhere|another|different|not sure where|don.t know where)\b"
+    r"|\b(?:we|our team)\s+(?:did|have|recorded|documented)\s+(?:this|that|it)\b.{0,55}\b(?:somewhere|repo|repository|find|where)\b"
+    r"|\b(?:not sure|don.t know)\s+(?:where|which file|what file)\b)",
+    re.I | re.S,
+)
+
+
+def _evidence_discovery_signal(student_text: str, evidence_refs=()) -> bool:
+    """True only when the student asks the Studio to locate equivalent frozen evidence.
+
+    Exact PATH selection always wins. Ordinary coaching questions do not silently
+    expand into repository discovery.
+    """
+    if any(isinstance(ref, str) and ref.startswith("PATH:") for ref in evidence_refs or ()):
+        return False
+    return bool(_DISCOVERY_REQUEST_RE.search(student_text or ""))
+
+
 def _evidence_context(
     db: Session,
     state: dict,
@@ -573,6 +595,17 @@ def _evidence_context(
                 evidence.to_dict(),
                 challenge.to_dict(),
                 evidence_refs,
+            )
+            return package.to_prompt_text(
+                max_chars=get_settings().etis_review_context_chars
+            )
+
+    if _evidence_discovery_signal(student_text, evidence_refs) and snapshot_id:
+        snapshot = db.get(EvidenceSnapshot, snapshot_id)
+        if snapshot:
+            evidence = snapshot_from_dict(_safe_json(snapshot.summary_json, {}))
+            package = evidence_package_builder.build_for_discovery(
+                evidence.to_dict(), challenge.to_dict(), student_text
             )
             return package.to_prompt_text(
                 max_chars=get_settings().etis_review_context_chars

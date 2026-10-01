@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, asdict
 
 from .model_disclosure import sanitize_model_artifact
@@ -19,6 +20,7 @@ class CompactEvidencePackage:
     longitudinal: dict
     evidence_boundary: str
     topic_phase: str = ''
+    retrieval: dict | None = None
 
     def to_dict(self):
         return asdict(self)
@@ -251,6 +253,173 @@ class EvidencePackageBuilder:
             ),
         )
         return base
+
+
+    _DISCOVERY_STOPWORDS = {
+        "about", "after", "again", "already", "also", "been", "before", "being", "could",
+        "does", "doing", "done", "evidence", "file", "files", "finding", "from", "have", "help",
+        "here", "into", "just", "know", "look", "maybe", "more", "need", "repository", "should",
+        "somewhere", "that", "their", "there", "these", "they", "this", "those", "what", "when",
+        "where", "which", "with", "would", "your", "team", "work", "worked", "working", "find",
+        "search", "show", "prove", "proof", "support", "supports", "supported", "repo",
+        "did", "the", "else", "can", "you", "engineering", "claim", "not", "demonstrated",
+        "now", "given", "actually", "expected", "needs", "inspectable", "for", "docs", "doc",
+        "current", "review", "reviewed", "recorded", "documented",
+    }
+
+    @classmethod
+    def _discovery_terms(cls, challenge: dict, student_text: str) -> list[str]:
+        finding = challenge.get("finding") or {}
+        parts = [
+            student_text or "",
+            str(challenge.get("title") or ""),
+            str(challenge.get("decision_question") or ""),
+            str(finding.get("title") or ""),
+            str(finding.get("statement") or ""),
+            str(finding.get("significance") or ""),
+        ]
+        terms = []
+        for token in re.findall(r"[a-z0-9][a-z0-9_.-]{2,}", " ".join(parts).lower()):
+            token = token.strip("._-")
+            if len(token) < 3 or token in cls._DISCOVERY_STOPWORDS or token.isdigit():
+                continue
+            if token not in terms:
+                terms.append(token)
+        return terms[:32]
+
+    @staticmethod
+    def _known_equivalent_paths(evidence: dict, challenge: dict) -> dict[str, list[str]]:
+        """Return frozen, already-validated equivalence/support paths as high-confidence clues."""
+        reasons: dict[str, list[str]] = {}
+        finding_refs = set((challenge.get("finding") or {}).get("evidence_refs") or [])
+        expected = {str(ref)[5:] for ref in finding_refs if str(ref).startswith("PATH:")}
+        for support in evidence.get("claim_support") or []:
+            expected_path = str(support.get("expected_path") or "")
+            if expected and expected_path not in expected:
+                continue
+            for path in [support.get("support_path"), *(x.get("path") for x in support.get("corroborating_evidence") or [])]:
+                if path:
+                    reasons.setdefault(str(path), []).append("validated claim-support relationship")
+        for item in evidence.get("items") or []:
+            expected_path = str(item.get("title") or "")
+            equivalent = str(item.get("equivalent_path") or "")
+            if equivalent and (not expected or expected_path in expected):
+                reasons.setdefault(equivalent, []).append("validated equivalent-evidence location")
+        return reasons
+
+    def build_for_discovery(
+        self,
+        evidence: dict,
+        challenge: dict,
+        student_text: str,
+        *,
+        max_candidates: int = 6,
+    ) -> CompactEvidencePackage:
+        """Build a bounded frozen-evidence search package when the student lacks an exact path.
+
+        Retrieval is deterministic and candidate-oriented. Ranking is only a discovery aid;
+        candidate presence never upgrades a REVIEW finding or proves the underlying claim.
+        """
+        terms = self._discovery_terms(challenge, student_text)
+        known = self._known_equivalent_paths(evidence, challenge)
+        ranked: list[tuple[int, str, dict, list[str]]] = []
+        inspectable = 0
+        for artifact in evidence.get("artifacts") or []:
+            path = str(artifact.get("path") or "")
+            if not path:
+                continue
+            quality = str(artifact.get("quality") or "unknown")
+            if quality not in {"binary", "uninspected", "too_large"}:
+                inspectable += 1
+            path_hay = path.lower().replace("/", " ").replace("-", " ").replace("_", " ")
+            summary = str(artifact.get("summary") or "").lower()
+            content = str(artifact.get("review_content") or artifact.get("content_excerpt") or "")[:12000].lower()
+            score = 0
+            reasons = list(known.get(path, []))
+            if path in known:
+                score += 80
+            path_hits = [t for t in terms if t in path_hay]
+            summary_hits = [t for t in terms if t in summary]
+            content_hits = [t for t in terms if t in content]
+            relevance_score = (
+                min(30, 6 * len(path_hits))
+                + min(12, 3 * len(summary_hits))
+                + min(18, 2 * len(content_hits))
+            )
+            score += relevance_score
+            if path_hits:
+                reasons.append("path terms: " + ", ".join(path_hits[:4]))
+            if content_hits:
+                reasons.append("content terms: " + ", ".join(content_hits[:4]))
+            provenance = str(artifact.get("provenance") or "UNKNOWN")
+            # Provenance and quality refine a relevant candidate; they are never
+            # sufficient by themselves to manufacture relevance.
+            if relevance_score or path in known:
+                if provenance in {"TEAM_ADDED", "TEAM_ADAPTED"}:
+                    score += 5
+                    reasons.append("team-authored/adapted artifact")
+                elif provenance == "BASELINE":
+                    score -= 1
+                if quality == "reviewable":
+                    score += 4
+                elif quality == "partial":
+                    score += 2
+                elif quality in {"scaffold", "empty"}:
+                    score -= 2
+            if (relevance_score >= 4 and score >= 4) or path in known:
+                ranked.append((score, path, artifact, list(dict.fromkeys(reasons))))
+
+        ranked.sort(key=lambda row: (-row[0], row[1]))
+        chosen = ranked[:max_candidates]
+        candidates = []
+        for score, path, artifact, reasons in chosen:
+            safe = self._model_safe_artifact(
+                artifact, max_chars=2200 if len(chosen) <= 3 else 1500,
+                content_field="review_content", include_windows=True,
+            )
+            safe["discovery_score"] = score
+            safe["discovery_reasons"] = reasons
+            safe["candidate_only"] = True
+            candidates.append(safe)
+
+        metrics = evidence.get("repository_metrics") or {}
+        return CompactEvidencePackage(
+            phase_id=evidence.get("phase_id", ""),
+            repo_full_name=evidence.get("repo_full_name", ""),
+            commit_sha=evidence.get("commit_sha", ""),
+            strengths=[],
+            challenge={
+                "title": challenge.get("title"),
+                "finding": challenge.get("finding"),
+                "decision_question": challenge.get("decision_question"),
+            },
+            relevant_items=[],
+            relevant_artifacts=candidates,
+            github_signals={
+                "issue_count": metrics.get("issue_count", 0),
+                "pr_count": metrics.get("pr_count", 0),
+                "actions_runs": metrics.get("actions_runs", 0),
+                "tag_count": metrics.get("tag_count", 0),
+                "commit_count": metrics.get("commit_count", 0),
+            },
+            longitudinal={},
+            evidence_boundary=(
+                f'Frozen {evidence.get("phase_id")} snapshot at {evidence.get("commit_sha")}; '
+                'these are bounded discovery candidates, not proof and not a complete repository search. '
+                'Inspect supplied candidate content before saying it supports the finding. A high rank means relevance, '
+                'not correctness. No candidate means this bounded search did not find reviewable support; it does not prove '
+                'the evidence does not exist elsewhere or outside the snapshot. BASELINE remains starter-kit structure, not team work.'
+            ),
+            retrieval={
+                "mode": "bounded_equivalent_evidence_discovery",
+                "query_terms": terms,
+                "candidate_count": len(candidates),
+                "artifact_count": len(evidence.get("artifacts") or []),
+                "inspectable_artifact_count": inspectable,
+                "known_equivalent_count": len(known),
+                "complete_search": False,
+            },
+        )
 
     def build_for_phase(self, evidence: dict, challenge: dict, topic_phase: str,
                         evidence_refs=()) -> CompactEvidencePackage:

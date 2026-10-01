@@ -215,6 +215,8 @@ def evidence_authority_contract(student_text: str, evidence_refs=()) -> str:
         "- A challenge can also contain a coaching/readiness question. Answer that question in the same turn while preserving the challenge boundary; do not force the student through a second turn merely to switch from 'challenge' to 'help'.\n"
         "- If the claimed source is not in the supplied package, say it cannot be verified in this review. Ask for an exact in-snapshot source when appropriate, or explain that post-snapshot work requires a new review.\n"
         "- Keep three states distinct in wording: demonstrated by snapshot / reported by student / still unknown. Do not turn uncertainty into accusation or acceptance.\n"
+        "- If the turn includes bounded equivalent-evidence discovery, candidate rank is only a retrieval clue. Inspect supplied content and decide claim-by-claim whether a candidate supports, partially supports, or does not support the finding. Never call the search exhaustive.\n"
+        "- A bounded search returning no candidate means only that this search did not find one in the supplied review context; it is not proof that no equivalent evidence exists.\n"
         f"- Turn signals: student_report={str(report).lower()}; coaching_question={str(coaching_question).lower()}; selected_paths={json.dumps(selected_paths)}; selected_findings={json.dumps(selected_findings)}."
     )
 
@@ -270,6 +272,54 @@ def selected_evidence_focus(evidence_context: str, evidence_refs=()) -> str:
             f"{active.get('statement') or ''}\n"
         )
     return finding_block + "\n\n".join(blocks)
+
+
+
+
+def discovered_evidence_focus(evidence_context: str) -> str:
+    """Promote bounded equivalent-evidence candidates without turning ranking into proof."""
+    try:
+        package = json.loads(evidence_context or "{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return ""
+    if not isinstance(package, dict):
+        return ""
+    retrieval = package.get("retrieval") or {}
+    if retrieval.get("mode") != "bounded_equivalent_evidence_discovery":
+        return ""
+    artifacts = [a for a in (package.get("relevant_artifacts") or []) if isinstance(a, dict)]
+    lines = [
+        "BOUNDED EQUIVALENT-EVIDENCE DISCOVERY FOR THIS TURN",
+        "The student asked the Studio to help locate evidence without naming an exact path.",
+        "These are ranked candidates from the frozen review snapshot, not proof and not a complete repository search.",
+    ]
+    if not artifacts:
+        lines.append(
+            "No candidate artifact was supplied by the bounded search. Say that the search did not find a reviewable candidate; "
+            "do not claim the evidence does not exist."
+        )
+        return "\n".join(lines)
+    for art in artifacts[:6]:
+        path = str(art.get("path") or "")
+        status = str(art.get("hydration_status") or "UNKNOWN")
+        provenance = str(art.get("provenance") or "UNKNOWN")
+        reasons = ", ".join(str(x) for x in (art.get("discovery_reasons") or [])[:4]) or "bounded relevance signals"
+        lines.append(
+            f"CANDIDATE: {path} | status={status} | provenance={provenance} | why retrieved={reasons}."
+        )
+        content = str(art.get("content_excerpt") or "")
+        if status == "FOUND_AND_SUPPLIED" and content:
+            lines.append(f"Supplied frozen excerpt:\n---\n{content}\n---")
+        elif status == "FOUND_BUT_EMPTY":
+            lines.append("The frozen candidate is empty.")
+        else:
+            lines.append("Candidate content is not inspectable in this turn; do not infer what it says.")
+    lines.append(
+        "Inspect each supplied candidate on the engineering claim itself. Prefer validated equivalent/claim-support relationships when present. "
+        "State which candidate, if any, actually supports or partially supports the claim; reject irrelevant candidates explicitly. "
+        "Do not require the canonical starter-kit filename if another frozen artifact demonstrates the same engineering fact."
+    )
+    return "\n".join(lines)
 
 
 def earlier_topic_drift(reply: str, topic_phase: str, gate_phase: str) -> bool:
@@ -1108,6 +1158,8 @@ A high-quality reply must:
 - say the reviewer interpretation should change when supplied frozen counterevidence actually invalidates it;
 - obey the selected artifact hydration_status: only claim content inspection for FOUND_AND_SUPPLIED or an empty-file observation for FOUND_BUT_EMPTY; otherwise state the limitation without guessing;
 - when an exact selected frozen PATH is FOUND_AND_SUPPLIED, inspect it rather than making the student identify the decisive passage before you engage;
+- when bounded equivalent-evidence discovery candidates are supplied, inspect their supplied content, distinguish candidate relevance from actual claim support, name the strongest path(s), and never imply the search was exhaustive;
+- if bounded discovery returns no candidate, say only that this search did not find one; do not convert that into proof of absence;
 - if the challenge also asks a coaching/readiness question, answer that question in the same reply while keeping the evidence status explicit;
 - never convert 'not demonstrated in this snapshot' into 'the team did not do it' without evidence of nonoccurrence;
 - sound like a capable, patient senior engineer coaching a junior;
@@ -1190,6 +1242,11 @@ If the draft fails any of these, set acceptable=false and write a complete revis
             system += ("\n\nHIGH-PRIORITY SELECTED EVIDENCE FOR THIS TURN\n" + selected_focus +
                        "\nUse this exact selected evidence before broader board context. If it is unchanged starter-kit BASELINE, "
                        "describe readiness/scaffolding accurately rather than framing intentional starter content as failed team work.")
+        discovery_focus = discovered_evidence_focus(safe_evidence_context)
+        if discovery_focus and not selected_focus:
+            system += ("\n\n" + discovery_focus +
+                       "\nAnswer the student's repository-search question directly. Name the strongest actual candidate path(s) you inspected, "
+                       "say what each does or does not establish, and keep uncertainty explicit. Do not ask the student to find the file you were just asked to help locate.")
         if earlier_topic:
             # The compact package was built around the original current-gate
             # finding. Retain only snapshot identity and phase-neutral GitHub
