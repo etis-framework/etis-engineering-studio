@@ -35,6 +35,16 @@ def test_successful_review_turn_cannot_be_recast_as_failed_by_ui_error():
     assert "I could not complete that turn." not in block
 
 
+def test_send_button_invokes_normal_student_turn_without_click_event():
+    # Passing onclick=send sends its MouseEvent as challengeTurn, which skips
+    # both composer clearing and the successful response's draft cleanup.
+    assert "els.send.onclick=()=>send()" in JS
+    assert "els.send.onclick=send;" not in JS
+    block = _send_block()
+    assert "if(!challengeTurn){\n    saveDraft();\n    els.response.value='';" in block
+    assert "if(!challengeTurn)clearDraft();" in block
+
+
 def _add_turn_block() -> str:
     start = JS.index("function addTurn(")
     end = JS.index("\nfunction showSubmittedExchange(", start)
