@@ -30,6 +30,16 @@ def guidance_for_topic(phase_id: str, question: str, target_move: str | None = N
                        limit: int = 3):
     """Choose a verified course reference for the student's actual question."""
     choices = guidance_for(phase_id, target_move, limit=20)
+    # Do not surface an architecture learning link merely because an AI-use
+    # finding occurs during A3. Prefer a verified AI/governance reference when
+    # the catalog actually has one for the phase; otherwise return no link.
+    if re.search(r'\b(?:ai|artificial intelligence|ai-use|ai use|disclos|human verification)\b', question, re.I):
+        ai_choices = []
+        for item in choices:
+            hay = " ".join(str(item.get(k) or "") for k in ("id", "title", "summary", "why")).lower()
+            if re.search(r'\b(?:ai|artificial intelligence|governance|disclos)\b', hay, re.I):
+                ai_choices.append(item)
+        return ai_choices[:limit]
     preferred = None
     if phase_id == 'A1':
         preferred = ('ETIS-ES101-CONTEXT' if re.search(
