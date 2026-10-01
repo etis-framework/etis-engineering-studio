@@ -30,7 +30,7 @@ def coaching_phase(current_phase: str, student_text: str, previous: str | None =
         chosen = mentioned[-1].upper()
         return chosen if chosen in allowed else current_phase
     topic_patterns = (
-        ('A1', r'project launch|launch gate|stakeholder|team charter|working agreement'),
+        ('A1', r'project launch|launch gate|stakeholder|team.charter|working.agreement|team/roles'),
         ('A2', r're.estimat|work breakdown|planning gate|cycle 1 plan'),
         ('A3', r'architecture|component boundar|system design'),
         ('A4', r'implementation review|code review|integration test'),

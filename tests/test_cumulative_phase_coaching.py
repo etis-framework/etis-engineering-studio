@@ -87,3 +87,55 @@ def test_followup_and_future_phase_are_bounded():
     assert coaching_phase('A3', 'How about A5?', 'A1') == 'A3'
     assert coaching_phase('A5', 'Now discuss A4 evidence', 'A3') == 'A4'
     assert coaching_phase('A3', 'Does our architecture support the slice?', 'A1') == 'A3'
+
+
+def test_a1_pronoun_followup_uses_previous_answer_and_repairs_a3_pivot():
+    class Probe(DialogueProbe):
+        def reviewer_turn(self, system, user):
+            self.systems.append(system)
+            self.users = getattr(self, 'users', []) + [user]
+            reply = ('For the A3 control, show a PR and an architecture review.'
+                     if len(self.systems) == 1 else
+                     'For the A1 launch decision, record a named decision owner and a real issue '
+                     'that shows who decided and how disagreement was resolved.')
+            return {'student_intent': 'reasoning', 'understood_points': [],
+                    'reasoning_updates': blank_reasoning(), 'response_mode': 'conversation',
+                    'stuck': False, 'frustrated': False, 'needs_direct_teaching': False,
+                    'reply': reply, 'guidance_ids': ['ETIS-ES100-PRINCIPLES'],
+                    'teach_back': False, 'next_target': 'ownership_visible'}
+
+    probe = Probe()
+    challenge = ChallengeEngine(ai=probe).start('A3', build_snapshot('A3', 'team/repo', 'sha', []))
+    previous = 'For A1, decide who owns launch decisions and records disagreement.'
+    reply, _, _ = ChallengeEngine(ai=probe).converse(
+        challenge, 'What would good evidence of that look like?', blank_reasoning(),
+        conversation_memory={'coaching_phase': 'A1'},
+        conversation_history=[{'actor': 'student', 'content': 'We are still at A1.'},
+                              {'actor': 'reviewer', 'content': previous}],
+        evidence_context='One commit, no issues or PRs in frozen snapshot.',
+    )
+    assert reply['coaching_phase'] == 'A1'
+    assert 'A1 launch decision' in reply['text']
+    assert previous in probe.users[0]
+    assert 'background only' in probe.users[0]
+    assert len(probe.systems) == 2
+    assert all('A1' in ref['phase_ids'] for ref in reply['guidance_refs'])
+
+
+def test_explicit_selected_evidence_changes_topic_from_prior_a1():
+    probe = DialogueProbe()
+    challenge = ChallengeEngine(ai=probe).start('A3', build_snapshot('A3', 'team/repo', 'sha', []))
+    reply, _, _ = ChallengeEngine(ai=probe).converse(
+        challenge, 'What does this show?', blank_reasoning(),
+        conversation_memory={'coaching_phase': 'A1'},
+        evidence_refs=['PATH:docs/architecture/architecture.md'],
+        evidence_context='Selected frozen architecture artifact.',
+    )
+    assert reply['coaching_phase'] == 'A3'
+    prior, _, _ = ChallengeEngine(ai=probe).converse(
+        challenge, 'How do these roles support our launch?', blank_reasoning(),
+        conversation_memory={'coaching_phase': 'A1'},
+        evidence_refs=['PATH:docs/team/roles.md'],
+        evidence_context='Selected frozen team roles artifact.',
+    )
+    assert prior['coaching_phase'] == 'A1'
