@@ -43,6 +43,15 @@ def coaching_phase(current_phase: str, student_text: str, previous: str | None =
     return previous if previous in allowed else current_phase
 
 
+def turn_coaching_phase(current_phase: str, student_text: str, previous: str | None,
+                       evidence_refs=()) -> str:
+    """Apply the same topic resolution to prompt construction and evidence retrieval."""
+    topic = coaching_phase(current_phase, student_text, previous)
+    if evidence_refs and not re.search(r'\bA[1-6]\b', student_text, re.I):
+        topic = coaching_phase(current_phase, ' '.join(map(str, evidence_refs)), topic)
+    return topic
+
+
 def foundation_concern(phase_id: str, artifacts: list[dict]) -> ReviewFinding | None:
     """Surface one observed upstream gap; never infer a complete phase from presence."""
     if phase_id not in PHASES[1:]:
