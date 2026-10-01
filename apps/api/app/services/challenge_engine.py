@@ -209,7 +209,8 @@ def evidence_authority_contract(student_text: str, evidence_refs=()) -> str:
         "- Absence of demonstrated evidence does not prove the activity never happened. Say 'the snapshot does not demonstrate/show this' rather than 'you did not do this' unless the evidence actually establishes nonoccurrence.\n"
         "- Manual/offline practices can be legitimate. If the team reports one, discuss whether it is adequate for the engineering risk, then identify the smallest inspectable operating record that would make the practice reviewable; do not require a canonical filename or fabricated history.\n"
         "- If the student points to contrary/equivalent evidence that is present in the supplied frozen package, inspect it yourself and explicitly correct or narrow the REVIEW interpretation when it invalidates the finding. Do not defend the reviewer for consistency's sake.\n"
-        "- When an exact selected PATH is present in the supplied evidence package, do not make the student re-identify the passage as the first response. Inspect the supplied content, state what it does or does not establish, and only ask for a narrower passage if the bounded content is unavailable, quarantined, or genuinely ambiguous.\n"
+        "- When an exact selected PATH is present, use its hydration_status as an authority boundary. FOUND_AND_SUPPLIED means you may inspect and reason from the supplied frozen content; FOUND_BUT_EMPTY means you may state the frozen file is empty; FOUND_BUT_UNINSPECTED, FOUND_BUT_QUARANTINED, FOUND_BUT_UNAVAILABLE, and PATH_NOT_IN_SNAPSHOT mean you must not claim to have inspected file contents.\n"
+        "- When hydration_status is FOUND_AND_SUPPLIED, do not make the student re-identify the passage as the first response. Inspect the selected frozen content yourself, state what it does or does not establish, then ask for a narrower passage only when the supplied content is genuinely ambiguous.\n"
         "- A challenge can also contain a coaching/readiness question. Answer that question in the same turn while preserving the challenge boundary; do not force the student through a second turn merely to switch from 'challenge' to 'help'.\n"
         "- If the claimed source is not in the supplied package, say it cannot be verified in this review. Ask for an exact in-snapshot source when appropriate, or explain that post-snapshot work requires a new review.\n"
         "- Keep three states distinct in wording: demonstrated by snapshot / reported by student / still unknown. Do not turn uncertainty into accusation or acceptance.\n"
@@ -1051,14 +1052,16 @@ A high-quality reply must:
 - avoid invented evidence;
 - preserve demonstrated/reported/unknown distinctions instead of treating a student report as proof or as falsehood;
 - say the reviewer interpretation should change when supplied frozen counterevidence actually invalidates it;
-- when an exact selected frozen PATH is available in the evidence package, inspect it rather than making the student identify the decisive passage before you engage;
+- obey the selected artifact hydration_status: only claim content inspection for FOUND_AND_SUPPLIED or an empty-file observation for FOUND_BUT_EMPTY; otherwise state the limitation without guessing;
+- when an exact selected frozen PATH is FOUND_AND_SUPPLIED, inspect it rather than making the student identify the decisive passage before you engage;
 - if the challenge also asks a coaching/readiness question, answer that question in the same reply while keeping the evidence status explicit;
 - never convert 'not demonstrated in this snapshot' into 'the team did not do it' without evidence of nonoccurrence;
 - sound like a capable, patient senior engineer coaching a junior;
 - ask at most one main question unless teaching;
 - preserve the student's agency after teaching through teach-back/application.
 - include a short clearly labeled illustrative example when the student explicitly asks to be shown how, without presenting invented details as repository facts;
-- use plain student-facing language for the review snapshot and avoid repeating the learning-link description shown by the interface.
+- use plain student-facing language for the review snapshot and avoid repeating the learning-link description shown by the interface;
+- never expose implementation mechanics such as "proposed reply", "bounded package", "semantic reviewer", "prompt", "hydration_status", or model/retrieval internals to the student. Translate those into natural language such as "the evidence available in this review" or "I can/cannot inspect the selected frozen file."
 
 Direct teaching is REQUIRED this turn: {str(bool(must_teach)).lower()}
 If the draft fails any of these, set acceptable=false and write a complete revised_reply that fixes it.
@@ -1175,7 +1178,7 @@ Student-selected context references for THIS turn: {evidence_refs or ['none']}
 Session entry intent: {memory.get('entry_intent') or 'review'}
 Session source view: {memory.get('source_view') or 'studio'}
 
-If the student selected a FINDING:<id> or PATH:<path> reference, treat that exact object as the referent of words such as “this,” “it,” “the finding,” or “the file.” Do not drift to a different finding or artifact merely because it ranks higher globally. If the referenced object is not in the supplied evidence package, say that plainly rather than guessing.
+If the student selected a FINDING:<id> or PATH:<path> reference, treat that exact object as the referent of words such as “this,” “it,” “the finding,” or “the file.” Do not drift to a different finding or artifact merely because it ranks higher globally. For a selected PATH, obey its hydration_status exactly: FOUND_AND_SUPPLIED permits content inspection; FOUND_BUT_EMPTY permits only the empty-file observation; all unavailable/quarantined/uninspected/missing states forbid claims about file contents. If the selected source cannot be inspected, explain that limitation in natural student-facing language rather than exposing internal package, prompt, model, or retrieval mechanics.
 
 The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the student's real conversational act and engineering meaning from the message and context.
 """.strip()

@@ -128,6 +128,19 @@ class EvidencePackageBuilder:
         else:
             disclosure_status = "clear"
 
+        if artifact.get("quality") in {"uninspected", "too_large", "binary"}:
+            hydration_status = "FOUND_BUT_UNINSPECTED"
+        elif "sensitive_file" in disclosure.redactions:
+            hydration_status = "FOUND_BUT_QUARANTINED"
+        elif artifact.get("quality") == "empty":
+            hydration_status = "FOUND_BUT_EMPTY"
+        elif not content:
+            hydration_status = "FOUND_BUT_UNAVAILABLE"
+        elif disclosure.text:
+            hydration_status = "FOUND_AND_SUPPLIED"
+        else:
+            hydration_status = "FOUND_BUT_UNAVAILABLE"
+
         return {
             "path": path,
             "provenance": artifact.get("provenance"),
@@ -136,6 +149,12 @@ class EvidencePackageBuilder:
             "content_excerpt": disclosure.text,
             "disclosure_status": disclosure_status,
             "disclosure_reasons": list(disclosure.redactions),
+            "hydration_status": hydration_status,
+            "source_size": artifact.get("size", 0),
+            "source_sha256": artifact.get("sha256", ""),
+            "content_truncated": bool(
+                content and (len(content) > max_chars or len(disclosure.text) < min(len(content), max_chars))
+            ),
         }
 
     def build_for_turn(
@@ -178,9 +197,30 @@ class EvidencePackageBuilder:
                         include_windows=True,
                     )
                 )
+            else:
+                selected.append({
+                    "path": path,
+                    "provenance": "UNKNOWN",
+                    "quality": "missing",
+                    "summary": "The selected path is not present in this frozen snapshot.",
+                    "content_excerpt": "",
+                    "disclosure_status": "clear",
+                    "disclosure_reasons": [],
+                    "hydration_status": "PATH_NOT_IN_SNAPSHOT",
+                    "source_size": 0,
+                    "source_sha256": "",
+                    "content_truncated": False,
+                })
 
         base = self.build(evidence, challenge)
         base.relevant_artifacts = selected
+        base.evidence_boundary = (
+            f'Frozen {evidence.get("phase_id")} snapshot at {evidence.get("commit_sha")}; '
+            'exact selected paths take precedence for this turn. Each selected artifact includes '
+            'an explicit hydration_status describing whether frozen content was actually supplied. '
+            'Do not claim to have inspected file contents unless hydration_status is FOUND_AND_SUPPLIED '
+            'or FOUND_BUT_EMPTY. Absence in the snapshot is not proof of absence everywhere.'
+        )
         return base
 
     def build_for_phase(self, evidence: dict, challenge: dict, topic_phase: str,

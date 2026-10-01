@@ -71,5 +71,6 @@ def test_exact_path_dispute_uses_semantic_reviewer_and_selected_frozen_package(m
 
 def test_challenge_dialogue_copy_explains_that_selected_file_will_be_inspected():
     html = open('apps/api/app/static/index.html', encoding='utf-8').read()
-    assert 'Maya will inspect that frozen file' in html
+    assert 'Maya will inspect the retained frozen content when it is available' in html
+    assert 'if it cannot be inspected, she will say so' in html
     assert 'or ask what it means for your next step' in html

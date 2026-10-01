@@ -504,18 +504,16 @@ def _evidence_context(
                                 (state.get('conversation_memory') or {}).get('coaching_phase'),
                                 evidence_refs)
 
-    if topic != challenge.phase_id and snapshot_id:
-        snapshot = db.get(EvidenceSnapshot, snapshot_id)
-        if snapshot:
-            evidence = snapshot_from_dict(_safe_json(snapshot.summary_json, {}))
-            return evidence_package_builder.build_for_phase(
-                evidence.to_dict(), challenge.to_dict(), topic, evidence_refs,
-            ).to_prompt_text(max_chars=get_settings().etis_review_context_chars)
-
-    # An explicit evidence selection gets a turn-specific package built only
-    # from the persisted frozen snapshot. This lets the reviewer inspect the
-    # selected artifact in depth without consulting live repository state.
-    if evidence_refs and snapshot_id:
+    # Exact frozen PATH selections take precedence over inferred topic/phase routing.
+    # A challenge must never carry only the path name while the model receives a
+    # different phase-bounded package. The turn package also records whether the
+    # selected frozen content was actually supplied, unavailable, quarantined, or
+    # absent from the snapshot.
+    selected_paths = [
+        ref for ref in (evidence_refs or ())
+        if isinstance(ref, str) and ref.startswith("PATH:")
+    ]
+    if selected_paths and snapshot_id:
         snapshot = db.get(EvidenceSnapshot, snapshot_id)
         if snapshot:
             evidence = snapshot_from_dict(_safe_json(snapshot.summary_json, {}))
@@ -524,7 +522,17 @@ def _evidence_context(
                 challenge.to_dict(),
                 evidence_refs,
             )
-            return package.to_prompt_text()
+            return package.to_prompt_text(
+                max_chars=get_settings().etis_review_context_chars
+            )
+
+    if topic != challenge.phase_id and snapshot_id:
+        snapshot = db.get(EvidenceSnapshot, snapshot_id)
+        if snapshot:
+            evidence = snapshot_from_dict(_safe_json(snapshot.summary_json, {}))
+            return evidence_package_builder.build_for_phase(
+                evidence.to_dict(), challenge.to_dict(), topic, evidence_refs,
+            ).to_prompt_text(max_chars=get_settings().etis_review_context_chars)
 
     compact = state.get("compact_evidence_package")
     if compact:
