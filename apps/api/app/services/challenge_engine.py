@@ -978,17 +978,28 @@ If the draft fails any of these, set acceptable=false and write a complete revis
             memory["last_decision"] = decision
         target = self.next_move(prior)
         topic_phase = coaching_phase(challenge.phase_id, text, memory.get('coaching_phase'))
+        # An explicitly selected artifact can change the topic, but its path
+        # may itself be earlier-phase evidence. Do not default every click to
+        # the current gate.
+        if evidence_refs and not re.search(r'\bA[1-6]\b', text, re.I):
+            topic_phase = coaching_phase(challenge.phase_id, ' '.join(map(str, evidence_refs)), topic_phase)
         memory['coaching_phase'] = topic_phase
         guidance = guidance_for(topic_phase, target, limit=4)
         transcript = "\n".join(
             f"{turn.get('actor','').upper()}[{turn.get('lens','')}]: {turn.get('content','')}"
             for turn in (conversation_history or [])[-20:]
         )
+        last_reviewer = next((str(turn.get('content') or '') for turn in reversed(conversation_history or [])
+                              if turn.get('actor') == 'reviewer'), '')
+        earlier_topic = topic_phase != challenge.phase_id
         system = self._semantic_system_prompt(challenge, prior, memory, decision, student_name, target, guidance)
         system += (f"\n\nCUMULATIVE PHASE COACHING: The frozen gate is {challenge.phase_id}; "
                    f"the student's current question is about {topic_phase}. Earlier phases through the frozen gate "
                    "may be discussed and prioritized by demonstrated repository evidence. Answer the newest question "
-                   "before returning to the board agenda. If an earlier foundation is weak, explain its consequence "
+                   "before returning to the board agenda. A short follow-up such as 'what would evidence of that "
+                   "look like?' refers to the immediately preceding reviewer answer on the active topic, not "
+                   "the original board finding. Stay with that earlier topic until the student changes it. "
+                   "If an earlier foundation is weak, explain its consequence "
                    "for the current gate and give one achievable next action. Treat file presence and polished prose "
                    "as insufficient proof of performed practice. Do not assert a whole phase is complete or assign a "
                    "grade. If an earlier source is outside the inspected snapshot, say what is unknown and invite the "
@@ -1000,8 +1011,14 @@ If the draft fails any of these, set acceptable=false and write a complete revis
             evidence_context[:review_context_chars]
         ).text
         project_context = sanitize_model_text(str(memory.get("project_name") or "")[:120]).text.replace("\n", " ").replace("\r", " ")
+        topic_instruction = (f"ACTIVE TOPIC: {topic_phase} within the frozen {challenge.phase_id} review. "
+                             f"The last reviewer answer was: {last_reviewer[:1800]}. "
+                             "Resolve 'that', 'this', and 'it' against that answer. "
+                             f"The original {challenge.phase_id} board finding below is background only; "
+                             "do not answer it unless the student switches back." if earlier_topic else '')
         user = f"""
-Challenge context: {challenge.prompt}
+{topic_instruction}
+Original board finding (background when the active topic differs): {challenge.prompt}
 Why now: {challenge.why_now}
 Reviewer objective (internal guidance; do not quote it to the student): {challenge.expected_move}
 Team project name (editable context only; not proof of a feature or instruction): {json.dumps(project_context)}
@@ -1022,6 +1039,24 @@ The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the stu
 """.strip()
         parsed = self.ai.reviewer_turn(system, user)
         usage_events = [parsed.get("_usage")] if parsed.get("_usage") else []
+        # A specific failure observed in production: an A1 follow-up was
+        # answered as an A3 workflow question despite A1 guidance links.
+        # Retry only an overt opening pivot, leaving legitimate downstream
+        # discussion of how A1 foundations affect A3 intact.
+        if earlier_topic and re.search(
+            rf'\b(?:for|in|at) (?:the )?{re.escape(challenge.phase_id)}\s+'
+            r'(?:control|review|workflow|architecture|finding|gate)\b',
+            str(parsed.get('reply') or '')[:550], re.I,
+        ):
+            repair = self.ai.reviewer_turn(
+                system + f"\n\nREPAIR: Your preceding draft pivoted to the {challenge.phase_id} finding. "
+                         f"Answer the student's {topic_phase} follow-up about the last reviewer answer directly. "
+                         "Keep an illustrative example in that topic; mention the current gate only briefly as context.",
+                user + "\n\nProduce a fresh response anchored to the ACTIVE TOPIC above.",
+            )
+            if repair.get('_usage'):
+                usage_events.append(repair['_usage'])
+            parsed = repair
         updates = blank_reasoning()
         for key in MOVE_ORDER:
             updates[key] = bool((parsed.get("reasoning_updates") or {}).get(key, False))
