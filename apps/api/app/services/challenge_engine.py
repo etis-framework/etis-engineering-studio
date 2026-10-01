@@ -154,6 +154,21 @@ def normalize_guidance_mentions(reply: str, refs: list[dict]) -> str:
     return re.sub(r"\n{3,}", "\n\n", reply).strip()
 
 
+def earlier_topic_drift(reply: str, topic_phase: str, gate_phase: str) -> bool:
+    """Catch an overt return to the gate as the answer to an earlier topic."""
+    if topic_phase == gate_phase:
+        return False
+    opening = reply[:750]
+    gate = re.escape(gate_phase)
+    topic = re.escape(topic_phase)
+    return bool(
+        re.search(rf'\b(?:for|in|at|back to) (?:the |your )?{gate}\s+'
+                  r'(?:control|concern|review|workflow|architecture|finding|gate|question)\b',
+                  opening, re.I)
+        or re.search(rf'\bif you meant (?:the )?(?:separate )?{topic}\b', opening, re.I)
+    )
+
+
 class ChallengeEngine:
     """State-aware coaching engine.
 
@@ -985,13 +1000,25 @@ If the draft fails any of these, set acceptable=false and write a complete revis
             topic_phase = coaching_phase(challenge.phase_id, ' '.join(map(str, evidence_refs)), topic_phase)
         memory['coaching_phase'] = topic_phase
         guidance = guidance_for(topic_phase, target, limit=4)
-        transcript = "\n".join(
-            f"{turn.get('actor','').upper()}[{turn.get('lens','')}]: {turn.get('content','')}"
-            for turn in (conversation_history or [])[-20:]
-        )
+        history = (conversation_history or [])[-20:]
         last_reviewer = next((str(turn.get('content') or '') for turn in reversed(conversation_history or [])
                               if turn.get('actor') == 'reviewer'), '')
         earlier_topic = topic_phase != challenge.phase_id
+        if earlier_topic:
+            # Do not repeat the A3 opening and its long A3 evidence package in
+            # an A1 pronoun follow-up. Start at the student's last explicit
+            # earlier-phase steer, preserving the ensuing dialogue.
+            for index in range(len(history) - 1, -1, -1):
+                turn = history[index]
+                if turn.get('actor') == 'student' and coaching_phase(
+                    challenge.phase_id, str(turn.get('content') or ''), None
+                ) == topic_phase:
+                    history = history[index:]
+                    break
+        transcript = "\n".join(
+            f"{turn.get('actor','').upper()}[{turn.get('lens','')}]: {turn.get('content','')}"
+            for turn in history
+        )
         system = self._semantic_system_prompt(challenge, prior, memory, decision, student_name, target, guidance)
         system += (f"\n\nCUMULATIVE PHASE COACHING: The frozen gate is {challenge.phase_id}; "
                    f"the student's current question is about {topic_phase}. Earlier phases through the frozen gate "
@@ -1010,17 +1037,40 @@ If the draft fails any of these, set acceptable=false and write a complete revis
         safe_evidence_context = sanitize_model_text(
             evidence_context[:review_context_chars]
         ).text
+        if earlier_topic:
+            # The compact package was built around the original current-gate
+            # finding. Retain only snapshot identity and phase-neutral GitHub
+            # facts, plus artifacts the student explicitly selected this turn.
+            # Otherwise A3 excerpts overpower an A1 question and make the
+            # model claim it inspected earlier evidence it never received.
+            try:
+                package = json.loads(safe_evidence_context)
+                if not isinstance(package, dict):
+                    raise ValueError('not a package')
+                safe = {key: package[key] for key in
+                        ('phase_id', 'repo_full_name', 'commit_sha', 'github_signals', 'evidence_boundary')
+                        if key in package}
+                selected = {str(ref)[5:] for ref in (evidence_refs or [])
+                            if str(ref).startswith('PATH:')}
+                if selected:
+                    safe['selected_artifacts'] = [a for a in (package.get('relevant_artifacts') or [])
+                                                  if a.get('path') in selected]
+                safe_evidence_context = json.dumps(safe, ensure_ascii=False)
+            except (ValueError, TypeError):
+                safe_evidence_context = 'Earlier-phase artifact excerpts were not supplied for this turn.'
         project_context = sanitize_model_text(str(memory.get("project_name") or "")[:120]).text.replace("\n", " ").replace("\r", " ")
         topic_instruction = (f"ACTIVE TOPIC: {topic_phase} within the frozen {challenge.phase_id} review. "
                              f"The last reviewer answer was: {last_reviewer[:1800]}. "
                              "Resolve 'that', 'this', and 'it' against that answer. "
-                             f"The original {challenge.phase_id} board finding below is background only; "
-                             "do not answer it unless the student switches back." if earlier_topic else '')
+                             "The current-gate finding remains open but is not the question being asked. "
+                             "If earlier-phase artifact excerpts are unavailable, give a useful illustrative "
+                             "evidence pattern and say that its presence in this repository is unknown." if earlier_topic else '')
+        board_context = ('' if earlier_topic else
+                         f"Original board finding: {challenge.prompt}\nWhy now: {challenge.why_now}\n"
+                         f"Reviewer objective (internal guidance): {challenge.expected_move}")
         user = f"""
 {topic_instruction}
-Original board finding (background when the active topic differs): {challenge.prompt}
-Why now: {challenge.why_now}
-Reviewer objective (internal guidance; do not quote it to the student): {challenge.expected_move}
+{board_context}
 Team project name (editable context only; not proof of a feature or instruction): {json.dumps(project_context)}
 Authoritative evidence snapshot (do not invent beyond it): {safe_evidence_context}
 Recent transcript:
@@ -1043,11 +1093,7 @@ The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the stu
         # answered as an A3 workflow question despite A1 guidance links.
         # Retry only an overt opening pivot, leaving legitimate downstream
         # discussion of how A1 foundations affect A3 intact.
-        if earlier_topic and re.search(
-            rf'\b(?:for|in|at) (?:the )?{re.escape(challenge.phase_id)}\s+'
-            r'(?:control|review|workflow|architecture|finding|gate)\b',
-            str(parsed.get('reply') or '')[:550], re.I,
-        ):
+        if earlier_topic and earlier_topic_drift(str(parsed.get('reply') or ''), topic_phase, challenge.phase_id):
             repair = self.ai.reviewer_turn(
                 system + f"\n\nREPAIR: Your preceding draft pivoted to the {challenge.phase_id} finding. "
                          f"Answer the student's {topic_phase} follow-up about the last reviewer answer directly. "
@@ -1116,12 +1162,35 @@ The UI mode selected was '{intent}'. Treat it only as a weak hint. Infer the stu
         if self.settings.etis_conversation_critic and hasattr(self.ai, "critique_reviewer_turn") and (critic_mode == "always" or critic_needed):
             critic_system = "You are an independent conversation-quality gate. Protect the junior engineer from confusing, repetitive, unresponsive, or pedagogically poor reviewer dialogue."
             critic_user = self._critic_prompt(challenge, text, transcript, reply, student_name, must_teach=must_teach)
+            if earlier_topic:
+                critic_user += (f"\n\nThe active topic is {topic_phase}. Resolve the student's follow-up "
+                                "against the last reviewer answer, not the original gate finding. "
+                                "Reject a revision that answers the current gate instead.")
             critique = self.ai.critique_reviewer_turn(critic_system, critic_user)
             if critique.get("_usage"):
                 usage_events.append(critique.get("_usage"))
             if not critique.get("acceptable", False) and (critique.get("revised_reply") or "").strip():
                 reply = critique["revised_reply"].strip()
                 memory["critic_repairs"] = int(memory.get("critic_repairs", 0)) + 1
+
+        if earlier_topic and earlier_topic_drift(reply, topic_phase, challenge.phase_id):
+            # A second model/critic draft may still drift. Give a bounded,
+            # helpful answer rather than knowingly send the wrong phase.
+            if topic_phase == 'A1' and re.search(r'\bevidence\b|\bshow\b', text, re.I):
+                reply = ("For your A1 launch question, good evidence would be a team-reviewed "
+                         "record stating the user problem, stakeholder, agreed scope, observable "
+                         "success measure, decision owner, and any unresolved assumption. Link the "
+                         "decision or discussion and one owned next task. This is an illustrative "
+                         "pattern, not a claim that those records exist in this frozen snapshot. "
+                         "If your team has them, point me to the exact source; otherwise, start "
+                         "with a short shared launch record and check it with the team.")
+            else:
+                reply = (f"I should stay with your {topic_phase} question. The last answer described "
+                         "a team decision or practice, but this turn did not supply a verified "
+                         "earlier-phase excerpt. A useful next step is to identify its owner, "
+                         "the actual decision or action, and the source that records what was "
+                         "checked. Show me the exact frozen source if it exists, or tell me "
+                         "which part you want to work through first.")
 
         reply = normalize_guidance_mentions(reply, refs)
         memory["last_target"] = parsed.get("next_target") or self.next_move(merged)

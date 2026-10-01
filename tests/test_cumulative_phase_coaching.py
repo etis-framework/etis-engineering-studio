@@ -3,7 +3,7 @@
 import pytest
 
 from apps.api.app.services.cumulative_phase import coaching_phase, foundation_concern
-from apps.api.app.services.challenge_engine import ChallengeEngine, blank_reasoning
+from apps.api.app.services.challenge_engine import ChallengeEngine, blank_reasoning, earlier_topic_drift
 from apps.api.app.services.evidence import build_snapshot
 from apps.api.app.services.repository_intelligence import ArtifactFact
 
@@ -117,9 +117,79 @@ def test_a1_pronoun_followup_uses_previous_answer_and_repairs_a3_pivot():
     assert reply['coaching_phase'] == 'A1'
     assert 'A1 launch decision' in reply['text']
     assert previous in probe.users[0]
-    assert 'background only' in probe.users[0]
+    assert 'not the question being asked' in probe.users[0]
+    assert 'Original board finding:' not in probe.users[0]
     assert len(probe.systems) == 2
     assert all('A1' in ref['phase_ids'] for ref in reply['guidance_refs'])
+
+
+def test_production_a1_followup_does_not_receive_a3_finding_or_excerpts():
+    class Probe(DialogueProbe):
+        def reviewer_turn(self, system, user):
+            self.user = user
+            self.systems.append(system)
+            return {'student_intent': 'reasoning', 'understood_points': [],
+                    'reasoning_updates': blank_reasoning(), 'response_mode': 'conversation',
+                    'stuck': False, 'frustrated': False, 'needs_direct_teaching': False,
+                    'reply': ('For A1, a team-reviewed launch record should name the problem, '
+                              'stakeholder, success measure, and owner.'),
+                    'guidance_ids': ['ETIS-ES101-CONTEXT'], 'teach_back': False}
+
+    probe = Probe()
+    challenge = ChallengeEngine(ai=probe).start('A3', build_snapshot('A3', 'team/repo', 'sha', []))
+    challenge.prompt = 'A3 architecture assumptions are unverified.'
+    prior = ('The largest A1 risk is launching without a shared problem, scope, '
+             'stakeholders, and success criteria. Write a short engineering-context statement.')
+    package = {'phase_id': 'A3', 'commit_sha': 'sha',
+               'challenge': {'prompt': challenge.prompt},
+               'relevant_artifacts': [{'path': 'docs/architecture/architecture.md',
+                                      'content_excerpt': 'A3 scale and failure assumptions'}],
+               'github_signals': {'issue_count': 0}}
+    reply, _, _ = ChallengeEngine(ai=probe).converse(
+        challenge, 'What would good evidence of that look like?”', blank_reasoning(),
+        conversation_memory={'coaching_phase': 'A1'},
+        conversation_history=[{'actor': 'reviewer', 'content': challenge.prompt},
+                              {'actor': 'student', 'content': 'We are still working on our A1 launch.'},
+                              {'actor': 'reviewer', 'content': prior}],
+        evidence_context=__import__('json').dumps(package),
+    )
+    assert reply['coaching_phase'] == 'A1'
+    assert 'team-reviewed launch record' in reply['text']
+    assert prior in probe.user
+    assert challenge.prompt not in probe.user
+    assert 'A3 scale and failure assumptions' not in probe.user
+    assert 'issue_count' in probe.user
+
+
+def test_overt_a3_concern_pivot_is_caught_but_dependency_is_allowed():
+    assert earlier_topic_drift('For the A3 concern, make an assumption table.', 'A1', 'A3')
+    assert earlier_topic_drift('If you meant the separate A1 question, say so.', 'A1', 'A3')
+    assert not earlier_topic_drift('For A1, agree the scope; that also reduces A3 risk.', 'A1', 'A3')
+
+
+def test_repeated_model_drift_produces_bounded_a1_help():
+    class DriftingProbe(DialogueProbe):
+        def reviewer_turn(self, system, user):
+            self.systems.append(system)
+            return {'student_intent': 'reasoning', 'understood_points': [],
+                    'reasoning_updates': blank_reasoning(), 'response_mode': 'conversation',
+                    'stuck': False, 'frustrated': False, 'needs_direct_teaching': False,
+                    'reply': 'For the A3 concern, write an architecture assumptions table.',
+                    'guidance_ids': [], 'teach_back': False}
+
+    probe = DriftingProbe()
+    challenge = ChallengeEngine(ai=probe).start('A3', build_snapshot('A3', 'team/repo', 'sha', []))
+    reply, _, _ = ChallengeEngine(ai=probe).converse(
+        challenge, 'What would good evidence of that look like?', blank_reasoning(),
+        conversation_memory={'coaching_phase': 'A1'},
+        conversation_history=[{'actor': 'student', 'content': 'Our A1 launch is incomplete.'},
+                              {'actor': 'reviewer', 'content': 'Agree on the A1 problem and success measure.'}],
+        evidence_context='A3 architecture excerpt',
+    )
+    assert len(probe.systems) == 2
+    assert 'For your A1 launch question' in reply['text']
+    assert 'illustrative' in reply['text']
+    assert 'architecture assumptions table' not in reply['text']
 
 
 def test_explicit_selected_evidence_changes_topic_from_prior_a1():
