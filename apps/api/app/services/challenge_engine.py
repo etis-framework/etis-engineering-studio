@@ -172,6 +172,24 @@ def student_report_signal(text: str) -> bool:
     return bool(REPORT_SIGNAL_RE.search(raw))
 
 
+COACHING_QUESTION_RE = re.compile(
+    r"\b(?:what\s+(?:should|do|does|would|can)|how\s+(?:should|do|does|can)|"
+    r"do\s+we\s+have|are\s+we\s+(?:ready|far)|is\s+this\s+enough|"
+    r"enough\s+(?:evidence|to)|ready\s+to|help\s+me|what\s+i\s+(?:really\s+)?need\s+to\s+know)\b",
+    re.I,
+)
+
+
+def student_coaching_question_signal(text: str) -> bool:
+    """Recognize challenge turns that also ask for coaching/readiness help.
+
+    The UI mode is only a weak hint. A student may dispute a finding and ask
+    what the evidence means or whether the team is ready to start in one turn.
+    """
+    raw = (text or "").strip()
+    return bool("?" in raw or COACHING_QUESTION_RE.search(raw))
+
+
 def evidence_authority_contract(student_text: str, evidence_refs=()) -> str:
     """Build a deterministic per-turn epistemic contract for reviewer and critic."""
     selected_paths = [
@@ -183,16 +201,19 @@ def evidence_authority_contract(student_text: str, evidence_refs=()) -> str:
         if isinstance(ref, str) and str(ref).startswith("FINDING:") and str(ref)[8:]
     ]
     report = student_report_signal(student_text)
+    coaching_question = student_coaching_question_signal(student_text)
     return (
         "TURN EVIDENCE-AUTHORITY CONTRACT\n"
         "- Repository/GitHub content in the supplied review package is frozen evidence. A REVIEW interpretation may change; frozen FACT observations do not.\n"
         "- A student's description of what the team did is a student report. Take it seriously, but do not silently promote it to repository proof.\n"
         "- Absence of demonstrated evidence does not prove the activity never happened. Say 'the snapshot does not demonstrate/show this' rather than 'you did not do this' unless the evidence actually establishes nonoccurrence.\n"
         "- Manual/offline practices can be legitimate. If the team reports one, discuss whether it is adequate for the engineering risk, then identify the smallest inspectable operating record that would make the practice reviewable; do not require a canonical filename or fabricated history.\n"
-        "- If the student points to contrary/equivalent evidence that is present in the supplied frozen package, inspect it and explicitly correct or narrow the REVIEW interpretation when it invalidates the finding. Do not defend the reviewer for consistency's sake.\n"
+        "- If the student points to contrary/equivalent evidence that is present in the supplied frozen package, inspect it yourself and explicitly correct or narrow the REVIEW interpretation when it invalidates the finding. Do not defend the reviewer for consistency's sake.\n"
+        "- When an exact selected PATH is present in the supplied evidence package, do not make the student re-identify the passage as the first response. Inspect the supplied content, state what it does or does not establish, and only ask for a narrower passage if the bounded content is unavailable, quarantined, or genuinely ambiguous.\n"
+        "- A challenge can also contain a coaching/readiness question. Answer that question in the same turn while preserving the challenge boundary; do not force the student through a second turn merely to switch from 'challenge' to 'help'.\n"
         "- If the claimed source is not in the supplied package, say it cannot be verified in this review. Ask for an exact in-snapshot source when appropriate, or explain that post-snapshot work requires a new review.\n"
         "- Keep three states distinct in wording: demonstrated by snapshot / reported by student / still unknown. Do not turn uncertainty into accusation or acceptance.\n"
-        f"- Turn signals: student_report={str(report).lower()}; selected_paths={json.dumps(selected_paths)}; selected_findings={json.dumps(selected_findings)}."
+        f"- Turn signals: student_report={str(report).lower()}; coaching_question={str(coaching_question).lower()}; selected_paths={json.dumps(selected_paths)}; selected_findings={json.dumps(selected_findings)}."
     )
 
 
@@ -990,6 +1011,8 @@ SEMANTIC INTERPRETATION EXAMPLES
 - "I think yes but maybe wrong" can be tentative_reasoning. Evaluate the idea, not confidence.
 - "look at our risk register and tell me if it is good enough" in a Focused Review = senior_opinion_request. Give an honest assessment from the evidence before asking one improvement question.
 - "I agree with the finding; what should we change?" in a Finding Review = resolution_help. Explain the concern, identify the smallest defensible improvement, and let the student ask follow-ups.
+- "reconsider docs/architecture/architecture.md; we are not this far yet—do we have enough evidence to start?" is mixed evidence_dispute + coaching/readiness. Inspect the selected frozen file, answer the readiness question now, and separately state whether the file changes the finding. Do not ask the student to repeat which passage matters when the selected file content is already supplied.
+- "reconsider docs/decisions/README.md: we did this already" with an exact PATH = evidence_dispute. Inspect the selected frozen file yourself. If it is only scaffold/instructions, say that; if it demonstrates the disputed practice, narrow/correct the interpretation; if it is partial, state exactly what is supported and what remains open.
 - "I finished that review; now can you look at our requirements?" = new_session_focus. Recognize the transition and treat the new artifact/question as a fresh evidence scope while retaining relevant coaching continuity.
 - "I don't know what page I am on anymore" = process_question. Re-orient the student to the product before returning to engineering content.
 
@@ -1028,6 +1051,8 @@ A high-quality reply must:
 - avoid invented evidence;
 - preserve demonstrated/reported/unknown distinctions instead of treating a student report as proof or as falsehood;
 - say the reviewer interpretation should change when supplied frozen counterevidence actually invalidates it;
+- when an exact selected frozen PATH is available in the evidence package, inspect it rather than making the student identify the decisive passage before you engage;
+- if the challenge also asks a coaching/readiness question, answer that question in the same reply while keeping the evidence status explicit;
 - never convert 'not demonstrated in this snapshot' into 'the team did not do it' without evidence of nonoccurrence;
 - sound like a capable, patient senior engineer coaching a junior;
 - ask at most one main question unless teaching;

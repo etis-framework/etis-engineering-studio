@@ -542,6 +542,63 @@ def _record_reply_usage(db: Session, reply: dict, session: ReviewSession):
     )
 
 
+def _semantic_evidence_dispute_reply(
+    db: Session,
+    *,
+    session: ReviewSession,
+    state: dict,
+    path: str,
+    explanation: str,
+    finding_id: str | None,
+) -> dict | None:
+    """Let the semantic reviewer inspect an exact frozen source during a dispute.
+
+    The deterministic evidence-dispute endpoint remains the authority for snapshot
+    membership and finding lifecycle state. This helper only improves the reviewer
+    conversation when semantic coaching is available.
+    """
+    if not engine.settings.etis_semantic_conversation or not engine.ai.available():
+        return None
+
+    refs = [f"PATH:{path}"]
+    if finding_id:
+        refs.append(f"FINDING:{finding_id}")
+    challenge = _challenge_from_state(state)
+    turns = (
+        db.query(ReviewTurn)
+        .filter_by(session_id=session.id)
+        .order_by(ReviewTurn.sequence)
+        .all()
+    )
+    student = _student_for_session(db, session)
+    prior = state.get("reasoning_state") or {}
+    message = (
+        f"I think the board should reconsider `{path}`: {explanation}"
+    )
+    try:
+        reply, _merged, _evaluation = engine.converse(
+            challenge,
+            message,
+            prior,
+            intent="evidence_dispute",
+            evidence_refs=refs,
+            coaching_level=state.get("coaching_level", 0),
+            evidence_context=_evidence_context(
+                db, state, refs, student_text=message
+            ),
+            conversation_history=_history_payload(turns),
+            conversation_memory=state.get("conversation_memory") or {},
+            student_name=student.display_name if student else "",
+            allow_fallback=False,
+        )
+    except Exception:
+        return None
+
+    if not (reply.get("text") or "").strip():
+        return None
+    return reply
+
+
 def _reasoning_proposal_from_reply(reply: dict) -> tuple[dict, str]:
     proposals = dict(reply.pop("_reasoning_proposals", {}) or {})
     proposal_intent = str(
@@ -2220,18 +2277,34 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
             )
         )
 
+        semantic_reply = None
         if artifact:
             nonuse_answer = _ai_nonuse_dispute_reply(path, req.explanation)
-            text = (
-                f"I found `{path}` in this review's frozen snapshot. "
-                + (nonuse_answer if nonuse_answer else (
-                    "Finding the file does not by itself settle the concern. "
-                    "I have recorded your challenge. Which passage in this frozen "
-                    "file changes the board's interpretation? If you are asking "
-                    "what the team should do, tell me here and I will help you "
-                    "work through it."
-                ))
-            )
+            if nonuse_answer:
+                text = (
+                    f"I found `{path}` in this review's frozen snapshot. "
+                    + nonuse_answer
+                )
+            else:
+                semantic_reply = _semantic_evidence_dispute_reply(
+                    db,
+                    session=session,
+                    state=state,
+                    path=path,
+                    explanation=req.explanation,
+                    finding_id=finding_id,
+                )
+                if semantic_reply:
+                    text = semantic_reply["text"].strip()
+                else:
+                    text = (
+                        f"I found `{path}` in this review's frozen snapshot. "
+                        "The selected file is available for inspection, but I could "
+                        "not complete the semantic re-check on this turn. Finding the "
+                        "file alone does not settle the concern. Use Review Room to "
+                        "continue the question, or retry this challenge; do not treat "
+                        "the file's presence alone as proof that the finding is wrong."
+                    )
             disposition = "artifact_found"
 
             if _snapshot_finding(evidence, finding_id):
@@ -2256,11 +2329,17 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
 
         payload = {
             "text": text,
-            "lens": "evidence_auditor",
-            "reviewer": reviewer,
-            "provider": "deterministic",
-            "kind": "evidence dispute",
-            "evidence_refs": [f"PATH:{path}"],
+            "lens": (semantic_reply or {}).get("lens", "evidence_auditor"),
+            "reviewer": (semantic_reply or {}).get("reviewer", reviewer),
+            "provider": (semantic_reply or {}).get("provider", "deterministic"),
+            "model": (semantic_reply or {}).get("model"),
+            "kind": (semantic_reply or {}).get("kind", "evidence dispute"),
+            "interpreted_intent": (semantic_reply or {}).get("interpreted_intent", "evidence_dispute"),
+            "target_move": (semantic_reply or {}).get("target_move"),
+            "guidance_refs": (semantic_reply or {}).get("guidance_refs", []),
+            "coaching_phase": (semantic_reply or {}).get("coaching_phase"),
+            "teach_back": (semantic_reply or {}).get("teach_back", False),
+            "evidence_refs": [f"PATH:{path}"] + ([f"FINDING:{finding_id}"] if finding_id else []),
         }
 
         _add_reviewer_turn(
@@ -2269,6 +2348,10 @@ def evidence_dispute(session_id: int, req: EvidenceDisputeRequest, request:Reque
             sequence + 1,
             payload,
         )
+
+        if semantic_reply:
+            _record_reply_usage(db, semantic_reply, session)
+            _save_memory(state, semantic_reply)
 
         state.setdefault("evidence_disputes", []).append(
             {
