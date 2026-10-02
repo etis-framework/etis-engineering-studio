@@ -312,11 +312,16 @@ class EvidencePackageBuilder:
         return reasons
 
     @staticmethod
-    def _topic_path_anchors(challenge: dict, student_text: str) -> dict[str, int]:
-        """Return deterministic path relevance for an explicit engineering topic.
+    def _topic_path_anchors(
+        challenge: dict,
+        student_text: str,
+        topic_family: str | None = None,
+    ) -> dict[str, int]:
+        """Return deterministic path relevance for one authoritative turn family.
 
-        Anchors create topical relevance; provenance/quality may only refine it later.
-        They intentionally point at evidence families, not required filenames.
+        When the router already resolved the student's engineering family, retrieval
+        consumes that decision instead of independently inferring a competing topic
+        from an opening challenge or stale conversation state.
         """
         finding = challenge.get("finding") or {}
         hay = " ".join([
@@ -326,18 +331,19 @@ class EvidencePackageBuilder:
             str(finding.get("statement") or ""),
             str(finding.get("category") or ""),
         ]).lower()
+        family = str(topic_family or "").strip().lower()
         anchors: dict[str, int] = {}
-        if re.search(r"\b(?:risk|mitigat|likelihood|impact|reassess|contingenc)\b", hay):
+        if family == "risk" or (not family and re.search(r"\b(?:risk|mitigat|likelihood|impact|reassess|contingenc)\b", hay)):
             anchors.update({"docs/planning/risk": 36, "risk-register": 44, "assumptions": 12, "docs/planning/": 8})
-        if re.search(r"\b(?:ai|artificial intelligence|ai-use|ai use|disclos|non-use|nonuse|human verification)\b", hay):
+        if family == "ai" or (not family and re.search(r"\b(?:ai|artificial intelligence|ai-use|ai use|disclos|non-use|nonuse|human verification)\b", hay)):
             anchors.update({"docs/ai/": 34, "ai-use-log": 44, "ai-verification": 30, "ai-policy": 16})
-        if re.search(r"\b(?:decision|adr|trade[- ]?off|alternative|consequence)\b", hay):
+        if family == "decision" or (not family and re.search(r"\b(?:decision|adr|trade[- ]?off|alternative|consequence)\b", hay)):
             anchors.update({"docs/decisions/": 40, "adr-": 44, "architectural decisions": 20, "docs/architecture/": 8})
-        if re.search(r"\b(?:architect|component|interface|dependency|trust boundar|system context)\b", hay):
+        if family == "architecture" or (not family and re.search(r"\b(?:architect|component|interface|dependency|trust boundar|system context)\b", hay)):
             anchors.update({"docs/architecture/": 38, "architecture.md": 42, "component-responsibilities": 36, "api-contracts": 34, "docs/decisions/": 10})
-        if re.search(r"\b(?:test|verification|acceptance|defect|quality|ci\b)\b", hay):
+        if family == "verification" or (not family and re.search(r"\b(?:test|verification|acceptance|defect|quality|ci)\b", hay)):
             anchors.update({"docs/testing/": 32, "test-evidence/": 30, "docs/quality/": 24, ".github/workflows/": 20})
-        if re.search(r"\b(?:operation|runbook|recover|observab|incident|monitor)\b", hay):
+        if family == "operations" or (not family and re.search(r"\b(?:operation|runbook|recover|observab|incident|monitor)\b", hay)):
             anchors.update({"docs/operations/": 38, "docs/observability/": 34, "runbook": 40, "runtime-evidence": 30})
         return anchors
 
@@ -349,6 +355,7 @@ class EvidencePackageBuilder:
         *,
         max_candidates: int = 6,
         requested_missing_paths: list[str] | None = None,
+        topic_family: str | None = None,
     ) -> CompactEvidencePackage:
         """Build a bounded frozen-evidence search package when the student lacks an exact path.
 
@@ -357,7 +364,7 @@ class EvidencePackageBuilder:
         """
         terms = self._discovery_terms(challenge, student_text)
         known = self._known_equivalent_paths(evidence, challenge)
-        anchors = self._topic_path_anchors(challenge, student_text)
+        anchors = self._topic_path_anchors(challenge, student_text, topic_family=topic_family)
         ranked: list[tuple[int, str, dict, list[str]]] = []
         inspectable = 0
         for artifact in evidence.get("artifacts") or []:
@@ -464,6 +471,7 @@ class EvidencePackageBuilder:
                 "known_equivalent_count": len(known),
                 "complete_search": False,
                 "requested_missing_paths": list(requested_missing_paths or []),
+                "topic_family": str(topic_family or ""),
             },
         )
 

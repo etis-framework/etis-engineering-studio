@@ -250,32 +250,84 @@ def _finding_tokens(value: str) -> set[str]:
             if t not in _FINDING_STOPWORDS}
 
 def _finding_family_from_text(student_text: str) -> str | None:
+    """Resolve the student's explicit engineering family for this turn."""
     lower = (student_text or "").lower()
-    families = []
     if re.search(r"\b(?:ai|artificial intelligence|ai-use|ai use|disclos|non-use|nonuse|human verification)\b", lower):
-        families.append("ai")
-    if re.search(r"\b(?:risk|mitigat|likelihood|impact|reassess|contingenc)\b", lower):
-        families.append("risk")
-    if re.search(r"\b(?:decision|adr|trade[- ]?off|alternative|consequence)\b", lower):
-        families.append("decision")
-    if re.search(r"\b(?:architect|component|interface|dependency|trust boundar|system context)\b", lower):
-        families.append("architecture")
-    return families[0] if len(set(families)) == 1 else None
+        return "ai"
+    if re.search(r"\b(?:risks?|mitigat\w*|likelihoods?|impacts?|reassess\w*|contingenc\w*)\b", lower):
+        return "risk"
+    if re.search(r"\b(?:decision|decisions|adr|adrs|trade[- ]?off|alternative|alternatives|consequence|consequences)\b", lower):
+        return "decision"
+    if re.search(r"\b(?:architect|architecture|component|components|interface|interfaces|dependency|dependencies|trust boundar|system context)\b", lower):
+        return "architecture"
+    if re.search(r"\b(?:test|testing|verification|acceptance|defect|quality|ci)\b", lower):
+        return "verification"
+    if re.search(r"\b(?:operation|runbook|recover|observab|incident|monitor)\b", lower):
+        return "operations"
+    return None
 
 
 def _finding_family(finding: dict | None) -> str | None:
     if not finding:
         return None
-    hay = " ".join(str(finding.get(k) or "") for k in ("category", "title", "statement", "significance")).lower()
+    category = str(finding.get("category") or "").strip().lower()
+    if category:
+        if "ai" in category:
+            return "ai"
+        if "risk" in category or "planning" in category:
+            return "risk"
+        if "decision" in category or "adr" in category:
+            return "decision"
+        if "architect" in category:
+            return "architecture"
+        if any(token in category for token in ("test", "verif", "quality", "defect")):
+            return "verification"
+        if any(token in category for token in ("operat", "observab", "recover", "incident")):
+            return "operations"
+    hay = " ".join(str(finding.get(k) or "") for k in ("title", "statement")).lower()
     for family, pattern in (
         ("ai", r"\b(?:ai|artificial intelligence|disclos|human verification)\b"),
-        ("risk", r"\b(?:risk|mitigat|likelihood|impact|assumption)\b"),
         ("decision", r"\b(?:decision|adr|trade[- ]?off|alternative|consequence)\b"),
         ("architecture", r"\b(?:architect|component|interface|dependency|trust boundar)\b"),
+        ("verification", r"\b(?:test|testing|verification|acceptance|quality|ci)\b"),
+        ("operations", r"\b(?:operation|runbook|recover|observab|incident|monitor)\b"),
+        ("risk", r"\b(?:risk|mitigat|likelihood|impact|assumption)\b"),
     ):
         if re.search(pattern, hay, re.I):
             return family
     return None
+
+
+def _family_challenge(base: Challenge, family: str) -> Challenge:
+    labels = {
+        "ai": ("AI evidence under review", "evidence_auditor"),
+        "risk": ("Risk evidence under review", "delivery"),
+        "decision": ("Architecture decision evidence under review", "chief_architect"),
+        "architecture": ("Architecture baseline evidence under review", "chief_architect"),
+        "verification": ("Verification evidence under review", "delivery"),
+        "operations": ("Operational evidence under review", "evidence_auditor"),
+    }
+    title, lens = labels.get(family, ("Engineering evidence under review", base.lens))
+    contextual = {
+        "id": f"context:{family}",
+        "category": family,
+        "title": title,
+        "statement": f"The student explicitly moved this turn to {family} evidence.",
+        "significance": "The reviewer must stay with the student's current engineering topic and frozen evidence.",
+        "evidence_refs": [],
+        "suggested_lens": lens,
+        "provenance": "CONTEXT",
+    }
+    return Challenge(
+        id=contextual["id"], phase_id=base.phase_id, lens=lens, title=title,
+        prompt=(f"Current turn topic: {family}. Review only frozen evidence relevant to this topic. "
+                "Do not fall back to the session-opening concern unless the student explicitly returns to it."),
+        why_now="The student explicitly changed the engineering topic for this turn.",
+        evidence_refs=[], dimensions=base.dimensions, expected_move=base.expected_move,
+        level=base.level, noticed=contextual["statement"], significance=contextual["significance"],
+        decision_question="What does the frozen evidence support for this engineering topic, and what remains unverified?",
+        finding=contextual, strengths=base.strengths, board_readout=base.board_readout,
+    )
 
 
 def _infer_finding_id(evidence: dict, student_text: str) -> str | None:
@@ -337,19 +389,22 @@ def _challenge_for_turn(db: Session, state: dict, evidence_refs=(), student_text
     if not snapshot:
         return base
     evidence = _safe_json(snapshot.summary_json, {})
+    explicit_family = _finding_family_from_text(student_text)
+    active_family = explicit_family or state.get("active_family")
     finding_id = _active_finding_id(evidence_refs)
     if not finding_id:
         finding_id = _infer_finding_id(evidence, student_text)
-    if not finding_id:
-        family = _finding_family_from_text(student_text)
-        if family:
-            finding_id = (state.get("active_finding_by_family") or {}).get(family)
-    if not finding_id:
-        finding_id = state.get("active_finding_id")
-    if not finding_id:
-        return base
     findings = [*(evidence.get("findings") or []), *(evidence.get("challenge_candidates") or [])]
-    finding = next((f for f in findings if str(f.get("id")) == str(finding_id)), None)
+    if not finding_id and active_family:
+        finding_id = (state.get("active_finding_by_family") or {}).get(active_family)
+    finding = next((f for f in findings if str(f.get("id")) == str(finding_id)), None) if finding_id else None
+    if finding and active_family and _finding_family(finding) != active_family:
+        finding = None
+    if not finding and active_family:
+        return _family_challenge(base, active_family)
+    if not finding:
+        finding_id = state.get("active_finding_id")
+        finding = next((f for f in findings if str(f.get("id")) == str(finding_id)), None)
     if not finding:
         return base
     statement = str(finding.get("statement") or finding.get("title") or "Selected finding under review.")
@@ -590,6 +645,7 @@ def _idempotent_result(
             "active_finding": rs.get("active_finding"),
             "active_finding_id": rs.get("active_finding_id"),
             "preferred_evidence_path": rs.get("preferred_evidence_path"),
+            "turn_context": rs.get("turn_context"),
             "evidence_refs": _safe_json(reviewer.evidence_refs_json, []),
         },
     }
@@ -621,6 +677,7 @@ def _add_reviewer_turn(db: Session, session_id: int, sequence: int, payload: dic
                     "active_finding": payload.get("active_finding"),
                     "active_finding_id": payload.get("active_finding_id"),
                     "preferred_evidence_path": payload.get("preferred_evidence_path"),
+                    "turn_context": payload.get("turn_context"),
                 }
             ),
         )
@@ -776,6 +833,97 @@ def _preferred_evidence_path(
         if isinstance(ref, str) and ref.startswith("PATH:") and ref[5:] in available:
             return ref[5:]
     return None
+
+
+def _artifact_registry(evidence: dict) -> dict[str, dict]:
+    registry = {}
+    for artifact in evidence.get("artifacts") or []:
+        path = str(artifact.get("path") or "")
+        if not path:
+            continue
+        registry[path] = {
+            "path": path,
+            "provenance": artifact.get("provenance") or "UNKNOWN",
+            "quality": artifact.get("quality") or "unknown",
+            "starter_lineage": artifact.get("starter_lineage") or "unknown",
+            "starter_baseline_version": artifact.get("starter_baseline_version") or "",
+            "sha256": artifact.get("sha256") or "",
+            "size": int(artifact.get("size") or 0),
+        }
+    return registry
+
+
+def _authoritative_turn_context(
+    db: Session,
+    state: dict,
+    evidence_refs: list[str] | tuple[str, ...] = (),
+    student_text: str = "",
+) -> dict:
+    challenge = _challenge_for_turn(db, state, evidence_refs, student_text=student_text)
+    explicit_family = _finding_family_from_text(student_text)
+    family = explicit_family or _finding_family(challenge.finding) or state.get("active_family")
+    snapshot_id = state.get("evidence_snapshot_id")
+    result = {
+        "challenge": challenge, "active_family": family, "snapshot_id": snapshot_id,
+        "commit_sha": "", "artifact_registry": {}, "evidence_context": "",
+        "preferred_evidence_path": None, "retrieval_mode": "none",
+    }
+    if not snapshot_id:
+        return result
+    snapshot = db.get(EvidenceSnapshot, snapshot_id)
+    if not snapshot:
+        return result
+    evidence = snapshot_from_dict(_safe_json(snapshot.summary_json, {})).to_dict()
+    result["commit_sha"] = evidence.get("commit_sha") or ""
+    result["artifact_registry"] = _artifact_registry(evidence)
+    available = set(result["artifact_registry"])
+    selected_paths = [str(ref)[5:] for ref in (evidence_refs or ())
+                      if isinstance(ref, str) and ref.startswith("PATH:")]
+    present = [p for p in selected_paths if p in available]
+    missing = [p for p in selected_paths if p not in available]
+    discovery_requested = _evidence_discovery_signal(student_text, evidence_refs)
+    prior = state.get("active_turn_context") or {}
+    prior_path = str(prior.get("preferred_evidence_path") or "")
+    prior_family = prior.get("active_family")
+    package = None
+    if present:
+        package = evidence_package_builder.build_for_turn(
+            evidence, challenge.to_dict(), [f"PATH:{path}" for path in present]
+        )
+        result["preferred_evidence_path"] = present[0]
+        result["retrieval_mode"] = "exact_path"
+    elif discovery_requested:
+        package = evidence_package_builder.build_for_discovery(
+            evidence, challenge.to_dict(), student_text,
+            requested_missing_paths=missing, topic_family=family,
+        )
+        result["retrieval_mode"] = "bounded_discovery"
+    elif family and prior_family == family and prior_path in available:
+        package = evidence_package_builder.build_for_turn(
+            evidence, challenge.to_dict(), [f"PATH:{prior_path}"]
+        )
+        result["preferred_evidence_path"] = prior_path
+        result["retrieval_mode"] = "continued_evidence"
+    elif explicit_family:
+        package = evidence_package_builder.build_for_discovery(
+            evidence, challenge.to_dict(), student_text, topic_family=family,
+        )
+        result["retrieval_mode"] = "topic_discovery"
+    else:
+        result["evidence_context"] = snapshot.summary_json
+        result["retrieval_mode"] = "snapshot"
+    if package is not None:
+        result["evidence_context"] = package.to_prompt_text(
+            max_chars=get_settings().etis_review_context_chars
+        )
+        if not result["preferred_evidence_path"]:
+            for artifact in package.relevant_artifacts:
+                if artifact.get("hydration_status") in {"FOUND_AND_SUPPLIED", "FOUND_BUT_EMPTY"}:
+                    path = str(artifact.get("path") or "")
+                    if path in available:
+                        result["preferred_evidence_path"] = path
+                        break
+    return result
 
 
 def _record_reply_usage(db: Session, reply: dict, session: ReviewSession):
@@ -1718,6 +1866,8 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
         "challenge": challenge.to_dict(),
         "active_finding_id": challenge.id if challenge.finding else None,
         "active_finding_by_family": ({_finding_family(challenge.finding): challenge.id} if challenge.finding and _finding_family(challenge.finding) else {}),
+        "active_family": _finding_family(challenge.finding),
+        "active_turn_context": None,
         "compact_evidence_package": compact_package,
         "evidence_cache_reused": bool(locals().get("cache_reused", False)),
         "evidence_snapshot_id": snapshot.id,
@@ -2205,7 +2355,11 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
             }
 
         state = _safe_json(session.challenge_state_json, {})
-        challenge = _challenge_for_turn(db, state, req.evidence_refs, student_text=req.response)
+        turn_context = _authoritative_turn_context(
+            db, state, req.evidence_refs, student_text=req.response
+        )
+        challenge = turn_context["challenge"]
+        state["active_family"] = turn_context.get("active_family")
         turns = db.query(ReviewTurn).filter_by(session_id=session_id).order_by(ReviewTurn.sequence).all()
         sequence = (turns[-1].sequence if turns else 0) + 1
         student = _student_for_session(db, session)
@@ -2215,28 +2369,37 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
         follow_up, merged, evaluation = engine.converse(
             challenge, req.response, prior, intent=req.intent, decision=req.decision,
             evidence_refs=req.evidence_refs, coaching_level=state.get("coaching_level", 0),
-            evidence_context=_evidence_context(db, state, req.evidence_refs, student_text=req.response), conversation_history=history_payload,
+            evidence_context=turn_context["evidence_context"], conversation_history=history_payload,
             conversation_memory=state.get("conversation_memory") or {},
             student_name=student.display_name if student else "",
         )
-        # Keep one authoritative active finding across reviewer reasoning, persistence,
-        # retrieval, guidance, and the browser's contextual actions.
-        if challenge.finding and challenge.id:
+        family = turn_context.get("active_family")
+        snapshot_finding = bool(
+            challenge.finding and challenge.id and not str(challenge.id).startswith("context:")
+        )
+        if snapshot_finding:
             state["active_finding_id"] = challenge.id
-            family = _finding_family(challenge.finding)
             if family:
                 state.setdefault("active_finding_by_family", {})[family] = challenge.id
+        if challenge.finding and challenge.id:
             follow_up["active_finding"] = challenge.finding
             follow_up["active_finding_id"] = challenge.id
             refs = list(follow_up.get("evidence_refs") or [])
             marker = f"FINDING:{challenge.id}"
-            if marker not in refs:
+            if snapshot_finding and marker not in refs:
                 refs.insert(0, marker)
             follow_up["evidence_refs"] = refs
-
-        follow_up["preferred_evidence_path"] = _preferred_evidence_path(
-            db, state, challenge, req.evidence_refs, req.response
-        )
+        public_turn_context = {
+            "active_family": family,
+            "active_finding_id": challenge.id if challenge.id else None,
+            "preferred_evidence_path": turn_context.get("preferred_evidence_path"),
+            "retrieval_mode": turn_context.get("retrieval_mode"),
+            "snapshot_id": turn_context.get("snapshot_id"),
+            "commit_sha": turn_context.get("commit_sha"),
+        }
+        state["active_turn_context"] = public_turn_context
+        follow_up["preferred_evidence_path"] = turn_context.get("preferred_evidence_path")
+        follow_up["turn_context"] = public_turn_context
 
         proposal_updates, proposal_intent = _reasoning_proposal_from_reply(follow_up)
         shadow_signal = _run_reasoning_shadow(
