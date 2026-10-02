@@ -687,3 +687,30 @@
  .finding-actions,.finding-card-actions{display:grid;grid-template-columns:1fr}
  .finding-actions button,.finding-card-actions button{width:100%;min-height:42px;white-space:normal}
 }
+
+/* Final student UX polish: hierarchy, density, and secondary-action clarity. */
+.review-journey{flex-direction:column;align-items:stretch}
+.review-journey>div:first-child{max-width:none}
+.review-journey span{max-width:none}
+.review-journey-actions{width:100%;justify-content:flex-start;flex-shrink:1}
+.review-journey-actions button{min-height:40px}
+.preparation-focus-copy{display:grid!important;gap:5px}
+.preparation-focus-copy>b,.preparation-focus-copy>p,.preparation-focus-copy>small{display:block;margin:0}
+.board-readout-details{display:grid;gap:10px}
+.board-readout-grid{margin-top:0}
+.change-strip{margin-top:0!important;padding-top:10px;border-top:1px solid var(--line)}
+.change-strip .longitudinal-note{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.change-strip .longitudinal-note span{color:var(--muted);font-size:10px}
+.finding-card-actions{display:grid;gap:7px}
+.finding-card-primary,.finding-card-secondary{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.finding-card-secondary .text-button{font-size:11px;color:#9fcac2;padding:3px 2px}
+.finding-card-secondary .text-button:hover,.finding-card-secondary .text-button:focus-visible{color:#e0fff7;text-decoration:underline}
+.unavailable-source{font-size:10px;color:#879da0;font-style:italic;padding:5px 1px}
+.evidence-room-guide{display:none}
+@media(max-width:760px){
+ .review-journey-actions{display:grid;grid-template-columns:1fr}
+ .review-journey-actions button{width:100%}
+ .finding-card-primary,.finding-card-secondary{display:grid;grid-template-columns:1fr}
+ .finding-card-primary button,.finding-card-secondary button{width:100%;min-height:40px;text-align:left}
+ .finding-card-secondary .text-button{padding:8px 2px}
+}

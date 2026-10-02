@@ -36,7 +36,7 @@ def test_new_and_returning_students_are_told_which_room_holds_what():
     assert 'SAVED SNAPSHOT FINDINGS' in HTML
     assert 'Current review evidence' in HTML
     assert "$('#evCoverage').textContent='No review open'" in JS
-    assert 'Saved ${snapshotCaptureLabel(payload.created_at)}' in JS
+    assert 'Frozen copy saved ${snapshotCaptureLabel(payload.created_at)}' in JS
 
 
 def test_nonuse_question_gets_bounded_help_without_claiming_proof():

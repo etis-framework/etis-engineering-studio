@@ -40,7 +40,10 @@ for(const state of ['none','same','different']){
  assert(elements['#evidenceWorkspaceMeta'].textContent.includes('commit abcdef12'));
  assert(!elements['#evidenceWorkspaceMeta'].textContent.includes('Invalid Date'));
  const note=elements['#evidenceSnapshotNote'].textContent;
- assert(state==='none'?note.includes('not a live scan'):state==='same'?note.includes('used by your active review'):note.includes('original frozen snapshot'));
+ assert(note.includes('Frozen copy saved'));
+ assert(note.includes('commit abcdef12'));
+ assert(!note.includes('used by your active review'));
+ assert(!note.includes('original frozen snapshot'));
 }
 '''
     subprocess.run(['node', '-e', script], check=True, capture_output=True, text=True)
