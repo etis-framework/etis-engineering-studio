@@ -589,6 +589,7 @@ def _idempotent_result(
             "teach_back": rs.get("teach_back", False),
             "active_finding": rs.get("active_finding"),
             "active_finding_id": rs.get("active_finding_id"),
+            "preferred_evidence_path": rs.get("preferred_evidence_path"),
             "evidence_refs": _safe_json(reviewer.evidence_refs_json, []),
         },
     }
@@ -619,6 +620,7 @@ def _add_reviewer_turn(db: Session, session_id: int, sequence: int, payload: dic
                     "model": payload.get("model"),
                     "active_finding": payload.get("active_finding"),
                     "active_finding_id": payload.get("active_finding_id"),
+                    "preferred_evidence_path": payload.get("preferred_evidence_path"),
                 }
             ),
         )
@@ -740,6 +742,40 @@ def _evidence_context(
         return ""
     snapshot = db.get(EvidenceSnapshot, snapshot_id)
     return snapshot.summary_json if snapshot else ""
+
+
+def _preferred_evidence_path(
+    db: Session, state: dict, challenge: Challenge,
+    evidence_refs: list[str] | tuple[str, ...] = (), student_text: str = "",
+) -> str | None:
+    """Choose the frozen artifact the UI should offer for this reviewer turn."""
+    snapshot_id = state.get("evidence_snapshot_id")
+    if not snapshot_id:
+        return None
+    snapshot = db.get(EvidenceSnapshot, snapshot_id)
+    if not snapshot:
+        return None
+    evidence = snapshot_from_dict(_safe_json(snapshot.summary_json, {})).to_dict()
+    available = {str(a.get("path") or "") for a in evidence.get("artifacts") or []}
+    selected = [str(ref)[5:] for ref in (evidence_refs or ())
+                if isinstance(ref, str) and ref.startswith("PATH:") and str(ref)[5:] in available]
+    if selected:
+        return selected[0]
+    if _evidence_discovery_signal(student_text, evidence_refs):
+        missing = [str(ref)[5:] for ref in (evidence_refs or ())
+                   if isinstance(ref, str) and ref.startswith("PATH:") and str(ref)[5:] not in available]
+        package = evidence_package_builder.build_for_discovery(
+            evidence, challenge.to_dict(), student_text, requested_missing_paths=missing
+        )
+        for artifact in package.relevant_artifacts:
+            if artifact.get("hydration_status") in {"FOUND_AND_SUPPLIED", "FOUND_BUT_EMPTY"}:
+                path = str(artifact.get("path") or "")
+                if path in available:
+                    return path
+    for ref in (challenge.finding or {}).get("evidence_refs") or []:
+        if isinstance(ref, str) and ref.startswith("PATH:") and ref[5:] in available:
+            return ref[5:]
+    return None
 
 
 def _record_reply_usage(db: Session, reply: dict, session: ReviewSession):
@@ -2197,6 +2233,10 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
             if marker not in refs:
                 refs.insert(0, marker)
             follow_up["evidence_refs"] = refs
+
+        follow_up["preferred_evidence_path"] = _preferred_evidence_path(
+            db, state, challenge, req.evidence_refs, req.response
+        )
 
         proposal_updates, proposal_intent = _reasoning_proposal_from_reply(follow_up)
         shadow_signal = _run_reasoning_shadow(

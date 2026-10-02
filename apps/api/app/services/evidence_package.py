@@ -367,27 +367,30 @@ class EvidencePackageBuilder:
             quality = str(artifact.get("quality") or "unknown")
             if quality not in {"binary", "uninspected", "too_large"}:
                 inspectable += 1
-            path_hay = path.lower().replace("/", " ").replace("-", " ").replace("_", " ")
+            raw_path = path.lower()
+            path_hay = raw_path.replace("/", " ").replace("-", " ").replace("_", " ")
             summary = str(artifact.get("summary") or "").lower()
             content = str(artifact.get("review_content") or artifact.get("content_excerpt") or "")[:12000].lower()
             score = 0
             reasons = list(known.get(path, []))
             if path in known:
                 score += 80
-            anchor_hits = [(needle, weight) for needle, weight in anchors.items() if needle in path_hay]
+            anchor_hits = [
+                (needle, weight) for needle, weight in anchors.items()
+                if needle in raw_path or needle.replace("/", " ").replace("-", " ").replace("_", " ") in path_hay
+            ]
             anchor_score = max((weight for _needle, weight in anchor_hits), default=0)
             if anchor_score:
-                score += anchor_score
                 reasons.append("topic-aligned evidence family: " + ", ".join(needle for needle, _weight in anchor_hits[:3]))
             path_hits = [t for t in terms if t in path_hay]
             summary_hits = [t for t in terms if t in summary]
             content_hits = [t for t in terms if t in content]
-            relevance_score = (
-                anchor_score
-                + min(30, 6 * len(path_hits))
+            lexical_score = (
+                min(30, 6 * len(path_hits))
                 + min(12, 3 * len(summary_hits))
                 + min(18, 2 * len(content_hits))
             )
+            relevance_score = anchor_score + lexical_score
             score += relevance_score
             if path_hits:
                 reasons.append("path terms: " + ", ".join(path_hits[:4]))
