@@ -33,13 +33,25 @@ def guidance_for_topic(phase_id: str, question: str, target_move: str | None = N
     # Do not surface an architecture learning link merely because an AI-use
     # finding occurs during A3. Prefer a verified AI/governance reference when
     # the catalog actually has one for the phase; otherwise return no link.
-    if re.search(r'\b(?:ai|artificial intelligence|ai-use|ai use|disclos|human verification)\b', question, re.I):
-        ai_choices = []
+    topic_filters = [
+        (r'\b(?:ai|artificial intelligence|ai-use|ai use|disclos|human verification)\b',
+         r'\b(?:ai|artificial intelligence|governance|disclos)\b'),
+        (r'\b(?:risk|mitigat|likelihood|impact|reassess|failure condition|assumption)\b',
+         r'\b(?:risk|planning|estimate|dependency|assumption)\b'),
+        (r'\b(?:decision|adr|trade[- ]?off|alternative|consequence)\b',
+         r'\b(?:decision|architecture|trade[- ]?off|governance)\b'),
+    ]
+    for question_pattern, guidance_pattern in topic_filters:
+        if not re.search(question_pattern, question, re.I):
+            continue
+        topical = []
         for item in choices:
             hay = " ".join(str(item.get(k) or "") for k in ("id", "title", "summary", "why")).lower()
-            if re.search(r'\b(?:ai|artificial intelligence|governance|disclos)\b', hay, re.I):
-                ai_choices.append(item)
-        return ai_choices[:limit]
+            if re.search(guidance_pattern, hay, re.I):
+                topical.append(item)
+        # Never fall back to an unrelated current-phase learning link merely because
+        # the session opened on that phase. No link is better than stale guidance.
+        return topical[:limit]
     preferred = None
     if phase_id == 'A1':
         preferred = ('ETIS-ES101-CONTEXT' if re.search(
