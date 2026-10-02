@@ -367,7 +367,7 @@ function setPending(on,status='Reviewing your answer and the frozen evidence…'
 }
 function addGuidance(refs=[]){if(!refs.length)return;const box=$('#relatedGuidance');if(box.querySelector('.quiet'))box.innerHTML='';refs.forEach(r=>{if(box.querySelector(`[data-guidance="${CSS.escape(r.id||r.title)}"]`))return;const a=document.createElement('a');a.className='guidance-link';a.dataset.guidance=r.id||r.title;a.href=r.website_url||'#';a.target='_blank';a.rel='noopener noreferrer';a.innerHTML=`<span>${escapeHtml(r.stage||'ETIS guidance')}</span><b>${escapeHtml(r.title)}</b><p>${escapeHtml(r.student_hint||r.why||'Open the related Engineering Platform guidance.')}</p>`;box.appendChild(a)})}
 function readableGuidanceText(value,refs=[]){let result=String(value||'');for(const ref of refs){const stage=String(ref.stage||'');if(!/^ES-\d{3}$/.test(stage)||!/^https:\/\//.test(ref.website_url||''))continue;result=result.replace(new RegExp(`\\bSee \\[${stage}\\]\\([^\\n)]*\\) for (?:the )?(?:relevant )?guidance\\.`, 'gi'),'')}return result.replace(/\[(ES-\d{3})\]\([^\n)]*\)/g,'$1').replace(/\n{3,}/g,'\n\n').trim()}
-function reviewerCard(lens,text,meta={}){const d=document.createElement('div');d.className='reviewer-card coaching-message';const reviewer=meta.reviewer||{name:lensLabels[lens]||'Reviewer',role:lensLabels[lens]||'Reviewer'};const mode=meta.provider==='openai'?'<span class="semantic-badge">semantic coaching</span>':'';d.innerHTML=`<div class="reviewer-meta"><span class="lens-badge">${escapeHtml(reviewer.name)} · ${escapeHtml(reviewer.role)}</span>${meta.kind?`<span>${escapeHtml(String(meta.kind).replaceAll('_',' '))}</span>`:''}${mode}</div><div class="reviewer-copy"></div>`;const refs=meta.guidance_refs||[];d.querySelector('.reviewer-copy').textContent=readableGuidanceText(text,refs);if(meta.kind!=='teaching')addGuidance(refs);if(meta.kind==='teaching'&&refs.length){const guidance=document.createElement('div');guidance.className='teaching-guidance';const label=document.createElement('b');label.textContent='Learn more about this';guidance.appendChild(label);refs.slice(0,2).forEach(r=>{if(!/^https:\/\//.test(r.website_url||''))return;const a=document.createElement('a');a.href=r.website_url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=`${r.title} — ${r.student_hint||'Open the related guidance'}`;guidance.appendChild(a)});d.appendChild(guidance)}if(meta.kind==='teaching'&&(!meta.coaching_phase||meta.coaching_phase===currentPhase)){const path=findingPrimaryPath(meta.active_finding||currentChallenge?.finding);const art=(currentEvidence?.artifacts||[]).find(a=>a.path===path);if(art){const button=document.createElement('button');button.type='button';button.className='secondary compact';button.textContent=`Inspect ${path}`;button.onclick=()=>showArtifact(path,path);d.appendChild(button)}}return d}
+function reviewerCard(lens,text,meta={}){const d=document.createElement('div');d.className='reviewer-card coaching-message';const reviewer=meta.reviewer||{name:lensLabels[lens]||'Reviewer',role:lensLabels[lens]||'Reviewer'};const mode=meta.provider==='openai'?'<span class="semantic-badge">semantic coaching</span>':'';d.innerHTML=`<div class="reviewer-meta"><span class="lens-badge">${escapeHtml(reviewer.name)} · ${escapeHtml(reviewer.role)}</span>${meta.kind?`<span>${escapeHtml(String(meta.kind).replaceAll('_',' '))}</span>`:''}${mode}</div><div class="reviewer-copy"></div>`;const refs=meta.guidance_refs||[];d.querySelector('.reviewer-copy').textContent=readableGuidanceText(text,refs);if(meta.kind!=='teaching')addGuidance(refs);if(meta.kind==='teaching'&&refs.length){const guidance=document.createElement('div');guidance.className='teaching-guidance';const label=document.createElement('b');label.textContent='Learn more about this';guidance.appendChild(label);refs.slice(0,2).forEach(r=>{if(!/^https:\/\//.test(r.website_url||''))return;const a=document.createElement('a');a.href=r.website_url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=`${r.title} — ${r.student_hint||'Open the related guidance'}`;guidance.appendChild(a)});d.appendChild(guidance)}if(meta.kind==='teaching'&&(!meta.coaching_phase||meta.coaching_phase===currentPhase)){const path=String(meta.preferred_evidence_path||'');if(path){const art=(currentEvidence?.artifacts||[]).find(a=>a.path===path);if(art){const button=document.createElement('button');button.type='button';button.className='secondary compact';button.textContent=`Inspect ${path}`;button.onclick=()=>showArtifact(path,path);d.appendChild(button)}}}return d}
 function addTurn(actor,lens,text,meta={}){
   let turnElement=null;
   if(actor==='student'){
@@ -378,7 +378,7 @@ function addTurn(actor,lens,text,meta={}){
     els.transcript.appendChild(d);
     turnElement=d;
   }else{
-    if(meta.active_finding||meta.active_finding_id)applyActiveFindingContext(meta.active_finding,meta.active_finding_id);
+    if(meta.active_finding||meta.active_finding_id)applyActiveFindingContext(meta.active_finding,meta.active_finding_id,meta.preferred_evidence_path);
     turnElement=reviewerCard(lens,text,meta);
     els.transcript.appendChild(turnElement);
     if(meta.reviewer)showActiveReviewer(meta.reviewer);
@@ -464,7 +464,7 @@ function concernArtifact(challenge,evidence){
  }
  return null;
 }
-function applyActiveFindingContext(finding,findingId=null){
+function applyActiveFindingContext(finding,findingId=null,preferredEvidencePath=null){
  if(!finding&&findingId)finding=currentFindingById(findingId);
  if(!finding)return;
  const previousId=String(currentChallenge?.finding?.id||currentChallenge?.id||'');
@@ -477,7 +477,8 @@ function applyActiveFindingContext(finding,findingId=null){
   evidence_refs:finding.evidence_refs||[],
   noticed:finding.statement||finding.title||currentChallenge?.noticed,
   significance:finding.significance||currentChallenge?.significance,
-  decision_question:'What does the selected frozen evidence actually support, and what should the team do next?'
+  decision_question:'What does the selected frozen evidence actually support, and what should the team do next?',
+  preferred_evidence_path:preferredEvidencePath||null
  };
  if(nextId&&nextId!==previousId){
   const guidance=$('#relatedGuidance');
@@ -489,7 +490,7 @@ function applyActiveFindingContext(finding,findingId=null){
  if($('#decisionQuestionText'))$('#decisionQuestionText').textContent=currentChallenge.decision_question||'';
  updateReviewJourney();
 }
-function currentConcernArtifact(){return concernArtifact(currentChallenge,currentEvidence)}
+function currentConcernArtifact(){const preferred=String(currentChallenge?.preferred_evidence_path||'');if(preferred){const art=(currentEvidence?.artifacts||[]).find(a=>a.path===preferred);if(art)return art}return concernArtifact(currentChallenge,currentEvidence)}
 function updateReviewJourney(){
  const inspect=$('#inspectCurrentConcern');
  if(!inspect)return;
@@ -869,6 +870,8 @@ $('#coachButton').onclick=async()=>{
         coaching_phase:reply.coaching_phase,
         provider:reply.provider,
         active_finding:reply.active_finding,
+        active_finding_id:reply.active_finding_id,
+        preferred_evidence_path:reply.preferred_evidence_path,
       }
     );
 
@@ -983,6 +986,8 @@ async function send(challengeTurn=null){
         coaching_phase:reply.coaching_phase,
         provider:reply.provider,
         active_finding:reply.active_finding,
+        active_finding_id:reply.active_finding_id,
+        preferred_evidence_path:reply.preferred_evidence_path,
       }
     );
 
