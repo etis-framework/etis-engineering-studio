@@ -52,6 +52,9 @@ class ArtifactFact:
     url: str = ''
     phase_scope: str = 'CURRENT_PHASE'
     scope_reason: str = ''
+    starter_lineage: str = 'unknown'
+    starter_baseline_version: str = ''
+    starter_baseline_source: str = ''
 
     def to_dict(self):
         return asdict(self)
@@ -166,6 +169,15 @@ def text_quality(path: str, content: str, provenance: str) -> tuple[str, str]:
     return 'reviewable', 'Content appears materially adapted; semantic review may still be required.'
 
 
+def _starter_lineage(provenance: str) -> str:
+    return {
+        'BASELINE': 'official_baseline',
+        'STARTER_DERIVED': 'starter_derived',
+        'TEAM_ADAPTED': 'team_modified_starter_path',
+        'TEAM_ADDED': 'team_added',
+    }.get(provenance, 'unknown')
+
+
 def artifact_from_bytes(path: str, data: bytes, url: str = '') -> ArtifactFact:
     digest = sha256_bytes(data)
     provenance = classify_provenance(path, digest, data)
@@ -221,6 +233,9 @@ def artifact_from_bytes(path: str, data: bytes, url: str = '') -> ArtifactFact:
         review_content=review_content,
         analysis_windows=windows,
         url=url,
+        starter_lineage=_starter_lineage(provenance),
+        starter_baseline_version=str(starter_baseline().get('version') or ''),
+        starter_baseline_source=str(starter_baseline().get('source') or ''),
     )
 
 
