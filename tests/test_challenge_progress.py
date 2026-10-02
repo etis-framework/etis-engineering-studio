@@ -20,6 +20,7 @@ function scenario(kind){
  const radios={interpretation:{value:'interpretation',checked:false},evidence:{value:'evidence',checked:false}};
  function el(id){return els[id]??(els[id]={value:'',textContent:'',disabled:false,attrs:{},classList:{values:new Set(['hidden']),add(v){this.values.add(v)},remove(v){this.values.delete(v)},toggle(v,b){b?this.add(v):this.remove(v)}},setAttribute(k,v){this.attrs[k]=v},removeAttribute(k){delete this.attrs[k]},focus(){}})}
  const ctx={sessionId:17,pending:false,currentEvidence:{findings:[{id:'F-1',title:'Planning record absent',evidence_refs:[]}]},
+  studioDialogStack:[],openStudioDialog:(id)=>el('#'+id).classList.remove('hidden'),closeStudioDialog:(id)=>el('#'+id).classList.add('hidden'),focusStudioDialog:()=>{},
   $:el,document:{querySelector:q=>q.includes(':checked')?Object.values(radios).find(x=>x.checked):q.includes('value="evidence"')?radios.evidence:radios.interpretation,querySelectorAll:()=>Object.values(radios)},
   setTimeout:(fn,delay)=>{let n=++tick;timers.set(n,{fn,delay});return n},clearTimeout:n=>timers.delete(n),
   toast:s=>events.push(['toast',s]),send:async()=>response,disputeEvidence:async()=>response,

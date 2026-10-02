@@ -1,5 +1,81 @@
 let sessionId=null,currentEvidence=null,reviewSnapshotId=null,engineeringSnapshotId=null,artifactRequestId=0,finishingReview=false,reviewExitIntent=null,currentPhase='A1',demoContext=null,currentView='studio',interactionMode='decision',currentChallenge=null,currentReviewer=null,committed=false,semanticReady=false,pending=false,courseModel=null,appRole='student',studentContext=null,selectedSectionId=null,instructorSectionContextId=undefined,reviewMode='board',requestedFindingId=null,selectedFindingIds=new Set(),healthState=null,authenticatedUser=null,engineeringEvidenceData=null,activeEvidenceLens=null,pendingEntryContext=null,composerContext=null,artifactContext=null,csrfToken=null,currentInstructorTeamId=null,currentInstructorReviewSessionId=null,navigationReady=false,restoringNavigation=false;
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+// BEGIN STUDIO DIALOG KEYBOARD CONTRACT
+const studioDialogStack=[];
+const studioDialogInert=new Map();
+const studioDialogCloseButtons={helpOverlay:'closeHelp',artifactOverlay:'closeArtifactOverlay',evidenceDisputeOverlay:'closeEvidenceDispute',reviewExitOverlay:'closeReviewExit'};
+function studioDialogVisible(node){
+  return !!node?.isConnected&&!node.closest('[inert]')&&node.getClientRects().length>0&&getComputedStyle(node).visibility!=='hidden';
+}
+function studioDialogControls(dialog){
+  return [...dialog.querySelectorAll('button,a[href],input,select,textarea,[tabindex]')].filter(node=>
+    !node.disabled&&node.tabIndex>=0&&studioDialogVisible(node)&&
+    (node.type!=='radio'||!node.name||node.checked||!([...dialog.querySelectorAll('input[type="radio"]')].some(other=>other.name===node.name&&other.checked)))
+  );
+}
+function syncStudioDialogInert(){
+  for(const [node,wasInert] of studioDialogInert)node.inert=wasInert;
+  studioDialogInert.clear();
+  const top=studioDialogStack.at(-1)?.dialog;
+  if(!top)return;
+  for(const node of document.body.children){
+    if(node===top||node.contains(top))continue;
+    studioDialogInert.set(node,node.inert);
+    node.inert=true;
+  }
+}
+function focusStudioDialog(dialog,preferred){
+  const target=preferred&&!preferred.disabled&&studioDialogVisible(preferred)?preferred:studioDialogControls(dialog)[0];
+  if(target){target.focus();return}
+  dialog.setAttribute('tabindex','-1');dialog.focus();
+}
+function openStudioDialog(id,initialId){
+  const dialog=document.getElementById(id);
+  if(!dialog)return;
+  const existing=studioDialogStack.find(item=>item.dialog===dialog);
+  if(!existing)studioDialogStack.push({dialog,opener:document.activeElement});
+  dialog.classList.remove('hidden');
+  syncStudioDialogInert();
+  if(studioDialogStack.at(-1)?.dialog===dialog)focusStudioDialog(dialog,document.getElementById(initialId||studioDialogCloseButtons[id]));
+}
+function closeStudioDialog(id){
+  const dialog=document.getElementById(id);
+  if(!dialog)return;
+  const index=studioDialogStack.findIndex(item=>item.dialog===dialog);
+  const entry=studioDialogStack[index];
+  const wasTop=index>=0&&index===studioDialogStack.length-1;
+  const restore=wasTop&&(dialog.contains(document.activeElement)||document.activeElement===document.body);
+  if(index>=0)studioDialogStack.splice(index,1);
+  dialog.classList.add('hidden');
+  syncStudioDialogInert();
+  if(!restore)return;
+  const top=studioDialogStack.at(-1)?.dialog;
+  if(entry.opener&&!entry.opener.disabled&&studioDialogVisible(entry.opener)&&(!top||top.contains(entry.opener))){entry.opener.focus();return}
+  if(top){focusStudioDialog(top);return}
+  const fallback=[document.getElementById('response'),document.getElementById('newReview'),document.getElementById('helpButton')].find(node=>node&&!node.disabled&&studioDialogVisible(node));
+  fallback?.focus();
+}
+document.addEventListener('keydown',event=>{
+  const dialog=studioDialogStack.at(-1)?.dialog;
+  if(!dialog||event.isComposing)return;
+  if(event.key==='Escape'){
+    event.preventDefault();event.stopPropagation();
+    document.getElementById(studioDialogCloseButtons[dialog.id])?.click();
+    return;
+  }
+  if(event.key!=='Tab')return;
+  const controls=studioDialogControls(dialog),first=controls[0],last=controls.at(-1),active=document.activeElement;
+  if(!first){event.preventDefault();focusStudioDialog(dialog);return}
+  if(!controls.includes(active)||(event.shiftKey&&active===first)||(!event.shiftKey&&active===last)){
+    event.preventDefault();(event.shiftKey?last:first).focus();
+  }
+},true);
+document.addEventListener('focusin',event=>{
+  const dialog=studioDialogStack.at(-1)?.dialog;
+  if(dialog&&!dialog.contains(event.target))focusStudioDialog(dialog);
+});
+// END STUDIO DIALOG KEYBOARD CONTRACT
+
 let repositoryActionError='',repositoryActionErrorTeamId=null,repositoryEditorOpen=false;
 
 const nativeFetch=window.fetch.bind(window);
@@ -143,7 +219,7 @@ async function showArtifact(path,label='Evidence'){
   $('#artifactContentNote').textContent='';
   $('#artifactExternalLink').classList.add('hidden');
   $('#artifactGithubNote').classList.add('hidden');
-  $('#artifactOverlay').classList.remove('hidden');
+  openStudioDialog('artifactOverlay');
   if(!snapshotId){$('#artifactOverlayExcerpt').textContent='This snapshot has no retrievable artifact copy. The short excerpt is not a complete inspection.';return}
   try{
     const detail=await jsonRequest(`/api/v1/reviews/evidence/${snapshotId}/artifact?path=${encodeURIComponent(path)}`,{},'The frozen artifact could not be opened.');
@@ -169,7 +245,7 @@ async function showArtifact(path,label='Evidence'){
     $('#artifactContentNote').textContent=safeErrorMessage(e);
   }
 }
-function closeArtifact(){artifactRequestId++;$('#artifactOverlay').classList.add('hidden');artifactContext=null}
+function closeArtifact(){artifactRequestId++;closeStudioDialog('artifactOverlay');artifactContext=null}
 function newReviewHome(message='Choose the kind of senior review you want to start.',allowActive=false){if(sessionId&&document.body.classList.contains('review-session-active')&&!allowActive){openReviewExit('new');return}if(pending||finishingReview){toast('Wait for the current reviewer response to finish first.');return}findingPickerRequestId++;saveDraft();sessionId=null;committed=false;document.body.classList.remove('review-session-active');els.phase.disabled=false;selectedFindingIds.clear();requestedFindingId=null;pendingEntryContext=null;setComposerContext(null);reviewMode='board';updateReviewModeSummary();$$('.review-choice').forEach(b=>{const yes=b.dataset.reviewMode==='board';b.classList.toggle('selected',yes);b.setAttribute('aria-pressed',String(yes))});$('#focusedReviewPanel').classList.add('hidden');$('#findingReviewPanel').classList.add('hidden');$('#reviewFocus').value='';els.response.value='';updateDraftHint();$('#reviewSessionPurpose').classList.add('hidden');$('#reviewHomeButton').classList.add('hidden');resetReview(message);els.newReview.onclick=startReviewAction;switchView('studio');requestAnimationFrame(()=>window.scrollTo({top:0,behavior:'auto'}))}
 function prepareEntryContext(ctx){pendingEntryContext=ctx;try{sessionStorage.setItem('etis.pendingReviewContext',JSON.stringify(ctx))}catch(e){} }
 function clearEntryContext(){pendingEntryContext=null;try{sessionStorage.removeItem('etis.pendingReviewContext')}catch(e){}}
@@ -286,8 +362,8 @@ function clearReviewMutation(saved=null){
 
 function applyRoleShell(){const instructor=appRole==='instructor';$('#studentNav').classList.toggle('hidden',instructor);$('#instructorNav').classList.toggle('hidden',!instructor);if(instructor){const limited=authenticatedUser&&['ta','reviewer'].includes(authenticatedUser.role);$$('#instructorNav .nav').forEach(n=>{if(['semesterSetup','accessSettings'].includes(n.dataset.view))n.classList.toggle('hidden',limited)})}setIdentity(currentView);if(instructor&&!String(currentView).startsWith('instructor')&&!['semesterSetup','accessSettings'].includes(currentView))switchView('instructor');if(!instructor&&(String(currentView).startsWith('instructor')||['semesterSetup','accessSettings'].includes(currentView)))switchView('studio')}
 $$('.nav').forEach(b=>b.onclick=()=>switchView(b.dataset.view));
-function openHelp(topic='general'){const h=helpTopics[topic]||helpTopics.general;$('#helpTitle').textContent=h.title;$('#helpContent').innerHTML=h.body;$('#helpOverlay').classList.remove('hidden')}
-$('#helpButton').onclick=()=>openHelp(appRole==='instructor'?'staff-general':'general');$('#quickHelp').onclick=()=>openHelp(appRole==='instructor'?'staff-general':'general');$('#closeHelp').onclick=()=>$('#helpOverlay').classList.add('hidden');$('#helpOverlay').onclick=e=>{if(e.target.id==='helpOverlay')$('#helpOverlay').classList.add('hidden')};$$('[data-help-topic]').forEach(b=>b.onclick=()=>openHelp(b.dataset.helpTopic));$('#dismissGuide').onclick=()=>$('#guideStrip').classList.add('hidden');
+function openHelp(topic='general'){const h=helpTopics[topic]||helpTopics.general;$('#helpTitle').textContent=h.title;$('#helpContent').innerHTML=h.body;openStudioDialog('helpOverlay')}
+$('#helpButton').onclick=()=>openHelp(appRole==='instructor'?'staff-general':'general');$('#quickHelp').onclick=()=>openHelp(appRole==='instructor'?'staff-general':'general');$('#closeHelp').onclick=()=>closeStudioDialog('helpOverlay');$('#helpOverlay').onclick=e=>{if(e.target.id==='helpOverlay')closeStudioDialog('helpOverlay')};$$('[data-help-topic]').forEach(b=>b.onclick=()=>openHelp(b.dataset.helpTopic));$('#dismissGuide').onclick=()=>$('#guideStrip').classList.add('hidden');
 function phaseId(){return String(els.phase.value).slice(0,2)}
 function applyPhase(){currentPhase=phaseId();$('#gateQuestion').textContent=phaseQuestions[currentPhase]||'Can the team defend the current engineering gate?';const context=$('#gateQuestionContext'),repoReady=!!studentContext?.onboarding?.repository_connected,phaseReleased=currentPhaseIsReleased();if(context)context.textContent=!repoReady?`This is the standing ${currentPhase} phase-gate review question. Once your repository is connected, the board will evaluate it using your team’s actual evidence.`:!phaseReleased?`This is the standing ${currentPhase} phase-gate review question. Your team repository is connected; the board can evaluate it once ${currentPhase} is released.`:`This is the standing ${currentPhase} phase-gate review question. The board will evaluate it using your team’s actual repository evidence.`;$('#dimensionChips').innerHTML=(phaseDimensions[currentPhase]||[]).map(x=>`<span>${x}</span>`).join('');renderStudentReadiness();updateStartReviewButton()}
 els.phase.onchange=()=>{applyPhase();resetReview(`Phase changed to ${currentPhase}. Begin a new review to freeze the repository evidence for this gate.`)};
@@ -1274,7 +1350,7 @@ function renderReviewCompletionSummary(){
   if(art)box.querySelector('#completionInspect').onclick=()=>showArtifact(path,path);
   box.classList.remove('hidden');
 }
-function closeReviewExit(){reviewExitIntent=null;$('#reviewExitOverlay').classList.add('hidden')}
+function closeReviewExit(){reviewExitIntent=null;closeStudioDialog('reviewExitOverlay')}
 function openReviewExit(intent='finish'){
   if(!sessionId||!document.body.classList.contains('review-session-active')||pending||finishingReview)return;
   reviewExitIntent=intent;
@@ -1286,7 +1362,7 @@ function openReviewExit(intent='finish'){
   $('#leaveReviewOpen').classList.toggle('hidden',intent!=='new');
   $('#leaveReviewOpen').textContent='Leave open; start another';
   $('#confirmFinishReview').textContent=intent==='new'?'Finish; start another':'Finish this review';
-  $('#reviewExitOverlay').classList.remove('hidden');
+  openStudioDialog('reviewExitOverlay','keepReviewing');
   $('#keepReviewing').focus();
 }
 function applyReviewCompleted(){
@@ -1367,8 +1443,8 @@ function clearDisputeError(){const error=$('#evidenceDisputeError');error.textCo
 function showDisputeError(message,field){const error=$('#evidenceDisputeError');error.textContent=message;error.classList.remove('hidden');field.setAttribute('aria-invalid','true');field.focus()}
 function updateDisputeKind(){const evidence=disputeKind()==='evidence';$('#evidenceDisputePathGroup').classList.toggle('hidden',!evidence);$('#submitEvidenceDispute').textContent=evidence?'Ask Maya to re-check →':'Ask reviewer to reconsider →';clearDisputeError()}
 document.querySelectorAll('input[name="evidenceDisputeKind"]').forEach(input=>input.onchange=updateDisputeKind);
-function openEvidenceDispute(path='',findingId=null){if(!sessionId){toast('Begin or resume a review first.');return}if(challengeInFlight){toast('Your earlier challenge is still being reviewed. Please wait for its response.');return}disputePath=path||'';disputeFindingId=findingId||null;$('#evidenceDisputePath').value=disputePath;$('#evidenceDisputeExplanation').value='';document.querySelector(`input[name="evidenceDisputeKind"][value="${path?'evidence':'interpretation'}"]`).checked=true;updateDisputeKind();$('#evidenceDisputeOverlay').classList.remove('hidden');setTimeout(()=>$('#evidenceDisputeExplanation').focus(),30)}
-function closeEvidenceDispute(){$('#evidenceDisputeOverlay').classList.add('hidden');if(challengeInFlight){toast('The challenge is still running. The Review Room will open when the response arrives.');return}disputePath='';disputeFindingId=null}
+function openEvidenceDispute(path='',findingId=null){if(!sessionId){toast('Begin or resume a review first.');return}if(challengeInFlight){toast('Your earlier challenge is still being reviewed. Please wait for its response.');return}disputePath=path||'';disputeFindingId=findingId||null;$('#evidenceDisputePath').value=disputePath;$('#evidenceDisputeExplanation').value='';document.querySelector(`input[name="evidenceDisputeKind"][value="${path?'evidence':'interpretation'}"]`).checked=true;updateDisputeKind();openStudioDialog('evidenceDisputeOverlay','evidenceDisputeExplanation');setTimeout(()=>{if(studioDialogStack.at(-1)?.dialog.id==='evidenceDisputeOverlay')focusStudioDialog($('#evidenceDisputeOverlay'),$('#evidenceDisputeExplanation'))},30)}
+function closeEvidenceDispute(){closeStudioDialog('evidenceDisputeOverlay');if(challengeInFlight){toast('The challenge is still running. The Review Room will open when the response arrives.');return}disputePath='';disputeFindingId=null}
 $('#closeEvidenceDispute').onclick=closeEvidenceDispute;$('#cancelEvidenceDispute').onclick=closeEvidenceDispute;$('#evidenceDisputeOverlay').onclick=e=>{if(e.target.id==='evidenceDisputeOverlay')closeEvidenceDispute()};
 $('#submitEvidenceDispute').onclick=async()=>{
   if(pending||challengeInFlight)return;
@@ -1391,9 +1467,9 @@ $('#submitEvidenceDispute').onclick=async()=>{
     const result=await send({text:`I challenge the finding “${finding.title}”: ${explanation}`,evidenceRefs:[`FINDING:${fid}`,...(finding.evidence_refs||[])]});
     endChallengeProgress();
     if(result){closeEvidenceDispute();switchView('studio');if(result!==true)showSubmittedExchange(result)}
-    else{$('#evidenceDisputeOverlay').classList.remove('hidden');showDisputeError('Studio could not confirm this challenge. Your explanation is still here; wait a moment and try again.',$('#evidenceDisputeExplanation'))}
+    else{openStudioDialog('evidenceDisputeOverlay','evidenceDisputeExplanation');showDisputeError('Studio could not confirm this challenge. Your explanation is still here; wait a moment and try again.',$('#evidenceDisputeExplanation'))}
   }catch(e){
-    $('#evidenceDisputeOverlay').classList.remove('hidden');
+    openStudioDialog('evidenceDisputeOverlay','evidenceDisputeExplanation');
     showDisputeError('Studio could not complete the challenge. Your explanation is still here; try again.',$('#evidenceDisputeExplanation'));
   }finally{if(challengeInFlight)endChallengeProgress();submit.textContent='Ask reviewer to reconsider →'}
 };
@@ -1481,7 +1557,7 @@ async function disputeEvidence(path,explanation,findingId=null){
     // reuse the same client_turn_id and recover the original result.
     toast(e.message);
 
-    $('#evidenceDisputeOverlay').classList.remove('hidden');
+    openStudioDialog('evidenceDisputeOverlay','evidenceDisputeExplanation');
 
     if($('#evidenceDisputePath').value!==path){
       $('#evidenceDisputePath').value=path;
