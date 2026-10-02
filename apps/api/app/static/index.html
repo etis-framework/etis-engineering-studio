@@ -112,16 +112,14 @@
           </div>
 
           <details id="boardReadout" class="board-readout hidden">
-            <summary><span>Other concerns in this review</span><small>For files and excerpts, open Engineering Evidence above</small></summary>
-            <div class="board-readout-head"><div><span class="eyebrow">REVIEW CONTEXT</span><h3 id="boardReadoutTitle">Current phase</h3></div><span class="readout-not-grade">Preparation · not a grade</span></div>
+            <summary><span>Other concerns in this review</span><small>Optional review context</small></summary>
+            <div class="board-readout-head"><div><span class="eyebrow">OTHER REVIEW CONTEXT</span><h3 id="boardReadoutTitle">Current phase</h3></div><span class="readout-not-grade">Preparation · not a grade</span></div>
             <div id="boardChanges" class="board-changes hidden"></div>
             <div class="board-readout-details">
-              <div id="boardPreparation" class="phase-preparation"></div>
               <div class="board-readout-grid">
-                <div><span class="brief-label">OTHER CONCERNS TO DISCUSS</span><div id="boardAgenda" class="board-agenda"></div></div>
-                <div><span class="brief-label">AREAS TO EXPLORE</span><p class="quiet">Phase topics, not individual readiness verdicts. Discuss the evidence with your reviewer.</p><div id="readinessMap" class="readiness-map"></div></div>
+                <div><span class="brief-label">OTHER CONCERNS</span><div id="boardAgenda" class="board-agenda"></div></div>
+                <div><span class="brief-label">AREAS TO EXPLORE</span><p class="quiet">Optional phase perspectives, not readiness verdicts.</p><div id="readinessMap" class="readiness-map"></div></div>
               </div>
-              <p id="submissionBaseline" class="submission-baseline"></p>
             </div>
           </details>
 
@@ -206,7 +204,7 @@
         </div>
         <div id="evidenceWorkspaceStatus" class="evidence-workspace-status"><span class="mini-spinner"></span><span>Loading the latest frozen evidence snapshot…</span></div>
         <div id="evidenceWorkspace" class="hidden">
-          <div class="evidence-workspace-head"><div><span class="eyebrow">LATEST SAVED EVIDENCE SNAPSHOT · SOURCE NOTEBOOK</span><h3 id="evidenceWorkspaceTitle">Current phase evidence</h3><p id="evidenceWorkspaceMeta"></p><p id="evidenceSnapshotNote" class="evidence-snapshot-note" role="status"></p><p class="evidence-room-guide">Review Room is where you talk with the reviewer. Here you inspect saved sources and concerns. You can move between rooms without ending your active review.</p></div><div class="evidence-workspace-actions"><button id="startBoardFromEvidence" class="primary compact">Choose Board Review →</button><button id="backToStudio" class="secondary">Open Review Room</button><small id="evidenceActionHint">Board Review opens setup. Discuss, Challenge, or Help me resolve this starts a review of that saved concern.</small></div></div>
+          <div class="evidence-workspace-head"><div><span class="eyebrow">LATEST SAVED EVIDENCE SNAPSHOT · SOURCE NOTEBOOK</span><h3 id="evidenceWorkspaceTitle">Current phase evidence</h3><p id="evidenceWorkspaceMeta"></p><p id="evidenceSnapshotNote" class="evidence-snapshot-note" role="status"></p></div><div class="evidence-workspace-actions"><button id="startBoardFromEvidence" class="primary compact">Choose Board Review →</button><button id="backToStudio" class="secondary">Open Review Room</button><small id="evidenceActionHint">Choose a concern below or return to Review Room.</small></div></div>
           <div class="evidence-summary-strip" id="engineeringEvidenceSummary"></div>
           <div id="evidenceNextAction" class="evidence-next-action"></div>
           <section class="evidence-strengths-section" id="evidenceSupportedSection"><div class="section-heading"><div><span class="eyebrow">BOUNDED SUPPORT</span><h3>Supported phase claims</h3></div><small>Each observation points to a frozen excerpt and its limit. It does not approve the whole artifact or predict the phase gate.</small></div><div id="engineeringEvidenceStrengths" class="strength-grid"></div></section>
