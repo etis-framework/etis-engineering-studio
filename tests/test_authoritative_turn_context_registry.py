@@ -123,12 +123,12 @@ def advance(state, ctx):
     }
 
 
-def test_analysis_contract_v3_invalidates_prior_interpretation():
-    assert ANALYSIS_CONTRACT == "authoritative_turn_context_v3"
+def test_analysis_contract_v4_invalidates_prior_interpretation():
+    assert ANALYSIS_CONTRACT == "official_starter_lineage_v4"
     assert not supports_current_analysis_contract(
         {
             "semantic_review": {
-                "analysis_contract": "starter_lineage_active_context_v2"
+                "analysis_contract": "authoritative_turn_context_v3"
             }
         }
     )

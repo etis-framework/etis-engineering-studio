@@ -66,8 +66,8 @@ def multi_topic_evidence():
 
 
 def test_analysis_contract_bump_forces_reanalysis_of_same_commit_after_provenance_changes():
-    assert ANALYSIS_CONTRACT == 'authoritative_turn_context_v3'
-    old = {'semantic_review': {'analysis_contract': 'cumulative_foundations_v1'}}
+    assert ANALYSIS_CONTRACT == 'official_starter_lineage_v4'
+    old = {'semantic_review': {'analysis_contract': 'authoritative_turn_context_v3'}}
     assert not supports_current_analysis_contract(old)
     current = {'semantic_review': {'analysis_contract': ANALYSIS_CONTRACT}}
     assert supports_current_analysis_contract(current)
