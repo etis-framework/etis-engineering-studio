@@ -97,8 +97,12 @@
             <div class="review-status-actions"><button id="retryStartReview" class="secondary hidden" type="button">Retry Review</button></div>
           </div>
           <div id="reviewCompletionSummary" class="review-completion-summary hidden" aria-live="polite"></div>
+          <div id="reviewRoomOrientation" class="room-orientation" aria-live="polite">
+            <div><span class="room-kicker">YOU ARE HERE</span><b>Review Room</b><small id="reviewRoomOrientationDetail">Talk with the reviewer. This conversation stays tied to one frozen repository snapshot.</small></div>
+            <div class="room-route" aria-label="Review workflow"><button type="button" class="room-step active" data-room-jump="studio" aria-current="page">1 · Review</button><span>→</span><button type="button" class="room-step" data-room-jump="evidence">2 · Evidence</button></div>
+          </div>
           <div id="reviewJourney" class="review-journey" aria-label="How to use this review">
-            <div><b>Continue here with your reviewer.</b><span>Ask a question, respond, or say where you are stuck. Find supporting evidence searches this frozen snapshot for other relevant sources; Inspect cited source opens the source already tied to the concern.</span></div>
+            <div><b>Talk here. Check evidence only when you need it.</b><span>Find supporting evidence searches this review’s frozen snapshot. Inspect cited source opens the file already tied to the concern. Engineering Evidence is the saved source notebook.</span></div>
             <div class="review-journey-actions"><button id="findCurrentConcernEvidence" class="primary compact hidden" type="button" title="Search this review’s frozen snapshot for equivalent evidence">Find supporting evidence</button><button id="inspectCurrentConcern" class="secondary compact" type="button">Inspect cited source</button><button id="browseReviewEvidence" class="secondary compact" type="button">Browse Engineering Evidence</button></div>
           </div>
 
@@ -196,6 +200,10 @@
     <section id="evidence" class="view">
       <div class="page-card evidence-page engineering-evidence-page">
         <div class="page-heading"><div><span class="eyebrow">ENGINEERING EVIDENCE</span><h2>See what needs work and what to check next</h2><p>These are coaching signals from a frozen repository snapshot, not a grade or a phase-gate decision. A file can be present and still fail to support its engineering claim.</p></div><button class="secondary" data-help-topic="evidence-map">How to use this page</button></div>
+        <div id="evidenceRoomOrientation" class="room-orientation evidence-orientation" aria-live="polite">
+          <div><span class="room-kicker">YOU ARE HERE</span><b>Engineering Evidence</b><small id="evidenceRoomOrientationDetail">Inspect saved evidence and concerns. Return to Review Room to continue the conversation.</small></div>
+          <div class="room-route" aria-label="Review workflow"><button type="button" class="room-step" data-room-jump="studio">1 · Review</button><span>→</span><button type="button" class="room-step active" data-room-jump="evidence" aria-current="page">2 · Evidence</button></div>
+        </div>
         <div id="evidenceWorkspaceStatus" class="evidence-workspace-status"><span class="mini-spinner"></span><span>Loading the latest frozen evidence snapshot…</span></div>
         <div id="evidenceWorkspace" class="hidden">
           <div class="evidence-workspace-head"><div><span class="eyebrow">LATEST SAVED EVIDENCE SNAPSHOT · SOURCE NOTEBOOK</span><h3 id="evidenceWorkspaceTitle">Current phase evidence</h3><p id="evidenceWorkspaceMeta"></p><p id="evidenceSnapshotNote" class="evidence-snapshot-note" role="status"></p><p class="evidence-room-guide">Review Room is where you talk with the reviewer. Here you inspect saved sources and concerns. You can move between rooms without ending your active review.</p></div><div class="evidence-workspace-actions"><button id="startBoardFromEvidence" class="primary compact">Choose Board Review →</button><button id="backToStudio" class="secondary">Open Review Room</button><small id="evidenceActionHint">Board Review opens setup. Discuss, Challenge, or Help me resolve this starts a review of that saved concern.</small></div></div>

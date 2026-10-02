@@ -6,7 +6,7 @@ HTML=Path("apps/api/app/static/index.html").read_text()
 def test_visible_actions_and_explanations():
     assert 'id="findCurrentConcernEvidence"' in HTML
     assert 'Find supporting evidence' in HTML
-    assert 'searches this frozen snapshot' in HTML
+    assert 'searches this review’s frozen snapshot' in HTML
     assert 'Inspect cited source' in HTML
     assert 'class="find-finding-evidence"' in JS
     assert 'data-finding-find=' in JS
@@ -32,4 +32,6 @@ def test_no_new_evidence_endpoint_or_lifecycle_mutation():
     assert '/api/v1/' not in block
     assert '/disposition' not in block
     assert '/commit' not in block
-    assert 'send();' in block
+    assert 'send({' in block
+    assert "displayText:'Find supporting evidence'" in block
+    assert "evidenceRefs:[`FINDING:${target.id}`]" in block

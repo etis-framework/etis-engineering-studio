@@ -10,7 +10,7 @@ CSS = (ROOT / "studio.css").read_text()
 def test_active_review_keeps_coaching_primary_and_evidence_optional():
     assert 'id="reviewJourney"' in HTML
     assert HTML.index('id="reviewJourney"') < HTML.index('id="transcript"')
-    assert 'Continue here with your reviewer.' in HTML
+    assert 'Talk here. Check evidence only when you need it.' in HTML
     assert 'id="inspectCurrentConcern"' in HTML
     assert 'id="browseReviewEvidence"' in HTML
     assert '.review-session-active .review-journey{display:flex}' in CSS

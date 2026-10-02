@@ -32,7 +32,9 @@ for(const state of ['none','same','different']){
  const context={$:key=>elements[key],engineeringEvidenceData:null,
   phaseQuestions:{A2:'Planning'},sessionId:state==='none'?null:91,
   reviewSnapshotId:state==='same'?7:state==='different'?6:null,
-  document:{body:{classList:{contains:()=>state!=='none'}}},updateEvidenceReviewActions:()=>{}};
+  document:{body:{classList:{contains:()=>state!=='none'}}},
+  updateEvidenceReviewActions:()=>{},
+  updateRoomOrientation:()=>{}};
  vm.runInNewContext(helper+'; renderEngineeringEvidence({phase_id:"A2",commit_sha:"abcdef123",coverage:69},{team:{name:"Team"},snapshot_id:7,created_at:"2026-09-29T16:00:00"});',context);
  assert(elements['#evidenceWorkspaceMeta'].textContent.includes('saved snapshot #7'));
  assert(elements['#evidenceWorkspaceMeta'].textContent.includes('commit abcdef12'));
