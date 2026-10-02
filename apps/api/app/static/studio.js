@@ -116,7 +116,7 @@ function navigationStateFromLocation(){const q=new URLSearchParams(window.locati
 async function restoreNavigationState(state){restoringNavigation=true;try{const fallback=appRole==='instructor'?'instructor':'studio',view=viewAllowedForRole(state?.view)?state.view:fallback;if(appRole==='instructor'&&Object.prototype.hasOwnProperty.call(state||{},'section'))setInstructorSectionContext(state.section||null,{reload:false});currentInstructorTeamId=appRole==='instructor'&&view==='instructor'&&state?.team?Number(state.team):null;currentInstructorReviewSessionId=appRole==='instructor'&&view==='instructorReviews'&&state?.review?Number(state.review):null;if(appRole!=='instructor'&&state?.session&&view==='studio'){await resumeSession(Number(state.session),{history:false});return}if(view==='instructorReviews'&&!currentInstructorReviewSessionId){const detail=$('#reviewOpsDetail');if(detail){detail.classList.add('hidden');detail.innerHTML=''}}switchView(view,{history:false,scroll:false});if(appRole==='instructor'&&view==='instructor'&&currentInstructorTeamId)await loadTeamDetail(currentInstructorTeamId,{focus:false,history:false});if(appRole==='instructor'&&view==='instructorReviews'&&currentInstructorReviewSessionId)await loadInstructorReviewDetail(currentInstructorReviewSessionId,{history:false});}finally{restoringNavigation=false}}
 async function initializeBrowserNavigation(){const persisted=window.history.state?.etisNavigation,state=persisted||navigationStateFromLocation();if(appRole==='instructor'&&!persisted&&!Object.prototype.hasOwnProperty.call(state,'section'))state.section=currentInstructorSectionId();await restoreNavigationState(state);navigationReady=true;recordNavigationState({replace:true})}
 window.addEventListener('popstate',event=>{if(!navigationReady)return;restoreNavigationState(event.state?.etisNavigation||navigationStateFromLocation()).catch(e=>console.error('Could not restore Studio navigation',e))});
-function switchView(view,opts={}){if(!viewAllowedForRole(view))return;const changed=currentView!==view;currentView=view;if(view!=='instructor')currentInstructorTeamId=null;if(view!=='instructorReviews')currentInstructorReviewSessionId=null;$$('.nav').forEach(x=>x.classList.toggle('active',x.dataset.view===view));$$('.view').forEach(x=>x.classList.remove('active-view'));const target=$('#'+view);if(target)target.classList.add('active-view');$('#viewTitle').textContent=viewTitles[view]||'Engineering Studio';setIdentity(view);if(view==='evidence')loadEngineeringEvidence();if(view==='history')loadHistoryPage();if(view==='myteam')renderMyTeam();if(view==='instructor')loadInstructor();if(view==='instructorTeams')loadInstructorTeams();if(view==='instructorStudents')loadInstructorStudents();if(view==='instructorReviews')loadInstructorReviews();if(view==='instructorEvidence')loadInstructorEvidence();if(view==='instructorUsage')loadInstructorUsage();if(view==='semesterSetup')loadSemesterSetup();if(view==='accessSettings')loadAccessSettings();if(opts.history!==false&&changed)recordNavigationState();if(opts.scroll!==false)requestAnimationFrame(()=>window.scrollTo({top:0,left:0,behavior:'auto'}));}
+function switchView(view,opts={}){if(!viewAllowedForRole(view))return;const changed=currentView!==view;currentView=view;if(view!=='instructor')currentInstructorTeamId=null;if(view!=='instructorReviews')currentInstructorReviewSessionId=null;$$('.nav').forEach(x=>x.classList.toggle('active',x.dataset.view===view));$$('.view').forEach(x=>x.classList.remove('active-view'));const target=$('#'+view);if(target)target.classList.add('active-view');$('#viewTitle').textContent=viewTitles[view]||'Engineering Studio';setIdentity(view);updateRoomOrientation();if(view==='evidence')loadEngineeringEvidence();if(view==='history')loadHistoryPage();if(view==='myteam')renderMyTeam();if(view==='instructor')loadInstructor();if(view==='instructorTeams')loadInstructorTeams();if(view==='instructorStudents')loadInstructorStudents();if(view==='instructorReviews')loadInstructorReviews();if(view==='instructorEvidence')loadInstructorEvidence();if(view==='instructorUsage')loadInstructorUsage();if(view==='semesterSetup')loadSemesterSetup();if(view==='accessSettings')loadAccessSettings();if(opts.history!==false&&changed)recordNavigationState();if(opts.scroll!==false)requestAnimationFrame(()=>window.scrollTo({top:0,left:0,behavior:'auto'}));}
 function canManageSectionUi(){return !authenticatedUser||['course_owner','instructor','developer'].includes(authenticatedUser.role)}
 function safeErrorMessage(e,fallback='That action could not be completed.'){const msg=String(e?.message||e||'').trim();if(!msg)return fallback;if(/failed to fetch|networkerror|network request failed/i.test(msg))return 'The Studio cannot reach a required service right now. Your current work is preserved; check your connection and try again.';if(/403|not assigned|not authorized|permission/i.test(msg))return 'You do not have permission for that action in this section.';if(/404|not found/i.test(msg))return 'The requested item is no longer available in this context. Refresh the view and try again.';return msg}
 async function jsonRequest(url,opts={},fallback='That action could not be completed.'){try{const r=await fetch(url,opts);let body={};try{body=await r.json()}catch(_e){}if(!r.ok)throw new Error(body.detail||`${r.status} ${r.statusText}`);return body}catch(e){throw new Error(safeErrorMessage(e,fallback))}}
@@ -501,6 +501,33 @@ function updateReviewJourney(){
  if(find)find.classList.toggle('hidden',!searchable);
  $('#browseReviewEvidence').textContent=available?'Browse Engineering Evidence':'Browse Engineering Evidence and concerns';
 }
+function shortCommit(evidence){return String(evidence?.commit_sha||'').slice(0,8)}
+function updateRoomOrientation(){
+ const active=!!sessionId&&document.body.classList.contains('review-session-active');
+ const reviewDetail=$('#reviewRoomOrientationDetail');
+ if(reviewDetail){
+  const commit=shortCommit(currentEvidence);
+  reviewDetail.textContent=active
+   ?`Talk with the reviewer. Session #${sessionId} uses frozen snapshot${reviewSnapshotId?` #${reviewSnapshotId}`:''}${commit?` · commit ${commit}`:''}.`
+   :sessionId
+    ?'This review is read-only. Start another review to evaluate current repository work.'
+    :'Start a review to freeze repository evidence and begin a conversation.';
+ }
+ const evidenceDetail=$('#evidenceRoomOrientationDetail');
+ if(evidenceDetail){
+  const evidenceCommit=shortCommit(engineeringEvidenceData);
+  const same=active&&reviewSnapshotId&&engineeringSnapshotId&&Number(reviewSnapshotId)===Number(engineeringSnapshotId);
+  if(active&&same){
+   evidenceDetail.textContent=`Same frozen snapshot as your active review${engineeringSnapshotId?` #${engineeringSnapshotId}`:''}${evidenceCommit?` · commit ${evidenceCommit}`:''}. Inspect here; return to Review Room to keep talking.`;
+  }else if(active){
+   evidenceDetail.textContent=`Latest saved Evidence snapshot${engineeringSnapshotId?` #${engineeringSnapshotId}`:''}${evidenceCommit?` · commit ${evidenceCommit}`:''}. Your active review keeps its own older frozen snapshot; do not mix them.`;
+  }else if(sessionId){
+   evidenceDetail.textContent=`Saved Evidence snapshot${engineeringSnapshotId?` #${engineeringSnapshotId}`:''}${evidenceCommit?` · commit ${evidenceCommit}`:''}. The last review is read-only; start a new review to check current work.`;
+  }else{
+   evidenceDetail.textContent=`Saved Evidence snapshot${engineeringSnapshotId?` #${engineeringSnapshotId}`:''}${evidenceCommit?` · commit ${evidenceCommit}`:''}. Start a review when you want a reviewer to reason over a frozen snapshot.`;
+  }
+ }
+}
 function findingContext(f,intent='discuss'){return {kind:'finding',id:f.id,label:f.title,detail:f.statement,evidence_refs:f.evidence_refs||[],intent}}
 function findingStudentPrompt(f,intent){if(intent==='resolve')return `I agree the finding “${f.title}” has merit. Help me act on this exact finding: what should we improve first, why, and what evidence would show it is addressed?`;if(intent==='challenge')return `I think the board may have missed or misinterpreted evidence for the finding “${f.title}”. I want to challenge this exact finding.`;return `I want to discuss the finding “${f.title}”. Please stay on this finding and help me understand what the evidence supports, why it matters, and what I should consider next.`}
 function findingIsClosed(f){return ['corrected','resolved'].includes(findingStatus(f))}
@@ -534,11 +561,15 @@ async function findSupportingEvidence(f,source='studio'){
   }
   setMode('ask');
   setComposerContext(findingSearchContext(target));
-  els.response.value=findingSearchPrompt(target);
-  updateDraftHint();
-  const sending=send();
+  const sending=send({
+    text:findingSearchPrompt(target),
+    evidenceRefs:[`FINDING:${target.id}`],
+    displayText:'Find supporting evidence',
+    kind:'finding_search',
+  });
   requestAnimationFrame(()=>els.transcript.scrollIntoView({block:'center',behavior:'smooth'}));
   await sending;
+  setComposerContext(null);
 }
 async function actOnFinding(f,intent='discuss',source='studio'){
   if(!f){toast('That finding is no longer available in this snapshot. Refresh the evidence view.');return}
@@ -730,6 +761,7 @@ async function beginReview(mode='board',opts={}){
     committed=false;
 
     document.body.classList.add('review-session-active');
+    updateRoomOrientation();
 
     renderSessionPurpose(
       mode,
@@ -944,6 +976,7 @@ async function send(challengeTurn=null){
   if(pending)return;
 
   const text=(challengeTurn?.text??els.response.value).trim();
+  const displayText=String(challengeTurn?.displayText??text).trim();
   if(!text){
     toast('Type a thought or question first.');
     return;
@@ -970,8 +1003,8 @@ async function send(challengeTurn=null){
     studentTurn=addTurn(
       'student',
       'conversation',
-      text,
-      {kind:challengeTurn?'ask':interactionMode}
+      displayText,
+      {kind:challengeTurn?(challengeTurn.kind||'ask'):interactionMode}
     );
     markReviewMutationRendered(mutation);
   }
@@ -1266,6 +1299,7 @@ function applyReviewCompleted(){
   $('#reviewStatusText').textContent=`Session #${sessionId} · conversation and frozen evidence preserved`;
   $('#reviewHomeButton').classList.add('hidden');
   renderReviewCompletionSummary();
+  updateRoomOrientation();
   committed=false;
   updateStartReviewButton();
 }
@@ -1601,6 +1635,7 @@ function renderEvidenceLensDetail(dimension,evidence){activeEvidenceLens=dimensi
 function snapshotCaptureLabel(value){if(!value)return 'capture time unavailable';const stamped=/Z$|[+-]\d{2}:\d{2}$/.test(value)?value:`${value}Z`;const date=new Date(stamped);return Number.isNaN(date.getTime())?'capture time unavailable':date.toLocaleString()}
 function renderEngineeringEvidence(evidence,payload){engineeringEvidenceData=evidence;const title=$('#evidenceWorkspaceTitle'),meta=$('#evidenceWorkspaceMeta');title.textContent=`${evidence.phase_id} · ${phaseQuestions[evidence.phase_id]||'Current phase'}`;meta.textContent=`${payload.team?.project_name||payload.team?.name||'Team project'} · saved snapshot #${payload.snapshot_id??'—'} · ${snapshotCaptureLabel(payload.created_at)} · commit ${String(evidence.commit_sha||'').slice(0,8)||'local'} · ${evidence.coverage??'—'}% expected-evidence coverage (not a quality score)`;const sameActive=!!sessionId&&document.body.classList.contains('review-session-active');const snapshotNote=sameActive&&Number(reviewSnapshotId)===Number(payload.snapshot_id)?'This saved snapshot is used by your active review.':sameActive?'This is the latest saved team snapshot. Your active review keeps its original frozen snapshot; open the Review Room to inspect that conversation.':'Saved evidence from an earlier analysis, not a live scan. Start a new review to check current repository work.';const omitted=evidence.semantic_review?.inspection?.omitted_artifact_count||0;$('#evidenceSnapshotNote').textContent=`Saved ${snapshotCaptureLabel(payload.created_at)} · commit ${String(evidence.commit_sha||'').slice(0,8)||'local'}. ${snapshotNote}`+(omitted?` The semantic reviewer sampled excerpts from ${evidence.semantic_review.inspection.inspected_artifact_count} artifacts; ${omitted} artifacts were outside its context. Point the reviewer to a specific file if something was missed.`:'');
  updateEvidenceReviewActions();
+ updateRoomOrientation();
  const items=evidence.items||[],findings=evidence.findings||[];
  const count=key=>items.filter(x=>evidenceCondition(x).key===key).length;
  $('#engineeringEvidenceSummary').innerHTML=`<div><b>${count('gap')}</b><span>Areas needing work or missing</span></div><div><b>${count('concern')}</b><span>Evidence areas with concerns</span></div><div><b>${count('unknown')+count('verify')+count('explore')}</b><span>Areas to check or cannot judge</span></div><div><b>${count('strong')+count('okay')}</b><span>Areas with supported claims</span></div>`;
@@ -1625,6 +1660,7 @@ $('#inspectCurrentConcern').onclick=()=>{const art=currentConcernArtifact();if(a
 $('#findCurrentConcernEvidence').onclick=()=>{const f=currentChallenge?.finding;if(f)findSupportingEvidence(f,'review_journey')};
 $('#browseReviewEvidence').onclick=()=>switchView('evidence');
 $('#backToStudio').onclick=()=>switchView('studio');
+$$('[data-room-jump]').forEach(b=>b.onclick=()=>switchView(b.dataset.roomJump));
 async function loadInstructor(){try{const setup=await adminSetupData();fillSectionSelectors(setup);const d=await jsonRequest(`/api/v1/instructor/overview${instructorSectionQuery()}`,{},'Instructor intelligence could not be loaded.');const sig=d.class_signals||{},u=d.ai_usage||{};$('#classSignals').innerHTML=`<div><b>${sig.students??0}</b><span>Students</span></div><div><b>${sig.teams??0}</b><span>Teams</span></div><div><b>${sig.repositories_connected??0}</b><span>Repositories</span></div><div><b>${sig.teams_needing_attention??0}</b><span>Need attention</span></div><div><b>${sig.active_reviews??0}</b><span>Active reviews</span></div><div><b>${sig.review_sessions??0}</b><span>Review sessions</span></div>`;$('#aiUsageMetrics').innerHTML=`<div><b>${formatEstimatedCost(u.estimated_cost_usd)}</b><span>Estimated cost</span></div><div><b>${Number(u.input_tokens||0).toLocaleString()}</b><span>Input tokens</span></div><div><b>${Number(u.cached_input_tokens||0).toLocaleString()}</b><span>Cached input</span></div><div><b>${Number(u.output_tokens||0).toLocaleString()}</b><span>Output tokens</span></div><div><b>${Math.round(Number(u.cache_hit_ratio||0)*100)}%</b><span>Cache hit</span></div><div><b>${u.calls?`${(Number(u.avg_latency_ms||0)/1000).toFixed(1)}s`:'—'}</b><span>Avg response</span></div><div><b>${Number(u.calls||0).toLocaleString()}</b><span>Model calls</span></div>`;const box=$('#teamCards');box.innerHTML='';d.teams.forEach(t=>{const c=document.createElement('button');c.className=`teamcard ${t.attention}`;c.dataset.team=t.id;const context=[t.section?.display_name,teamIdentifierLabel(t.team_key)].filter(Boolean).join(' · ');c.innerHTML=`<div class="team-name"><span class="attention-dot"></span><div><b>${escapeHtml(t.name)}</b><small>${escapeHtml(t.project)}</small><small class="team-card-context">${escapeHtml(context)}</small></div></div><div><small>Phase</small><b>${t.phase}</b></div><div><small>Evidence</small><b>${t.evidence_coverage==null?'Not scanned':t.evidence_coverage+'%'}</b></div><div><small>AI cost</small><b>${formatEstimatedCost(t.ai_usage?.estimated_cost_usd)}</b></div><span class="inspect">Inspect →</span>`;c.onclick=()=>loadTeamDetail(t.id,{focus:true,history:true});box.appendChild(c)});if(d.teams.length){const selected=currentInstructorTeamId&&d.teams.some(t=>Number(t.id)===Number(currentInstructorTeamId))?currentInstructorTeamId:d.teams[0].id;loadTeamDetail(Number(selected))}else{$('#teamDetail').classList.add('hidden');currentInstructorTeamId=null}}catch(e){console.error(e);$('#teamCards').innerHTML='<div class="error-card">Could not load instructor overview.</div>'}}
 $('#refreshInstructor').onclick=loadInstructor;
 async function loadTeamDetail(teamId,opts={}){

@@ -665,3 +665,25 @@
 .evidence-workspace-actions{max-width:260px;justify-content:flex-end}
 #evidenceActionHint{display:block;width:100%;font-size:10px;line-height:1.4;color:#a9c8c4}
 @media(max-width:850px){.evidence-workspace-actions{max-width:none;justify-content:flex-start}}
+
+/* Review Room ↔ Engineering Evidence orientation and action clarity. */
+.room-orientation{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 12px;padding:11px 13px;border:1px solid #3a6568;border-radius:10px;background:#0b1f25}
+.room-orientation>div:first-child{min-width:0}
+.room-kicker{display:block;font-size:9px;letter-spacing:.12em;color:#76d8ca;font-weight:850}
+.room-orientation b{display:block;margin-top:2px;font-size:13px;color:#e3f5f1}
+.room-orientation small{display:block;margin-top:3px;font-size:10px;line-height:1.45;color:#abc8c4}
+.room-route{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.room-route>span{color:#6f9695;font-size:12px}
+.room-step{border:1px solid #3c666b;background:#10272d;color:#bad2d2;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:750}
+.room-step.active{border-color:#7bdccb;background:#173b39;color:#ecfffa}
+.room-step:hover,.room-step:focus-visible{border-color:#8ce6d7;outline:2px solid rgba(140,230,215,.28);outline-offset:2px}
+.finding-actions .find-finding-evidence,.finding-card-actions [data-finding-find]{border-color:#57998f;background:#123631;color:#ddfaf3;font-weight:800}
+.finding-actions,.finding-card-actions{align-items:center}
+@media(max-width:760px){
+ .room-orientation{align-items:stretch;flex-direction:column}
+ .room-route{width:100%}
+ .room-step{flex:1;min-height:40px}
+ .room-route>span{align-self:center}
+ .finding-actions,.finding-card-actions{display:grid;grid-template-columns:1fr}
+ .finding-actions button,.finding-card-actions button{width:100%;min-height:42px;white-space:normal}
+}
