@@ -249,6 +249,35 @@ def _finding_tokens(value: str) -> set[str]:
     return {t for t in re.findall(r"[a-z0-9][a-z0-9_-]{2,}", (value or "").lower())
             if t not in _FINDING_STOPWORDS}
 
+def _finding_family_from_text(student_text: str) -> str | None:
+    lower = (student_text or "").lower()
+    families = []
+    if re.search(r"\b(?:ai|artificial intelligence|ai-use|ai use|disclos|non-use|nonuse|human verification)\b", lower):
+        families.append("ai")
+    if re.search(r"\b(?:risk|mitigat|likelihood|impact|reassess|contingenc)\b", lower):
+        families.append("risk")
+    if re.search(r"\b(?:decision|adr|trade[- ]?off|alternative|consequence)\b", lower):
+        families.append("decision")
+    if re.search(r"\b(?:architect|component|interface|dependency|trust boundar|system context)\b", lower):
+        families.append("architecture")
+    return families[0] if len(set(families)) == 1 else None
+
+
+def _finding_family(finding: dict | None) -> str | None:
+    if not finding:
+        return None
+    hay = " ".join(str(finding.get(k) or "") for k in ("category", "title", "statement", "significance")).lower()
+    for family, pattern in (
+        ("ai", r"\b(?:ai|artificial intelligence|disclos|human verification)\b"),
+        ("risk", r"\b(?:risk|mitigat|likelihood|impact|assumption)\b"),
+        ("decision", r"\b(?:decision|adr|trade[- ]?off|alternative|consequence)\b"),
+        ("architecture", r"\b(?:architect|component|interface|dependency|trust boundar)\b"),
+    ):
+        if re.search(pattern, hay, re.I):
+            return family
+    return None
+
+
 def _infer_finding_id(evidence: dict, student_text: str) -> str | None:
     """Conservatively infer an explicit topic switch from the current turn.
 
@@ -311,6 +340,10 @@ def _challenge_for_turn(db: Session, state: dict, evidence_refs=(), student_text
     finding_id = _active_finding_id(evidence_refs)
     if not finding_id:
         finding_id = _infer_finding_id(evidence, student_text)
+    if not finding_id:
+        family = _finding_family_from_text(student_text)
+        if family:
+            finding_id = (state.get("active_finding_by_family") or {}).get(family)
     if not finding_id:
         finding_id = state.get("active_finding_id")
     if not finding_id:
@@ -626,8 +659,6 @@ def _evidence_discovery_signal(student_text: str, evidence_refs=()) -> bool:
     Exact PATH selection always wins. Ordinary coaching questions do not silently
     expand into repository discovery.
     """
-    if any(isinstance(ref, str) and ref.startswith("PATH:") for ref in evidence_refs or ()):
-        return False
     return bool(_DISCOVERY_REQUEST_RE.search(student_text or ""))
 
 
@@ -648,24 +679,42 @@ def _evidence_context(
     # different phase-bounded package. The turn package also records whether the
     # selected frozen content was actually supplied, unavailable, quarantined, or
     # absent from the snapshot.
-    selected_paths = [
+    selected_refs = [
         ref for ref in (evidence_refs or ())
         if isinstance(ref, str) and ref.startswith("PATH:")
     ]
-    if selected_paths and snapshot_id:
+    discovery_requested = _evidence_discovery_signal(student_text, evidence_refs)
+    if selected_refs and snapshot_id:
         snapshot = db.get(EvidenceSnapshot, snapshot_id)
         if snapshot:
             evidence = snapshot_from_dict(_safe_json(snapshot.summary_json, {}))
-            package = evidence_package_builder.build_for_turn(
-                evidence.to_dict(),
-                challenge.to_dict(),
-                evidence_refs,
-            )
+            evidence_dict = evidence.to_dict()
+            available = {str(a.get("path") or "") for a in evidence_dict.get("artifacts") or []}
+            selected_paths = [ref[5:] for ref in selected_refs]
+            present = [p for p in selected_paths if p in available]
+            missing = [p for p in selected_paths if p not in available]
+            # A valid exact path remains authoritative. If the remembered path is
+            # absent *and* the student explicitly asked us to search, acknowledge
+            # the miss in retrieval metadata and continue bounded discovery instead
+            # of terminating the student's broader request.
+            if present:
+                package = evidence_package_builder.build_for_turn(
+                    evidence_dict, challenge.to_dict(), evidence_refs,
+                )
+            elif discovery_requested:
+                package = evidence_package_builder.build_for_discovery(
+                    evidence_dict, challenge.to_dict(), student_text,
+                    requested_missing_paths=missing,
+                )
+            else:
+                package = evidence_package_builder.build_for_turn(
+                    evidence_dict, challenge.to_dict(), evidence_refs,
+                )
             return package.to_prompt_text(
                 max_chars=get_settings().etis_review_context_chars
             )
 
-    if _evidence_discovery_signal(student_text, evidence_refs) and snapshot_id:
+    if discovery_requested and snapshot_id:
         snapshot = db.get(EvidenceSnapshot, snapshot_id)
         if snapshot:
             evidence = snapshot_from_dict(_safe_json(snapshot.summary_json, {}))
@@ -1631,6 +1680,8 @@ def start(req: ReviewStartRequest, request:Request, db: Session = Depends(get_db
         review_control["planning_shadow"] = blank_planning_shadow()
     state = {
         "challenge": challenge.to_dict(),
+        "active_finding_id": challenge.id if challenge.finding else None,
+        "active_finding_by_family": ({_finding_family(challenge.finding): challenge.id} if challenge.finding and _finding_family(challenge.finding) else {}),
         "compact_evidence_package": compact_package,
         "evidence_cache_reused": bool(locals().get("cache_reused", False)),
         "evidence_snapshot_id": snapshot.id,
@@ -2136,6 +2187,9 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
         # retrieval, guidance, and the browser's contextual actions.
         if challenge.finding and challenge.id:
             state["active_finding_id"] = challenge.id
+            family = _finding_family(challenge.finding)
+            if family:
+                state.setdefault("active_finding_by_family", {})[family] = challenge.id
             follow_up["active_finding"] = challenge.finding
             follow_up["active_finding_id"] = challenge.id
             refs = list(follow_up.get("evidence_refs") or [])

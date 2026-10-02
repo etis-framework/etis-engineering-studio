@@ -154,6 +154,9 @@ class EvidencePackageBuilder:
             "hydration_status": hydration_status,
             "source_size": artifact.get("size", 0),
             "source_sha256": artifact.get("sha256", ""),
+            "starter_lineage": artifact.get("starter_lineage", "unknown"),
+            "starter_baseline_version": artifact.get("starter_baseline_version", ""),
+            "starter_baseline_source": artifact.get("starter_baseline_source", ""),
             "content_truncated": bool(
                 content and (len(content) > max_chars or len(disclosure.text) < min(len(content), max_chars))
             ),
@@ -308,6 +311,36 @@ class EvidencePackageBuilder:
                 reasons.setdefault(equivalent, []).append("validated equivalent-evidence location")
         return reasons
 
+    @staticmethod
+    def _topic_path_anchors(challenge: dict, student_text: str) -> dict[str, int]:
+        """Return deterministic path relevance for an explicit engineering topic.
+
+        Anchors create topical relevance; provenance/quality may only refine it later.
+        They intentionally point at evidence families, not required filenames.
+        """
+        finding = challenge.get("finding") or {}
+        hay = " ".join([
+            student_text or "",
+            str(challenge.get("title") or ""),
+            str(finding.get("title") or ""),
+            str(finding.get("statement") or ""),
+            str(finding.get("category") or ""),
+        ]).lower()
+        anchors: dict[str, int] = {}
+        if re.search(r"\b(?:risk|mitigat|likelihood|impact|reassess|contingenc)\b", hay):
+            anchors.update({"docs/planning/risk": 36, "risk-register": 44, "assumptions": 12, "docs/planning/": 8})
+        if re.search(r"\b(?:ai|artificial intelligence|ai-use|ai use|disclos|non-use|nonuse|human verification)\b", hay):
+            anchors.update({"docs/ai/": 34, "ai-use-log": 44, "ai-verification": 30, "ai-policy": 16})
+        if re.search(r"\b(?:decision|adr|trade[- ]?off|alternative|consequence)\b", hay):
+            anchors.update({"docs/decisions/": 40, "adr-": 44, "architectural decisions": 20, "docs/architecture/": 8})
+        if re.search(r"\b(?:architect|component|interface|dependency|trust boundar|system context)\b", hay):
+            anchors.update({"docs/architecture/": 38, "architecture.md": 42, "component-responsibilities": 36, "api-contracts": 34, "docs/decisions/": 10})
+        if re.search(r"\b(?:test|verification|acceptance|defect|quality|ci\b)\b", hay):
+            anchors.update({"docs/testing/": 32, "test-evidence/": 30, "docs/quality/": 24, ".github/workflows/": 20})
+        if re.search(r"\b(?:operation|runbook|recover|observab|incident|monitor)\b", hay):
+            anchors.update({"docs/operations/": 38, "docs/observability/": 34, "runbook": 40, "runtime-evidence": 30})
+        return anchors
+
     def build_for_discovery(
         self,
         evidence: dict,
@@ -315,6 +348,7 @@ class EvidencePackageBuilder:
         student_text: str,
         *,
         max_candidates: int = 6,
+        requested_missing_paths: list[str] | None = None,
     ) -> CompactEvidencePackage:
         """Build a bounded frozen-evidence search package when the student lacks an exact path.
 
@@ -323,6 +357,7 @@ class EvidencePackageBuilder:
         """
         terms = self._discovery_terms(challenge, student_text)
         known = self._known_equivalent_paths(evidence, challenge)
+        anchors = self._topic_path_anchors(challenge, student_text)
         ranked: list[tuple[int, str, dict, list[str]]] = []
         inspectable = 0
         for artifact in evidence.get("artifacts") or []:
@@ -339,11 +374,17 @@ class EvidencePackageBuilder:
             reasons = list(known.get(path, []))
             if path in known:
                 score += 80
+            anchor_hits = [(needle, weight) for needle, weight in anchors.items() if needle in path_hay]
+            anchor_score = max((weight for _needle, weight in anchor_hits), default=0)
+            if anchor_score:
+                score += anchor_score
+                reasons.append("topic-aligned evidence family: " + ", ".join(needle for needle, _weight in anchor_hits[:3]))
             path_hits = [t for t in terms if t in path_hay]
             summary_hits = [t for t in terms if t in summary]
             content_hits = [t for t in terms if t in content]
             relevance_score = (
-                min(30, 6 * len(path_hits))
+                anchor_score
+                + min(30, 6 * len(path_hits))
                 + min(12, 3 * len(summary_hits))
                 + min(18, 2 * len(content_hits))
             )
@@ -409,7 +450,7 @@ class EvidencePackageBuilder:
                 'these are bounded discovery candidates, not proof and not a complete repository search. '
                 'Inspect supplied candidate content before saying it supports the finding. A high rank means relevance, '
                 'not correctness. No candidate means this bounded search did not find reviewable support; it does not prove '
-                'the evidence does not exist elsewhere or outside the snapshot. BASELINE and STARTER_DERIVED remain starter-kit structure, not demonstrated team work.'
+                'the evidence does not exist elsewhere or outside the snapshot. BASELINE and STARTER_DERIVED remain starter-kit structure, not team work. ' + (f'Requested path(s) not present in this snapshot: {requested_missing_paths}. Discovery continued because the student explicitly asked to search for equivalent evidence.' if requested_missing_paths else '')
             ),
             retrieval={
                 "mode": "bounded_equivalent_evidence_discovery",
@@ -419,6 +460,7 @@ class EvidencePackageBuilder:
                 "inspectable_artifact_count": inspectable,
                 "known_equivalent_count": len(known),
                 "complete_search": False,
+                "requested_missing_paths": list(requested_missing_paths or []),
             },
         )
 

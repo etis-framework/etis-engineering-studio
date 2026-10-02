@@ -378,6 +378,7 @@ function addTurn(actor,lens,text,meta={}){
     els.transcript.appendChild(d);
     turnElement=d;
   }else{
+    if(meta.active_finding||meta.active_finding_id)applyActiveFindingContext(meta.active_finding,meta.active_finding_id);
     turnElement=reviewerCard(lens,text,meta);
     els.transcript.appendChild(turnElement);
     if(meta.reviewer)showActiveReviewer(meta.reviewer);
@@ -462,6 +463,31 @@ function concernArtifact(challenge,evidence){
   if(art)return art;
  }
  return null;
+}
+function applyActiveFindingContext(finding,findingId=null){
+ if(!finding&&findingId)finding=currentFindingById(findingId);
+ if(!finding)return;
+ const previousId=String(currentChallenge?.finding?.id||currentChallenge?.id||'');
+ const nextId=String(finding.id||findingId||'');
+ currentChallenge={
+  ...(currentChallenge||{}),
+  id:nextId||currentChallenge?.id,
+  title:finding.title||currentChallenge?.title,
+  finding,
+  evidence_refs:finding.evidence_refs||[],
+  noticed:finding.statement||finding.title||currentChallenge?.noticed,
+  significance:finding.significance||currentChallenge?.significance,
+  decision_question:'What does the selected frozen evidence actually support, and what should the team do next?'
+ };
+ if(nextId&&nextId!==previousId){
+  const guidance=$('#relatedGuidance');
+  if(guidance)guidance.innerHTML='<p class="quiet">Relevant guidance for the current finding will appear here when useful.</p>';
+ }
+ $('#challengeTitle').textContent=currentChallenge.title||'Current review finding';
+ if($('#noticedText'))$('#noticedText').textContent=currentChallenge.noticed||'';
+ if($('#significanceText'))$('#significanceText').textContent=currentChallenge.significance||'';
+ if($('#decisionQuestionText'))$('#decisionQuestionText').textContent=currentChallenge.decision_question||'';
+ updateReviewJourney();
 }
 function currentConcernArtifact(){return concernArtifact(currentChallenge,currentEvidence)}
 function updateReviewJourney(){
