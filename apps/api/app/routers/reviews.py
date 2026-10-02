@@ -33,6 +33,12 @@ from ..services.model_disclosure import sanitize_model_artifact
 from ..services.usage_store import record_usage_events
 from ..services.reasoning_validation import ReasoningValidator, blank_reasoning_shadow
 from ..services.review_planner import ReviewPlanner, blank_planning_shadow
+from ..services.finding_state import (
+    authoritative_finding_state,
+    finding_state_prompt_contract,
+    guard_reviewer_reply,
+    recommendation_confirmation,
+)
 from ..services.course_admin import phase_access
 from ..services.auth import (
     STAFF_ROLES,
@@ -645,6 +651,7 @@ def _idempotent_result(
             "active_finding": rs.get("active_finding"),
             "active_finding_id": rs.get("active_finding_id"),
             "preferred_evidence_path": rs.get("preferred_evidence_path"),
+            "finding_state": rs.get("finding_state"),
             "turn_context": rs.get("turn_context"),
             "evidence_refs": _safe_json(reviewer.evidence_refs_json, []),
         },
@@ -677,6 +684,7 @@ def _add_reviewer_turn(db: Session, session_id: int, sequence: int, payload: dic
                     "active_finding": payload.get("active_finding"),
                     "active_finding_id": payload.get("active_finding_id"),
                     "preferred_evidence_path": payload.get("preferred_evidence_path"),
+                    "finding_state": payload.get("finding_state"),
                     "turn_context": payload.get("turn_context"),
                 }
             ),
@@ -867,6 +875,7 @@ def _authoritative_turn_context(
         "challenge": challenge, "active_family": family, "snapshot_id": snapshot_id,
         "commit_sha": "", "artifact_registry": {}, "evidence_context": "",
         "preferred_evidence_path": None, "retrieval_mode": "none",
+        "finding_state": authoritative_finding_state(finding_id=None),
     }
     if not snapshot_id:
         return result
@@ -923,6 +932,30 @@ def _authoritative_turn_context(
                     if path in available:
                         result["preferred_evidence_path"] = path
                         break
+
+    finding_id = str(challenge.id or "")
+    frozen_finding = bool(
+        challenge.finding and finding_id and not finding_id.startswith("context:")
+    )
+    lifecycle = {"status": "open"}
+    if frozen_finding:
+        if hasattr(db, "query"):
+            lifecycle = _finding_states(db, int(snapshot_id)).get(
+                finding_id, lifecycle
+            )
+        elif isinstance(challenge.finding, dict):
+            lifecycle = challenge.finding.get("lifecycle") or lifecycle
+    result["finding_state"] = authoritative_finding_state(
+        finding_id=finding_id if frozen_finding else None,
+        lifecycle=lifecycle,
+        artifact_registry=result["artifact_registry"],
+        preferred_evidence_path=result["preferred_evidence_path"],
+    )
+    state_contract = finding_state_prompt_contract(result["finding_state"])
+    if state_contract:
+        result["evidence_context"] = (
+            result["evidence_context"].rstrip() + "\n\n" + state_contract
+        )
     return result
 
 
@@ -2373,6 +2406,11 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
             conversation_memory=state.get("conversation_memory") or {},
             student_name=student.display_name if student else "",
         )
+        follow_up["text"] = guard_reviewer_reply(
+            str(follow_up.get("text") or ""),
+            turn_context.get("finding_state") or {},
+        )
+        follow_up["finding_state"] = turn_context.get("finding_state")
         family = turn_context.get("active_family")
         snapshot_finding = bool(
             challenge.finding and challenge.id and not str(challenge.id).startswith("context:")
@@ -2396,6 +2434,7 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
             "retrieval_mode": turn_context.get("retrieval_mode"),
             "snapshot_id": turn_context.get("snapshot_id"),
             "commit_sha": turn_context.get("commit_sha"),
+            "finding_state": turn_context.get("finding_state"),
         }
         state["active_turn_context"] = public_turn_context
         follow_up["preferred_evidence_path"] = turn_context.get("preferred_evidence_path")
@@ -2967,19 +3006,17 @@ def commit_position(session_id: int, request:Request, db: Session = Depends(get_
         )
         profile = reviewer_profile("chief_architect")
         prefix = f"{first_name}, " if first_name else ""
+        finding_state = (state.get("active_turn_context") or {}).get(
+            "finding_state"
+        ) or {}
         reply = {
             "lens": "chief_architect",
             "reviewer": profile,
             "kind": "recommendation_confirmation",
             "provider": "deterministic",
-            "text": (
-                f"{prefix}your recommendation is now defensible enough to record. "
-                "The important point is not that the board has declared it permanently correct; "
-                "it is that your decision, evidence boundary, consequence, ownership, and closure "
-                "condition are visible and challengeable. This records the judgment you are "
-                "prepared to defend now. You can revise it when new evidence or better reasoning "
-                "changes your view."
-            ),
+            "text": recommendation_confirmation(finding_state, prefix=prefix),
+            "finding_state": finding_state,
+            "active_finding_id": finding_state.get("finding_id"),
         }
 
         # An identical retry is idempotent, but a later changed student
