@@ -714,3 +714,16 @@
  .finding-card-primary button,.finding-card-secondary button{width:100%;min-height:40px;text-align:left}
  .finding-card-secondary .text-button{padding:8px 2px}
 }
+
+/* UI authorship/context polish: hide stale review context and clarify hierarchy. */
+.board-readout>summary{display:flex;align-items:center;gap:10px;list-style:none}
+.board-readout>summary>span{min-width:0}
+.board-readout>summary>small{margin-left:auto}
+.board-changes{display:grid;gap:3px}
+.board-changes>b,.board-changes>span{display:block}
+.board-changes>b{font-size:11px;color:#d9f3e9}
+.board-changes>span{font-size:10px;line-height:1.4}
+@media(max-width:650px){
+ .board-readout>summary{flex-wrap:wrap}
+ .board-readout>summary>small{flex-basis:100%;margin-left:28px}
+}

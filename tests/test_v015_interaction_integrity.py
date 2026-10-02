@@ -235,7 +235,9 @@ def test_evidence_ask_board_submits_immediately_in_active_review():
     # unfinished student draft rather than overwriting it.
     assert "if(sessionId&&document.body.classList.contains('review-session-active')){" in compact
     assert "if(els.response.value.trim()){els.response.focus();" in compact
-    assert "constsending=send();" in compact
+    assert "constsending=send({" in compact
+    assert "displayText:`Askreviewerabout${actionLabel}`" in compact
+    assert "evidenceRefs:path?[`PATH:${path}`]:[]" in compact
     assert "awaitsending;" in compact
 
     # Explicit artifact attachment remains a manual next-message action.
