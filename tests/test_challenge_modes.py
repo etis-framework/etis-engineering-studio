@@ -36,6 +36,7 @@ async function run({path='',kind,explanation='',draft='',finding=true,accepted=t
   currentFindingById:()=>finding?{id:'F-weak',title:'Team commitments not demonstrated',statement:'No operating record',evidence_refs:path?['PATH:'+path]:[]}:null,
   switchView:x=>events.push(['view',x]),showSubmittedExchange:x=>events.push(['exchange',x.id]),
   toast:x=>events.push(['toast',x]),
+  studioDialogStack:[],openStudioDialog:(id)=>el('#'+id).classList.remove('hidden'),closeStudioDialog:(id)=>el('#'+id).classList.add('hidden'),focusStudioDialog:()=>{},
   $:el,document:{querySelector:q=>q.includes(':checked')?Object.values(radios).find(x=>x.checked):q.includes('value="evidence"')?radios.evidence:radios.interpretation,
     querySelectorAll:()=>Object.values(radios)},setTimeout:f=>f(),clearTimeout:()=>{}};
  vm.runInNewContext(code,ctx);
