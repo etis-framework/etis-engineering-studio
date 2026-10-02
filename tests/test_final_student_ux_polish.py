@@ -11,7 +11,7 @@ def test_review_action_box_is_full_width_and_secondary_panel_is_reduced():
     assert 'id="submissionBaseline"' not in HTML
     assert 'OTHER CONCERNS</span>' in HTML
     assert 'OTHER REVIEW CONTEXT' in HTML
-    assert "Compared with the previous evidence snapshot" in JS
+    assert "Changes since the previous evidence snapshot" in JS
 
 def test_current_concern_copy_has_structural_title_body_separation():
     block=JS[JS.index("function preparationHTML("):JS.index("function renderChallengeBrief(")]
