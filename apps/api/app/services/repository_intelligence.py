@@ -33,8 +33,24 @@ def starter_baseline() -> dict:
 
 
 @lru_cache
+def starter_official_variants() -> dict:
+    path = get_settings().repo_root / 'course-model' / 'starter_official_variants.json'
+    if not path.exists():
+        return {'paths': {}}
+    return json.loads(path.read_text(encoding='utf-8'))
+
+
+@lru_cache
 def baseline_lookup() -> dict[str, dict]:
     return {x['path']: x for x in starter_baseline().get('files', [])}
+
+
+@lru_cache
+def official_variant_lookup() -> dict[str, frozenset[str]]:
+    return {
+        path: frozenset(str(blob) for blob in blobs)
+        for path, blobs in (starter_official_variants().get('paths') or {}).items()
+    }
 
 
 @dataclass
@@ -89,6 +105,11 @@ class ReviewFinding:
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def git_blob_sha1(data: bytes) -> str:
+    header = f"blob {len(data)}\0".encode('ascii')
+    return hashlib.sha1(header + data).hexdigest()
 
 
 def _canonical_starter_bytes(data: bytes) -> bytes:
@@ -146,6 +167,8 @@ def classify_provenance(path: str, sha256: str, data: bytes | None = None) -> st
     if data is not None:
         canonical = _canonical_starter_bytes(data)
         if sha256_bytes(canonical) == baseline.get('sha256'):
+            return 'BASELINE'
+        if git_blob_sha1(canonical) in official_variant_lookup().get(path, frozenset()):
             return 'BASELINE'
         if _starter_scaffold_compatible(path, data, baseline):
             return 'STARTER_DERIVED'

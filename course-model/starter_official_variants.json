@@ -1,0 +1,51 @@
+{
+  "version": "2026-fall-official-history-v1",
+  "source_repository": "etis-framework/comp330-f26-starter-kit",
+  "official_commits": [
+    "dde98c5bfa9198ba80d35f0d1b40aa57eb69b226",
+    "eaa2386ddc84b76b9938620e199a40369d9cc9d4",
+    "bf567c1d23ae71599eb7295c5e1af3a69d1367d3",
+    "61676eed4b01476416787ce63048a2d706bb4353",
+    "23abf90ecf378011a800137d48aa2cb27bb3e7b2"
+  ],
+  "paths": {
+    "docs/architecture/architecture.md": [
+      "386cbcd547a5d9011ccc3365527048b368e5abc9",
+      "4def18ec641374b60f2f1fe3f7a491604a627dc5",
+      "7372eecb1476f3c88bdc7880e1d47037e3ff7a3c",
+      "59f1bc676deadd22e7d66a358c33510563e90da2"
+    ],
+    "docs/architecture/component-responsibilities.md": [
+      "f670d5a92a8c71bbd1e83501292438b398c319cf",
+      "c17645228ec41cd0455657955310d2968a531088",
+      "54335ce7f2ebed83529fedefcf963a8b1cd471a4"
+    ],
+    "docs/architecture/api-contracts.md": [
+      "69285bc54d0ace4f07c0cabf72ea0cb83462019d",
+      "d5ee499a2c3fff4d110ac90ae74369684d62199f",
+      "2af6aacf3963ce6d234461556b3a69d2d7956c74"
+    ],
+    "docs/decisions/ADR-000-template.md": [
+      "dc1a3818676309dbbed6680deb6f9a1ca2628af1",
+      "cf4fbcaecf0356fd28c3d98f5af80c5cc70ecec0"
+    ],
+    "docs/ai/ai-use-log.md": [
+      "919ca909f76432b14de9ab0131e52b790a5c207e",
+      "344e5f881a27262e5c4583a2dca82d016a724c20",
+      "c359ab9125c834bd8fbbf1853bca88508b4339a4"
+    ],
+    "docs/ai/ai-policy.md": [
+      "90729af92002947621c641867e3e6843fba8763d",
+      "a5f5cb53b5efac4e19df82849e1ada0ea60ce388"
+    ],
+    "docs/ai/ai-verification-notes.md": [
+      "01fb8e8836e6e5fb33d72f879bc706011268ca13",
+      "8f9c52d95621efaec189f5ec5ac463b21695390f"
+    ],
+    "docs/planning/risk-register.md": [
+      "d3beaf4b82a196d7a7d9bb7083fd792a89b6eff0",
+      "20311000045eb24791d8e2aa79e5ee1ec25b4247",
+      "b2594c611a7f429d0f92c5bf0153832f9cee8cea"
+    ]
+  }
+}
