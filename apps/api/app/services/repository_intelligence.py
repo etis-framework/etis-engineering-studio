@@ -88,12 +88,64 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def classify_provenance(path: str, sha256: str) -> str:
+def _canonical_starter_bytes(data: bytes) -> bytes:
+    """Normalize transport-only text differences before starter comparison.
+
+    Git/GitHub clients can preserve the same starter scaffold with BOM or line-ending
+    differences. Those changes must not become student authorship. Substantive text
+    changes remain distinct.
+    """
+    try:
+        text = data.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        return data
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    return text.encode('utf-8')
+
+
+def _starter_scaffold_compatible(path: str, data: bytes, baseline: dict) -> bool:
+    """Identify starter-derived scaffold when the packaged baseline hash is stale.
+
+    This is intentionally conservative: it applies only to known starter paths, text
+    artifacts close to the packaged starter size, and content carrying multiple starter
+    markers. It does not claim byte-for-byte identity; callers label it STARTER_DERIVED.
+    """
+    if Path(path).suffix.lower() not in TEXT_SUFFIXES and Path(path).suffix:
+        return False
+    size = int(baseline.get('size') or 0)
+    if size and not (0.70 * size <= len(data) <= 1.30 * size):
+        return False
+    try:
+        text = data.decode('utf-8-sig', errors='replace').lower()
+    except Exception:
+        return False
+    # Dated operating rows or concrete disposition language are strong signals
+    # that the team has started using the scaffold; do not hide those edits as
+    # starter drift merely because template markers remain elsewhere in the file.
+    if re.search(r"\b20\d{2}-\d{2}-\d{2}\b", text) and re.search(
+        r"\b(?:accepted|rejected|verified|reviewed|mitigated|closed|owner|outcome)\b", text
+    ):
+        return False
+    if re.search(r"\bteam[- ]specific\b", text) or re.search(
+        r"\b[a-z][a-z'-]+\s+[a-z][a-z'-]+\s+(?:owns|is owner|is backup|approved|reviewed)\b", text, re.I
+    ):
+        return False
+    hits = {m for m in BASELINE_MARKERS if m in text}
+    return len(hits) >= 2
+
+
+def classify_provenance(path: str, sha256: str, data: bytes | None = None) -> str:
     baseline = baseline_lookup().get(path)
     if not baseline:
         return 'TEAM_ADDED'
     if baseline.get('sha256') == sha256:
         return 'BASELINE'
+    if data is not None:
+        canonical = _canonical_starter_bytes(data)
+        if sha256_bytes(canonical) == baseline.get('sha256'):
+            return 'BASELINE'
+        if _starter_scaffold_compatible(path, data, baseline):
+            return 'STARTER_DERIVED'
     return 'TEAM_ADAPTED'
 
 
@@ -102,6 +154,8 @@ def text_quality(path: str, content: str, provenance: str) -> tuple[str, str]:
     lower = clean.lower()
     if provenance == 'BASELINE':
         return 'scaffold', 'Unchanged from the official COMP 330 starter-kit baseline.'
+    if provenance == 'STARTER_DERIVED':
+        return 'scaffold', 'Starter-derived scaffold; packaged baseline bytes differ, but substantive team adaptation is not demonstrated.'
     if not clean:
         return 'empty', 'File is empty.'
     marker_hits = [m for m in BASELINE_MARKERS if m in lower]
@@ -114,7 +168,7 @@ def text_quality(path: str, content: str, provenance: str) -> tuple[str, str]:
 
 def artifact_from_bytes(path: str, data: bytes, url: str = '') -> ArtifactFact:
     digest = sha256_bytes(data)
-    provenance = classify_provenance(path, digest)
+    provenance = classify_provenance(path, digest, data)
     text = ''
     try:
         if Path(path).suffix.lower() in TEXT_SUFFIXES or not Path(path).suffix:
@@ -213,7 +267,7 @@ def summarize_strengths(phase_id: str, artifacts: list[ArtifactFact], metrics: d
     if adapted:
         sample = ', '.join(a.path for a in adapted[:3])
         strengths.append(f"Project-specific evidence is visible in {sample}{' and other artifacts' if len(adapted) > 3 else ''}.")
-    baseline = [a for a in artifacts if a.provenance == 'BASELINE']
+    baseline = [a for a in artifacts if a.provenance in {'BASELINE', 'STARTER_DERIVED'}]
     if baseline:
         strengths.append('The official COMP 330 engineering scaffold is present, giving the team a consistent evidence structure to build from.')
     if metrics.get('issue_count', 0) > 0:

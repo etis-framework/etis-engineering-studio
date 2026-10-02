@@ -249,6 +249,7 @@ class EvidencePackageBuilder:
                 'Do not claim to have inspected file contents unless hydration_status is FOUND_AND_SUPPLIED '
                 'or FOUND_BUT_EMPTY. Absence in the snapshot is not proof of absence everywhere. '
                 'BASELINE provenance means unchanged official starter-kit scaffold, not student-authored failure; '
+                'STARTER_DERIVED means a known starter path that still behaves like scaffold even though packaged baseline bytes differ; '
                 'TEAM_ADAPTED means a starter path materially changed by the team; TEAM_ADDED means new team evidence.'
             ),
         )
@@ -358,7 +359,7 @@ class EvidencePackageBuilder:
                 if provenance in {"TEAM_ADDED", "TEAM_ADAPTED"}:
                     score += 5
                     reasons.append("team-authored/adapted artifact")
-                elif provenance == "BASELINE":
+                elif provenance in {"BASELINE", "STARTER_DERIVED"}:
                     score -= 1
                 if quality == "reviewable":
                     score += 4
@@ -408,7 +409,7 @@ class EvidencePackageBuilder:
                 'these are bounded discovery candidates, not proof and not a complete repository search. '
                 'Inspect supplied candidate content before saying it supports the finding. A high rank means relevance, '
                 'not correctness. No candidate means this bounded search did not find reviewable support; it does not prove '
-                'the evidence does not exist elsewhere or outside the snapshot. BASELINE remains starter-kit structure, not team work.'
+                'the evidence does not exist elsewhere or outside the snapshot. BASELINE and STARTER_DERIVED remain starter-kit structure, not demonstrated team work.'
             ),
             retrieval={
                 "mode": "bounded_equivalent_evidence_discovery",

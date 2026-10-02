@@ -239,22 +239,82 @@ def _active_finding_id(evidence_refs) -> str | None:
     return None
 
 
-def _challenge_for_turn(db: Session, state: dict, evidence_refs=()) -> Challenge:
-    """Align semantic dialogue with the finding the student actually selected.
+_FINDING_STOPWORDS = {
+    "about", "already", "anything", "evidence", "finding", "from", "have", "help",
+    "into", "know", "look", "repository", "search", "somewhere", "that", "this",
+    "what", "where", "which", "with", "work", "team", "file", "files", "find",
+}
 
-    Review sessions open on one ranked finding, but students may later choose a
-    different finding from Engineering Evidence. The opening challenge must not
-    remain the referent merely because it started the session.
+def _finding_tokens(value: str) -> set[str]:
+    return {t for t in re.findall(r"[a-z0-9][a-z0-9_-]{2,}", (value or "").lower())
+            if t not in _FINDING_STOPWORDS}
+
+def _infer_finding_id(evidence: dict, student_text: str) -> str | None:
+    """Conservatively infer an explicit topic switch from the current turn.
+
+    This is not semantic free-form classification. It only switches when the student's
+    words strongly overlap one frozen finding, or when a narrow engineering-family cue
+    (AI disclosure, risk, decision) uniquely identifies one finding. Ambiguous pronouns
+    intentionally do not switch context.
+    """
+    text = (student_text or "").strip()
+    if not text:
+        return None
+    findings = []
+    seen = set()
+    for f in [*(evidence.get("findings") or []), *(evidence.get("challenge_candidates") or [])]:
+        fid = str(f.get("id") or "")
+        if not fid or fid in seen:
+            continue
+        seen.add(fid); findings.append(f)
+    lower = text.lower()
+    family_cues = []
+    if re.search(r"\b(?:ai|artificial intelligence|ai-use|ai use|disclos|non-use|nonuse)\b", lower):
+        family_cues.append(("ai", re.compile(r"\b(?:ai|artificial intelligence|disclos|human verification)\b", re.I)))
+    if re.search(r"\b(?:risk|mitigat|likelihood|impact|reassess)\b", lower):
+        family_cues.append(("risk", re.compile(r"\b(?:risk|mitigat|likelihood|impact|failure|assumption)\b", re.I)))
+    if re.search(r"\b(?:decision|adr|trade[- ]?off|alternative)\b", lower):
+        family_cues.append(("decision", re.compile(r"\b(?:decision|adr|trade[- ]?off|alternative|consequence)\b", re.I)))
+    if re.search(r"\b(?:architect|component|interface|dependency|trust boundar)\b", lower):
+        family_cues.append(("architecture", re.compile(r"\b(?:architect|component|interface|dependency|trust boundar)\b", re.I)))
+    for _name, pattern in family_cues:
+        matched = [f for f in findings if pattern.search(" ".join(str(f.get(k) or "") for k in ("title","statement","significance","category")))]
+        if len(matched) == 1:
+            return str(matched[0].get("id"))
+    query = _finding_tokens(text)
+    scored = []
+    for f in findings:
+        hay = _finding_tokens(" ".join(str(f.get(k) or "") for k in ("title","statement","significance","category")))
+        overlap = len(query & hay)
+        if overlap:
+            scored.append((overlap, str(f.get("id"))))
+    scored.sort(reverse=True)
+    if scored and scored[0][0] >= 2 and (len(scored) == 1 or scored[0][0] > scored[1][0]):
+        return scored[0][1]
+    return None
+
+def _challenge_for_turn(db: Session, state: dict, evidence_refs=(), student_text: str = "") -> Challenge:
+    """Align semantic dialogue with the finding the student is actually discussing.
+
+    Precedence: explicit FINDING reference, strong current-turn topic switch, persisted
+    active finding, then the session-opening challenge. Ambiguous language never invents
+    a switch.
     """
     base = _challenge_from_state(state)
-    finding_id = _active_finding_id(evidence_refs)
     snapshot_id = state.get("evidence_snapshot_id")
-    if not finding_id or not snapshot_id:
+    if not snapshot_id:
         return base
     snapshot = db.get(EvidenceSnapshot, snapshot_id)
     if not snapshot:
         return base
     evidence = _safe_json(snapshot.summary_json, {})
+    finding_id = _active_finding_id(evidence_refs)
+    if not finding_id:
+        finding_id = _infer_finding_id(evidence, student_text)
+    if not finding_id:
+        finding_id = state.get("active_finding_id")
+    if not finding_id:
+        return base
     findings = [*(evidence.get("findings") or []), *(evidence.get("challenge_candidates") or [])]
     finding = next((f for f in findings if str(f.get("id")) == str(finding_id)), None)
     if not finding:
@@ -494,6 +554,9 @@ def _idempotent_result(
             "guidance_refs": rs.get("guidance_refs", []),
             "coaching_phase": rs.get("coaching_phase"),
             "teach_back": rs.get("teach_back", False),
+            "active_finding": rs.get("active_finding"),
+            "active_finding_id": rs.get("active_finding_id"),
+            "evidence_refs": _safe_json(reviewer.evidence_refs_json, []),
         },
     }
 
@@ -521,6 +584,8 @@ def _add_reviewer_turn(db: Session, session_id: int, sequence: int, payload: dic
                     "understood_points": payload.get("understood_points", []),
                     "teach_back": payload.get("teach_back", False),
                     "model": payload.get("model"),
+                    "active_finding": payload.get("active_finding"),
+                    "active_finding_id": payload.get("active_finding_id"),
                 }
             ),
         )
@@ -573,7 +638,7 @@ def _evidence_context(
     student_text: str = '',
 ):
     snapshot_id = state.get("evidence_snapshot_id")
-    challenge = _challenge_for_turn(db, state, evidence_refs)
+    challenge = _challenge_for_turn(db, state, evidence_refs, student_text=student_text)
     topic = turn_coaching_phase(challenge.phase_id, student_text,
                                 (state.get('conversation_memory') or {}).get('coaching_phase'),
                                 evidence_refs)
@@ -2053,7 +2118,7 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
             }
 
         state = _safe_json(session.challenge_state_json, {})
-        challenge = _challenge_for_turn(db, state, req.evidence_refs)
+        challenge = _challenge_for_turn(db, state, req.evidence_refs, student_text=req.response)
         turns = db.query(ReviewTurn).filter_by(session_id=session_id).order_by(ReviewTurn.sequence).all()
         sequence = (turns[-1].sequence if turns else 0) + 1
         student = _student_for_session(db, session)
@@ -2067,6 +2132,18 @@ def respond(session_id: int, req: ReviewResponseRequest, request:Request, db: Se
             conversation_memory=state.get("conversation_memory") or {},
             student_name=student.display_name if student else "",
         )
+        # Keep one authoritative active finding across reviewer reasoning, persistence,
+        # retrieval, guidance, and the browser's contextual actions.
+        if challenge.finding and challenge.id:
+            state["active_finding_id"] = challenge.id
+            follow_up["active_finding"] = challenge.finding
+            follow_up["active_finding_id"] = challenge.id
+            refs = list(follow_up.get("evidence_refs") or [])
+            marker = f"FINDING:{challenge.id}"
+            if marker not in refs:
+                refs.insert(0, marker)
+            follow_up["evidence_refs"] = refs
+
         proposal_updates, proposal_intent = _reasoning_proposal_from_reply(follow_up)
         shadow_signal = _run_reasoning_shadow(
             db,
