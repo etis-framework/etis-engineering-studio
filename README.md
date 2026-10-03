@@ -10,7 +10,7 @@ The project was first developed and production-tested in the Loyola University C
 
 ## Release and documentation
 
-The current source release candidate is **v0.18.0 — Evidence Authority and Review UX**. The single software version authority is [`apps/api/app/version.py`](apps/api/app/version.py); FastAPI/OpenAPI and `/health` use it. A source version does not prove that the same version is deployed or published.
+The current source release edition is **v0.18.0 — Evidence Authority and Review UX**. The single software version authority is [`apps/api/app/version.py`](apps/api/app/version.py); FastAPI/OpenAPI and `/health` use it. A source version does not prove that the same version is deployed or published.
 
 Production v0.18.0 was accepted on October 2, 2026 with shadow/shadow evaluation and legacy student-visible authority. See the [exact source, deployment and human-smoke evidence](docs/operations/V018_PRODUCTION_ACCEPTANCE_2026-10-02.md). Release publication remains pending.
 

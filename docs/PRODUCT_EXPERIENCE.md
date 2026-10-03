@@ -1,6 +1,6 @@
 # Product Experience
 
-> **Status:** Current student and instructor contract for the v0.18.0 candidate; deployment acceptance is separate.
+> **Status:** Current student and instructor contract for the v0.18.0 release; deployment acceptance is separate.
 
 ## Student: Engineering Studio
 

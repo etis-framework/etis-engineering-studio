@@ -1,6 +1,6 @@
 # Local Development
 
-> **Status:** Current developer path for the v0.18.0 source candidate. Release acceptance is recorded separately.
+> **Status:** Current developer path for the v0.18.0 source release. Release acceptance is recorded separately.
 
 ## Fast path
 

@@ -1,6 +1,6 @@
 # ETIS Engineering Studio Documentation Library
 
-**Current manual edition: v0.18.0 (release candidate).** All 12 manuals are maintained as paired DOCX/PDF files. Publication follows [release acceptance](../releases/v0.18.0.md); source version is not live deployment evidence. Embedded August screenshots remain explicitly historical examples, with current text/source governing labels and behavior.
+**Current manual edition: v0.18.0 (release edition).** All 12 manuals are maintained as paired DOCX/PDF files. Publication follows [release acceptance](../releases/v0.18.0.md); source version is not live deployment evidence. Embedded August screenshots remain explicitly historical examples, with current text/source governing labels and behavior.
 
 ## Complete paired inventory
 

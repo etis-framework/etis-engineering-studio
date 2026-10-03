@@ -23,7 +23,7 @@ def test_runtime_version_authority():
 def test_current_release_metadata_and_manual_pairs():
     edition = json.loads((ROOT / 'docs/manuals/edition.json').read_text())
     assert edition['version'] == STUDIO_VERSION
-    assert edition['status'] == 'release_candidate'
+    assert edition['status'] == 'release'
     assert len(edition['manuals']) == 12
     actual = {p.name for p in (ROOT / 'docs/manuals').glob('*.docx')}
     assert {m['docx'] for m in edition['manuals']} == actual
@@ -37,7 +37,7 @@ def test_current_release_metadata_and_manual_pairs():
             body = ET.fromstring(archive.read('word/document.xml'))
             text = ' '.join(body.itertext())
             assert f'v{STUDIO_VERSION}' in text
-            assert 'release candidate' in text.lower()
+            assert 'release manual edition' in text.lower()
             core = ET.fromstring(archive.read('docProps/core.xml'))
             assert f'v{STUDIO_VERSION}' in ' '.join(core.itertext())
         assert manual['pages'] > 0
