@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased - v0.18.0 Evidence Authority and Review UX
+## v0.18.0 - Evidence Authority and Review UX
 
 ### Changed
 
@@ -8,12 +8,12 @@
 - Consolidates the post-v0.17 work on frozen artifact hydration, phase-grounded dialogue, evidence authority, finding-state/recommendation separation, bounded equivalent-evidence discovery, and the Review Room / Engineering Evidence journey.
 - Documents simplified concern presentation, secondary review context, exact-source inspection, snapshot relationship notices, action authorship, draft preservation, and keyboard focus management accepted through PR #132.
 - Reconciles the repository README, current Markdown contracts, installation/adoption/operations guidance, backlog, and all 12 formal manuals with paired regenerated PDFs. Historical gate, acceptance, baseline and v0.17 analytical evidence remain intact.
-- Includes the development pytest 9.0.3 security update merged in PR #133. Production PyJWT remains pinned to 2.15.1. Open alerts require current dependency-graph/advisory verification; this entry does not claim they have been dismissed or cleared.
+- Includes the development pytest 9.0.3 security update merged in PR #133. Production PyJWT remains pinned to 2.15.1. The maintainer queried GitHub after PR #135 merged on October 2, 2026 and received no open Dependabot alerts; the protected deployment dependency audit also passed. Recheck alert state before future publication or deployment.
 
 ### Authority and acceptance
 
 - Accepted production reasoning validation and review planning run in `shadow` / `shadow`; legacy reasoning and student-visible question selection remain authoritative. No PR5 transfer, database migration, evidence-ranking redesign, course-contract change, or additional UI redesign is included.
-- Source validation, rendered manual QA, and live production acceptance are separate gates. Production acceptance of source `6ba92bf7b4cb7acdb9228217ff243cd72172cb65` with shadow/shadow and human smoke is recorded separately; publication remains pending. This documentation correction needs its own merged-source provenance.
+- Source validation, rendered manual QA, and live production acceptance are separate gates. Production acceptance of source `6ba92bf7b4cb7acdb9228217ff243cd72172cb65` with shadow/shadow and human smoke is recorded separately; publication remains pending. The mode-documentation correction merged as PR #135 at `90b3825dc7cff5d652f60fca8b0dec9a1cc2b286`; that documentation-only source is separate from the deployed SHA.
 
 ## v0.17.0 - Analytical Engine Evolution
 

@@ -4,7 +4,7 @@
 
 This directory contains the Bicep templates used by the protected production deployment workflow.
 
-The current Studio source candidate is [v0.18.0](../../docs/releases/v0.18.0.md). Its release does not transfer analytical authority; explicitly select both workflow inputs as `shadow` for accepted production, preserving legacy student-visible authority. The workflow and application fallback defaults remain `legacy`; defaults are not deployment evidence. Compare source version, deployment SHA/image and live acceptance separately.
+The current Studio source release is [v0.18.0](../../docs/releases/v0.18.0.md). Its release does not transfer analytical authority; explicitly select both workflow inputs as `shadow` for accepted production, preserving legacy student-visible authority. The workflow and application fallback defaults remain `legacy`; defaults are not deployment evidence. Compare source version, deployment SHA/image and live acceptance separately.
 
 ## Files
 

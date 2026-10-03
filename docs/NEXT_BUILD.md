@@ -1,6 +1,6 @@
 # Next Build and Maintenance Backlog
 
-**Revalidated for the v0.18.0 source candidate at main `7cc5beca327966652c1b5ef7eb3af2aff5841f7e`.** Production changes require observed defects, security/course needs or deliberately scheduled enhancements. The accepted Review Room / Engineering Evidence UX is frozen; release documentation and acceptance are the immediate work.
+**Revalidated for the v0.18.0 release edition; initially audited at `7cc5beca327966652c1b5ef7eb3af2aff5841f7e`, with production acceptance and mode-documentation correction recorded through main `90b3825dc7cff5d652f60fca8b0dec9a1cc2b286`.** Production changes require observed defects, security/course needs or deliberately scheduled enhancements. The accepted Review Room / Engineering Evidence UX is frozen; release documentation and acceptance are the immediate work.
 
 ## Completed in current source
 

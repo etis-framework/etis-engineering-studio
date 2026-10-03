@@ -2,7 +2,7 @@
 
 This directory contains the durable architecture, security, deployment, operations, acceptance, and product documentation for ETIS Engineering Studio.
 
-> **Source release:** v0.18.0 candidate. See [`releases/v0.18.0.md`](releases/v0.18.0.md) for current scope and publication gates. The 2026-08-21 GO decision and Gate 17 records are historical evidence, not acceptance of this candidate.
+> **Source release:** v0.18.0 release edition. See [`releases/v0.18.0.md`](releases/v0.18.0.md) for current scope and publication gates. The 2026-08-21 GO decision and Gate 17 records are historical evidence, not acceptance of this release.
 
 ## Start here
 
