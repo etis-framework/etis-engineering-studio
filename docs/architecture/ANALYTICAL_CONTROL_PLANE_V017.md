@@ -1,6 +1,6 @@
 # ETIS Engineering Studio v0.17 Analytical Control Plane
 
-> **Version scope:** This remains the v0.17 analytical design/evaluation history inherited by v0.18.0. Production defaults remain legacy/legacy; no authority transfer is included. See [current release](../releases/v0.18.0.md).
+> **Version scope:** This remains the v0.17 analytical design/evaluation history inherited by v0.18.0. Accepted v0.18.0 production uses shadow/shadow evaluation with legacy student-visible authority; fallback defaults remain legacy/legacy. No authority transfer is included. See [current release](../releases/v0.18.0.md).
 
 > **Status:** PR4 analytical evaluation and war-game infrastructure implemented on the PR1 planning spine, PR2 reasoning-validation shadow, and PR3 shadow Review Planner / Next-Question Selector. Legacy reasoning and the legacy student-visible question remain authoritative while the new components are evaluated before any authority transfer.
 

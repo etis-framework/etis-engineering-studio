@@ -329,4 +329,4 @@ Production acceptance evidence is recorded in `operations/POST_PROVISIONING_PROD
 
 Use [`releases/v0.18.0.md`](releases/v0.18.0.md) for the release sequence and smoke checks. Compare `/health.version` with `apps/api/app/version.py` and the immutable deployment SHA; version alone is not image provenance.
 
-The workflow inputs `reasoning_validation_mode` and `review_planning_mode` default to `legacy`. Preserve `legacy` / `legacy` for this release. Shadow planning requires shadow reasoning validation and remains an internal comparison path; session-locked modes do not change inside existing reviews. No analytical authority transfer is authorized by v0.18.0.
+The workflow inputs `reasoning_validation_mode` and `review_planning_mode` default to `legacy`. For accepted production, explicitly select `shadow` / `shadow` for this release; do not mistake fallback defaults for the accepted deployment configuration. Shadow planning requires shadow reasoning validation and remains an internal comparison path; session-locked modes do not change inside existing reviews. No analytical authority transfer is authorized by v0.18.0.

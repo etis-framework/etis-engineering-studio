@@ -4,7 +4,7 @@ ETIS Engineering Studio is designed to be adopted and adapted by universities an
 
 This guide separates **upstream software** from the **institution-owned deployment**. An institution should not reuse ETIS Framework production credentials, tenant identifiers, GitHub App registrations, domains, rosters, or secrets.
 
-The upstream source candidate is **v0.18.0**; use the [release contract](releases/v0.18.0.md) and [12-manual library](manuals/README.md). Select a verified release tag/commit and perform institution-specific acceptance; upstream smoke is not proof for an independent deployment. Production analytical defaults remain legacy/legacy.
+The upstream source candidate is **v0.18.0**; use the [release contract](releases/v0.18.0.md) and [12-manual library](manuals/README.md). Select a verified release tag/commit and perform institution-specific acceptance; upstream smoke is not proof for an independent deployment. Accepted upstream production runs shadow/shadow evaluation with legacy student-visible authority. Workflow/application fallback defaults remain legacy; explicitly select the intended configuration and independently accept an institutional deployment.
 
 ## 1. Decide what you are adopting
 

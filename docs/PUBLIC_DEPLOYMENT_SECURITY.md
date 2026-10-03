@@ -80,7 +80,7 @@ Use this checklist when deploying ETIS Engineering Studio outside the ETIS Frame
 
 - [ ] Record source version, merged SHA, immutable image/revision and successful protected deployment run.
 - [ ] Compare live `/health.version` with `apps/api/app/version.py`; verify `/ready`.
-- [ ] Preserve legacy/legacy analytical authority unless a separately accepted change authorizes otherwise.
+- [ ] Preserve accepted shadow/shadow evaluation with explicit deployment inputs; legacy reasoning and student-visible selection remain authoritative. A future authority transfer requires separate acceptance.
 - [ ] Verify frozen-snapshot notices, valid finding challenges, and correction/resolution authority.
 - [ ] Verify action-triggered prompts are not labeled as student writing, drafts remain private, and dialog keyboard/exit behavior works.
 - [ ] Readiness/finding signals do not imply grades.

@@ -12,8 +12,8 @@
 
 ### Authority and acceptance
 
-- Production reasoning and planning defaults remain `legacy` / `legacy`; shadow evaluation has no student-visible authority. No PR5 transfer, database migration, evidence-ranking redesign, course-contract change, or additional UI redesign is included.
-- Source validation, rendered manual QA, and live production acceptance are separate gates. This candidate is not yet a published/production-accepted v0.18.0 release.
+- Accepted production reasoning validation and review planning run in `shadow` / `shadow`; legacy reasoning and student-visible question selection remain authoritative. No PR5 transfer, database migration, evidence-ranking redesign, course-contract change, or additional UI redesign is included.
+- Source validation, rendered manual QA, and live production acceptance are separate gates. Production acceptance of source `6ba92bf7b4cb7acdb9228217ff243cd72172cb65` with shadow/shadow and human smoke is recorded separately; publication remains pending. This documentation correction needs its own merged-source provenance.
 
 ## v0.17.0 - Analytical Engine Evolution
 

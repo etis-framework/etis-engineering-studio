@@ -13,7 +13,7 @@
 ## Immediate release gates
 
 1. Validate the v0.18.0 version/documentation patch and all 12 paired manuals; require rendered page QA and green local/CI checks.
-2. Deploy merged source through the protected workflow with legacy/legacy defaults, run operator acceptance and human smoke, then tag/publish with verified date/SHA.
+2. Deploy merged source through the protected workflow with explicit shadow/shadow evaluation and legacy student-visible authority, run operator acceptance and human smoke, then tag/publish with verified date/SHA.
 3. Requery dependency alerts against the refreshed main graph. Do not dismiss stale-looking PyJWT alerts without verifying graph/ranges; retain unresolved alerts accurately.
 
 ## Revalidate before implementation

@@ -12,6 +12,8 @@ The project was first developed and production-tested in the Loyola University C
 
 The current source release candidate is **v0.18.0 — Evidence Authority and Review UX**. The single software version authority is [`apps/api/app/version.py`](apps/api/app/version.py); FastAPI/OpenAPI and `/health` use it. A source version does not prove that the same version is deployed or published.
 
+Production v0.18.0 was accepted on October 2, 2026 with shadow/shadow evaluation and legacy student-visible authority. See the [exact source, deployment and human-smoke evidence](docs/operations/V018_PRODUCTION_ACCEPTANCE_2026-10-02.md). Release publication remains pending.
+
 Read the [v0.18.0 release contract](docs/releases/v0.18.0.md), [documentation map](docs/README.md), and [complete 12-manual DOCX/PDF library](docs/manuals/README.md). The v0.17.0 release and the August production acceptance records remain historical evidence. v0.18.0 publication follows merge, green CI, protected Azure deployment, and live acceptance.
 
 The Review Room is the conversation home; Engineering Evidence is the saved source notebook. Inspect cited source, Find supporting evidence, Discuss, Challenge, and Help me resolve this have distinct purposes. Search and dialogue do not close a finding: only authoritative `corrected` or `resolved` states are closed. New commits cannot rewrite an active review's frozen snapshot.
