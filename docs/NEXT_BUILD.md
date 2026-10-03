@@ -1,6 +1,6 @@
 # Next Build and Maintenance Backlog
 
-**Revalidated for the v0.18.0 release edition; initially audited at `7cc5beca327966652c1b5ef7eb3af2aff5841f7e`, with production acceptance and mode-documentation correction recorded through main `90b3825dc7cff5d652f60fca8b0dec9a1cc2b286`.** Production changes require observed defects, security/course needs or deliberately scheduled enhancements. The accepted Review Room / Engineering Evidence UX is frozen; release documentation and acceptance are the immediate work.
+**Revalidated for the v0.18.0 release edition; initially audited at `7cc5beca327966652c1b5ef7eb3af2aff5841f7e`, with production acceptance and mode-documentation correction recorded through main `90b3825dc7cff5d652f60fca8b0dec9a1cc2b286`.** Production changes require observed defects, security/course needs or deliberately scheduled enhancements. The accepted Review Room / Engineering Evidence UX is frozen; v0.18.0 is published at tag/source `d2d4a4c5a00033f6517511a71d045d617c0b256c`, with final shadow/shadow deployment, operator acceptance and human smoke complete. Revalidate deferred work before choosing the next revision.
 
 ## Completed in current source
 
@@ -10,11 +10,11 @@
 - Two-room navigation, context disclosure, concern presentation, action authorship and keyboard dialog focus are implemented through PR #132.
 - Development pytest security pin is 9.0.3 through PR #133; PyJWT is pinned 2.15.1 in production and the included development dependency graph.
 
-## Immediate release gates
+## Completed v0.18.0 release gates
 
-1. Validate the v0.18.0 version/documentation patch and all 12 paired manuals; require rendered page QA and green local/CI checks.
-2. Deploy merged source through the protected workflow with explicit shadow/shadow evaluation and legacy student-visible authority, run operator acceptance and human smoke, then tag/publish with verified date/SHA.
-3. Requery dependency alerts against the refreshed main graph. Do not dismiss stale-looking PyJWT alerts without verifying graph/ranges; retain unresolved alerts accurately.
+1. Shared version authority, current repository documentation and all 12 paired DOCX/PDF manuals finalized; rendered page QA and local/CI checks passed.
+2. Final tagged source `d2d4a4c5a00033f6517511a71d045d617c0b256c` deployed by run `37084900540` with shadow/shadow; operator acceptance and final human smoke passed on revision `etis-studio-prod--0000103`. GitHub publication: `2026-10-03T01:20:38Z`.
+3. The maintainer's refreshed-main GitHub query returned no open Dependabot alerts; protected dependency audits passed. Recheck future alerts independently; no blanket future security guarantee follows.
 
 ## Revalidate before implementation
 
