@@ -13,7 +13,7 @@
 ### Authority and acceptance
 
 - Accepted production reasoning validation and review planning run in `shadow` / `shadow`; legacy reasoning and student-visible question selection remain authoritative. No PR5 transfer, database migration, evidence-ranking redesign, course-contract change, or additional UI redesign is included.
-- Source validation, rendered manual QA, and live production acceptance are separate gates. Production acceptance of source `6ba92bf7b4cb7acdb9228217ff243cd72172cb65` with shadow/shadow and human smoke is recorded separately; publication remains pending. The mode-documentation correction merged as PR #135 at `90b3825dc7cff5d652f60fca8b0dec9a1cc2b286`; that documentation-only source is separate from the deployed SHA.
+- Source validation, rendered manual QA, and live production acceptance are separate gates. Production acceptance of source `6ba92bf7b4cb7acdb9228217ff243cd72172cb65` with shadow/shadow and human smoke is recorded separately; publication completed at `2026-10-03T01:20:38Z` (October 2, 2026, 8:20:38 p.m. America/Chicago). The mode-documentation correction merged as PR #135 at `90b3825dc7cff5d652f60fca8b0dec9a1cc2b286`; the final published/tagged and accepted deployed SHA is `d2d4a4c5a00033f6517511a71d045d617c0b256c`, deployment `37084900540`, production revision `etis-studio-prod--0000103`.
 
 ## v0.17.0 - Analytical Engine Evolution
 

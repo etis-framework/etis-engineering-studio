@@ -12,7 +12,7 @@ The project was first developed and production-tested in the Loyola University C
 
 The current source release edition is **v0.18.0 — Evidence Authority and Review UX**. The single software version authority is [`apps/api/app/version.py`](apps/api/app/version.py); FastAPI/OpenAPI and `/health` use it. A source version does not prove that the same version is deployed or published.
 
-Production v0.18.0 was accepted on October 2, 2026 with shadow/shadow evaluation and legacy student-visible authority. See the [exact source, deployment and human-smoke evidence](docs/operations/V018_PRODUCTION_ACCEPTANCE_2026-10-02.md). Release publication remains pending.
+Production v0.18.0 was accepted on October 2, 2026 with shadow/shadow evaluation and legacy student-visible authority. See the [exact source, deployment and human-smoke evidence](docs/operations/V018_PRODUCTION_ACCEPTANCE_2026-10-02.md). [v0.18.0 is published](https://github.com/etis-framework/etis-engineering-studio/releases/tag/v0.18.0). The final accepted/tagged commit is `d2d4a4c5a00033f6517511a71d045d617c0b256c`, deployed by run `37084900540` as revision `etis-studio-prod--0000103`; production acceptance and final human smoke passed.
 
 Read the [v0.18.0 release contract](docs/releases/v0.18.0.md), [documentation map](docs/README.md), and [complete 12-manual DOCX/PDF library](docs/manuals/README.md). The v0.17.0 release and the August production acceptance records remain historical evidence. v0.18.0 publication follows merge, green CI, protected Azure deployment, and live acceptance.
 
