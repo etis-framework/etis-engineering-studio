@@ -56,7 +56,7 @@ For v0.18.0, verify:
 
 - source version in `apps/api/app/version.py` matches FastAPI/OpenAPI, `/health`, citation metadata, release notes, and all 12 paired manuals;
 - source Bicep defaults are `minReplicas=1`, `maxReplicas=5`, and live drift checks agree;
-- reasoning/planning defaults remain `legacy` / `legacy`;
+- accepted production reasoning validation/planning are `shadow` / `shadow`, explicitly selected; fallback defaults remain `legacy` and student-visible authority remains legacy;
 - current dependency pins and every open advisory are checked against the current dependency graph; do not dismiss alerts solely because a local environment has newer packages;
 - merged SHA, protected workflow run, image/revision and live smoke are recorded before tagging/publishing;
 - every manual PDF was regenerated from its matching DOCX and every rendered page inspected.
