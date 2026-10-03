@@ -1,5 +1,7 @@
 # Repository Intelligence and Review Orchestration
 
+> **Current release boundary:** v0.18.0 preserves the inherited legacy/shadow authority described here. Later frozen-evidence, lifecycle and UX contracts are summarized in [the current release](../releases/v0.18.0.md); no PR5 transfer is included.
+
 > **Status:** Production-accepted v0.16.1 evidence/review-preparation contract plus the v0.17 PR1 analytical-control-plane boundary.
 
 

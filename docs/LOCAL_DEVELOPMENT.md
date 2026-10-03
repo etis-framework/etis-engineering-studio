@@ -1,16 +1,16 @@
 # Local Development
 
-> **Status:** Current developer path for the production-accepted Wave 1 codebase.
+> **Status:** Current developer path for the v0.18.0 source candidate. Release acceptance is recorded separately.
 
 ## Fast path
 
-The authoritative deployed UI is served by FastAPI from `apps/api/app/static/`. Node.js is not required for normal local development or local application verification.
+The authoritative deployed UI is served by FastAPI from `apps/api/app/static/`. Node.js is not required to run the application. It is required for JavaScript syntax checks and the offline UI war games.
 
 ```bash
 cp .env.example .env
 python -m venv .venv
 source .venv/bin/activate
-pip install -r apps/api/requirements.txt
+python -m pip install -r requirements-dev.txt
 uvicorn apps.api.app.main:app --reload --port 8000
 ```
 
@@ -29,7 +29,7 @@ python -m alembic heads
 git diff --check
 ```
 
-PostgreSQL-specific tests may require the CI PostgreSQL service or an explicitly configured local test URL. JavaScript syntax checks can be left to CI when Node.js is not installed locally.
+PostgreSQL-specific tests may require the CI PostgreSQL service or an explicitly configured local test URL. Release validation also runs `node --check apps/api/app/static/studio.js`, `node tests/review_journey_wargame.cjs`, and `node tests/dialog_keyboard_wargame.cjs`. The optional real-browser keyboard runner needs Playwright and Chromium and is a separate proof. Offline war games do not prove live model quality.
 
 Documentation-only changes do not require the application suite unless they modify runtime/test-consumed files. See `CONTRIBUTING.md`.
 

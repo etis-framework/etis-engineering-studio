@@ -8,6 +8,17 @@ The project was first developed and production-tested in the Loyola University C
 
 > **Reference deployment status — 2026-08-21:** the ETIS Framework production deployment reached Post-Provisioning Production Acceptance **GO**. That acceptance evidence applies to the reference deployment and does not automatically certify an adopter's independent deployment.
 
+## Release and documentation
+
+The current source release candidate is **v0.18.0 — Evidence Authority and Review UX**. The single software version authority is [`apps/api/app/version.py`](apps/api/app/version.py); FastAPI/OpenAPI and `/health` use it. A source version does not prove that the same version is deployed or published.
+
+Read the [v0.18.0 release contract](docs/releases/v0.18.0.md), [documentation map](docs/README.md), and [complete 12-manual DOCX/PDF library](docs/manuals/README.md). The v0.17.0 release and the August production acceptance records remain historical evidence. v0.18.0 publication follows merge, green CI, protected Azure deployment, and live acceptance.
+
+The Review Room is the conversation home; Engineering Evidence is the saved source notebook. Inspect cited source, Find supporting evidence, Discuss, Challenge, and Help me resolve this have distinct purposes. Search and dialogue do not close a finding: only authoritative `corrected` or `resolved` states are closed. New commits cannot rewrite an active review's frozen snapshot.
+
+Button-triggered instructions appear as review actions, never student-authored prose. Optional review context stays secondary, unsent drafts are preserved, and Help, artifact, challenge, and exit dialogs support bounded keyboard focus and Escape dismissal.
+
+
 ## Why institutions may want ETIS
 
 ETIS is designed for courses where students need to practice engineering judgment rather than merely produce code. It provides a bounded environment for:
@@ -125,7 +136,7 @@ Before exposing a deployment to students, follow [`docs/PUBLIC_DEPLOYMENT_SECURI
 
 ## Local development
 
-The deployable Wave 1 UI is served directly by FastAPI from `apps/api/app/static/`; Node.js is not required for the normal local developer path.
+The deployable Studio UI is served directly by FastAPI from `apps/api/app/static/`; Node.js is not required for the normal local developer path.
 
 ```bash
 cp .env.example .env

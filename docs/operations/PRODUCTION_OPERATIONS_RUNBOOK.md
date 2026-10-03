@@ -2,6 +2,10 @@
 
 > **Status:** Current production runbook. Post-Provisioning Production Acceptance is **GO** as of 2026-08-21.
 
+## Release-specific acceptance
+
+For [v0.18.0](../releases/v0.18.0.md), verify the expected live version from `apps/api/app/version.py`, selected workflow SHA and immutable image/revision; keep reasoning/planning legacy/legacy. Operator acceptance must be followed by student/staff smoke for frozen evidence, finding closure, transcript authorship, draft preservation and dialog keyboard behavior. A green health endpoint alone cannot certify these journeys.
+
 ## 1. Purpose
 
 This runbook defines the normal production operating procedure for the ETIS

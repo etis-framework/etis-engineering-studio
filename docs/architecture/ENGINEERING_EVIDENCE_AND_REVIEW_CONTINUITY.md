@@ -1,6 +1,6 @@
 # Engineering Evidence and Review Continuity
 
-> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+> **Status:** Current design contract inherited and preserved in v0.18.0; dated acceptance evidence is separate.
 
 
 ## Product model
@@ -46,3 +46,15 @@ Not every review requires a recommendation; Review Findings may be explanatory/c
 ## Multilingual and novice design
 
 Engineering understanding is evaluated separately from English fluency. Reviewers infer intent from context, reflect plausible interpretations when language is ambiguous, use plain English, introduce professional terminology after understanding is established, and teach directly when productive struggle has ended.
+
+## v0.18.0 frozen review and evidence UX
+
+Review Room is the conversation home; Engineering Evidence is the saved source notebook. The active review stays bound to its immutable snapshot when saved Evidence is newer. Same-snapshot, newer-saved-snapshot, completed-review and no-active-review states must be explicit. Optional review context is secondary to the current concern and conversation.
+
+Inspect cited source opens the attached frozen artifact; Find supporting evidence performs bounded equivalent-evidence discovery without an exact PATH that would suppress search. Discuss, Challenge and Help me resolve this have distinct purposes. No artifact means no guessed inspectable source; aggregate evidence is not a single artifact. A bounded search is not exhaustive absence evidence.
+
+Only authoritative `corrected` or `resolved` findings are closed. Inspection/search, readiness, recommendations, acceptance of risk, deferral and review completion do not close findings. Later commits cannot change a finding's earlier evidence baseline. Machine-triggered instructions appear as review actions, never as student-authored messages; drafts remain private and survive these actions.
+
+Help, artifact, challenge and exit dialogs contain keyboard focus, make background content inert, handle nested focus, and restore a usable opener. Escape uses the existing close behavior; it never submits/completes and does not cancel an already submitted challenge. See the [keyboard contract](DIALOG_KEYBOARD_ACCESSIBILITY.md) and [release contract](../releases/v0.18.0.md).
+
+`Build my recommendation` selects coaching mode; `Discuss Recommendation` sends the composer message in that mode. `State My Recommendation` is the distinct later action that records a ready position. Current recommendation is the optional, revisable posture; none of these establishes finding closure.

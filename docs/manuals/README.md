@@ -1,5 +1,27 @@
 # ETIS Engineering Studio Documentation Library
 
+**Current manual edition: v0.18.0 (release candidate).** All 12 manuals are maintained as paired DOCX/PDF files. Publication follows [release acceptance](../releases/v0.18.0.md); source version is not live deployment evidence. Embedded August screenshots remain explicitly historical examples, with current text/source governing labels and behavior.
+
+## Complete paired inventory
+
+| ID | Manual | DOCX | PDF |
+| --- | --- | --- | --- |
+| 00 | ETIS Engineering Studio Master Manual and Documentation Index | [Word](00_ETIS_Engineering_Studio_Master_Manual_and_Documentation_Index.docx) | [PDF](00_ETIS_Engineering_Studio_Master_Manual_and_Documentation_Index.pdf) |
+| 01 | ETIS Engineering Studio Executive Overview | [Word](01_ETIS_Engineering_Studio_Executive_Overview.docx) | [PDF](01_ETIS_Engineering_Studio_Executive_Overview.pdf) |
+| 02 | ETIS Engineering Studio Installation and Administration Guide | [Word](02_ETIS_Engineering_Studio_Installation_and_Administration_Guide.docx) | [PDF](02_ETIS_Engineering_Studio_Installation_and_Administration_Guide.pdf) |
+| 03 | ETIS Engineering Studio Architecture and Detailed Design | [Word](03_ETIS_Engineering_Studio_Architecture_and_Detailed_Design.docx) | [PDF](03_ETIS_Engineering_Studio_Architecture_and_Detailed_Design.pdf) |
+| 04 | ETIS Engineering Studio Instructor and Course Owner Handbook | [Word](04_ETIS_Engineering_Studio_Instructor_and_Course_Owner_Handbook.docx) | [PDF](04_ETIS_Engineering_Studio_Instructor_and_Course_Owner_Handbook.pdf) |
+| 05 | ETIS Engineering Studio Student User Guide | [Word](05_ETIS_Engineering_Studio_Student_User_Guide.docx) | [PDF](05_ETIS_Engineering_Studio_Student_User_Guide.pdf) |
+| 06 | ETIS Team GitHub and Repository Setup Quickstart | [Word](06_ETIS_Team_GitHub_and_Repository_Setup_Quickstart.docx) | [PDF](06_ETIS_Team_GitHub_and_Repository_Setup_Quickstart.pdf) |
+| 07 | ETIS Student Cheat Sheet and Quick Reference | [Word](07_ETIS_Student_Cheat_Sheet_and_Quick_Reference.docx) | [PDF](07_ETIS_Student_Cheat_Sheet_and_Quick_Reference.pdf) |
+| 08 | ETIS Engineering Studio Azure Operations CLI User Guide | [Word](08_ETIS_Engineering_Studio_Azure_Operations_CLI_User_Guide.docx) | [PDF](08_ETIS_Engineering_Studio_Azure_Operations_CLI_User_Guide.pdf) |
+| 09 | ETIS Engineering Studio Production Operations Runbook | [Word](09_ETIS_Engineering_Studio_Production_Operations_Runbook.docx) | [PDF](09_ETIS_Engineering_Studio_Production_Operations_Runbook.pdf) |
+| 10 | ETIS Engineering Studio Semester Administration and Course Operations Guide | [Word](10_ETIS_Engineering_Studio_Semester_Administration_and_Course_Operations_Guide.docx) | [PDF](10_ETIS_Engineering_Studio_Semester_Administration_and_Course_Operations_Guide.pdf) |
+| 11 | ETIS Engineering Studio Backup Recovery and Disaster Recovery Runbook | [Word](11_ETIS_Engineering_Studio_Backup_Recovery_and_Disaster_Recovery_Runbook.docx) | [PDF](11_ETIS_Engineering_Studio_Backup_Recovery_and_Disaster_Recovery_Runbook.pdf) |
+
+Current release behavior includes frozen source inspection/discovery, explicit closure authority, optional review context, honest action authorship, draft preservation and dialog keyboard handling. The separate Executive Overview (01) remains active alongside Master Manual (00).
+
+
 The **ETIS Engineering Studio Documentation Library** provides the formal, publication-ready documentation set for the ETIS Engineering Studio.
 
 The library is intended for multiple audiences, including:
@@ -470,3 +492,7 @@ Course-specific implementation details are documented where appropriate, while t
 For source code, project documentation, release history, and supporting material, return to the repository root.
 
 [← Back to the ETIS Engineering Studio repository](../../README.md)
+
+## Maintenance and QA
+
+Edit the affected DOCX manuals and regenerate every corresponding PDF; do not relabel an old PDF as a new edition. Preserve historical release/acceptance evidence separately. Check version metadata, source references, role boundaries and current UI labels in both formats. Render every page and inspect text, tables, figures, captions, breaks and footers at readable resolution before delivery. The paired edition consistency test is `python -m pytest -q tests/test_release_version.py`.

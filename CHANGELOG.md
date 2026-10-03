@@ -1,6 +1,23 @@
 # Changelog
 
-## Unreleased - v0.17.0 Analytical Engine Evolution
+## Unreleased - v0.18.0 Evidence Authority and Review UX
+
+### Changed
+
+- Establishes `apps/api/app/version.py` as the shared FastAPI/OpenAPI and health version authority, replacing duplicated v0.17.0 literals.
+- Consolidates the post-v0.17 work on frozen artifact hydration, phase-grounded dialogue, evidence authority, finding-state/recommendation separation, bounded equivalent-evidence discovery, and the Review Room / Engineering Evidence journey.
+- Documents simplified concern presentation, secondary review context, exact-source inspection, snapshot relationship notices, action authorship, draft preservation, and keyboard focus management accepted through PR #132.
+- Reconciles the repository README, current Markdown contracts, installation/adoption/operations guidance, backlog, and all 12 formal manuals with paired regenerated PDFs. Historical gate, acceptance, baseline and v0.17 analytical evidence remain intact.
+- Includes the development pytest 9.0.3 security update merged in PR #133. Production PyJWT remains pinned to 2.15.1. Open alerts require current dependency-graph/advisory verification; this entry does not claim they have been dismissed or cleared.
+
+### Authority and acceptance
+
+- Production reasoning and planning defaults remain `legacy` / `legacy`; shadow evaluation has no student-visible authority. No PR5 transfer, database migration, evidence-ranking redesign, course-contract change, or additional UI redesign is included.
+- Source validation, rendered manual QA, and live production acceptance are separate gates. This candidate is not yet a published/production-accepted v0.18.0 release.
+
+## v0.17.0 - Analytical Engine Evolution
+
+Published release; the following entries describe the v0.17.0 development history and its original validation scope.
 
 ### Added
 
