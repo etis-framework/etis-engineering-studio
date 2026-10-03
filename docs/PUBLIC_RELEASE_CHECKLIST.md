@@ -52,13 +52,16 @@ Verify these are present and current:
 
 ## 5. Source/release consistency
 
-Before calling the public repository an authoritative deployable release, reconcile known source/runtime drift. At the 2026-08-21 reference baseline:
+For v0.18.0, verify:
 
-- accepted runtime uses Container App `minReplicas=1`;
-- `infra/azure/app.bicep` still defaults `minReplicas=0`;
-- application and `/health` version metadata are aligned to `0.16.0` for the institutional release; the production-acceptance snapshot historically reported `0.15.0`.
+- source version in `apps/api/app/version.py` matches FastAPI/OpenAPI, `/health`, citation metadata, release notes, and all 12 paired manuals;
+- source Bicep defaults are `minReplicas=1`, `maxReplicas=5`, and live drift checks agree;
+- reasoning/planning defaults remain `legacy` / `legacy`;
+- current dependency pins and every open advisory are checked against the current dependency graph; do not dismiss alerts solely because a local environment has newer packages;
+- merged SHA, protected workflow run, image/revision and live smoke are recorded before tagging/publishing;
+- every manual PDF was regenerated from its matching DOCX and every rendered page inspected.
 
-These do not prevent publication, but they should be reconciled in a normal code/IaC PR before the next release intended as a reproducible institutional deployment baseline.
+The August acceptance snapshot reported `0.15.0`; v0.16.0 and v0.17.0 are historical releases. Preserve those records rather than rewriting them with the new version. See [`releases/v0.18.0.md`](releases/v0.18.0.md).
 
 ## 6. Final visibility review
 

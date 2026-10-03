@@ -6,6 +6,10 @@ This directory contains the production runbooks, recovery procedures, live
 acceptance evidence, and historical gate records used to operate ETIS
 Engineering Studio.
 
+## Current release and formal operator manuals
+
+The source candidate is [v0.18.0](../releases/v0.18.0.md). The August GO record below remains dated evidence. Every deployment/recovery needs its own SHA, image/revision and live acceptance evidence. The [formal library](../manuals/README.md) includes CLI (08), production operations (09), and recovery (11), in DOCX and PDF.
+
 ## Gate 16 and Gate 17 relationship
 
 These artifacts originated in **Gate 16 — Operations, Recovery, and Production

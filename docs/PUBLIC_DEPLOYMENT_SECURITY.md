@@ -76,6 +76,18 @@ Use this checklist when deploying ETIS Engineering Studio outside the ETIS Frame
 - [ ] Archiving removes current student authority without destroying required history.
 - [ ] Grades and unrelated official records remain in the institution's authoritative systems.
 
+## Release evidence and interaction integrity
+
+- [ ] Record source version, merged SHA, immutable image/revision and successful protected deployment run.
+- [ ] Compare live `/health.version` with `apps/api/app/version.py`; verify `/ready`.
+- [ ] Preserve legacy/legacy analytical authority unless a separately accepted change authorizes otherwise.
+- [ ] Verify frozen-snapshot notices, valid finding challenges, and correction/resolution authority.
+- [ ] Verify action-triggered prompts are not labeled as student writing, drafts remain private, and dialog keyboard/exit behavior works.
+- [ ] Readiness/finding signals do not imply grades.
+- [ ] Use current dependency/advisory data; a local install is not proof that GitHub alerts are cleared.
+
+See [v0.18.0 release](releases/v0.18.0.md) and [manuals](manuals/README.md).
+
 ## Before GO
 
 Record evidence for every applicable item. Any accepted exception should have an owner, rationale, and follow-up date.

@@ -2,7 +2,7 @@
 
 This directory contains the durable architecture, security, deployment, operations, acceptance, and product documentation for ETIS Engineering Studio.
 
-> **Current status:** Production Post-Provisioning Acceptance reached **GO** on 2026-08-21. Documents that describe Gate 17 or pre-provisioning requirements are retained as historical decision/evidence records and are explicitly marked as such.
+> **Source release:** v0.18.0 candidate. See [`releases/v0.18.0.md`](releases/v0.18.0.md) for current scope and publication gates. The 2026-08-21 GO decision and Gate 17 records are historical evidence, not acceptance of this candidate.
 
 ## Start here
 
@@ -14,7 +14,7 @@ For institutional/public use:
 
 For the ETIS Framework reference deployment:
 
-- [`PRODUCTION_BASELINE.md`](PRODUCTION_BASELINE.md) — current accepted production topology, controls, live evidence, and residual notes.
+- [`PRODUCTION_BASELINE.md`](PRODUCTION_BASELINE.md) — dated August production topology, controls, acceptance evidence, and then-known residual notes.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — current system architecture and trust boundaries.
 - [`SECURITY_AND_PRIVACY.md`](SECURITY_AND_PRIVACY.md) — security, privacy, retention, and semester-lifecycle policy.
 - [`AZURE_DEPLOYMENT.md`](AZURE_DEPLOYMENT.md) — production deployment, GitHub App, Entra, Azure, and runtime configuration.
@@ -22,6 +22,17 @@ For the ETIS Framework reference deployment:
 - [`PRODUCT_EXPERIENCE.md`](PRODUCT_EXPERIENCE.md) — student and instructor product behavior.
 - [`WAVE1_ACCEPTANCE.md`](WAVE1_ACCEPTANCE.md) — Wave 1 acceptance status and evidence classification.
 - [`NEXT_BUILD.md`](NEXT_BUILD.md) — deliberately deferred maintenance/enhancement backlog after production freeze.
+
+## Formal manuals and current release
+
+All 12 manuals (00–11), in both DOCX and PDF, are indexed in [`manuals/README.md`](manuals/README.md). Manual 00 is the front door; manual 01 remains the active leadership brief. Older embedded screenshots are labeled as historical examples; current instructions and source contracts control behavior.
+
+- [`releases/v0.18.0.md`](releases/v0.18.0.md) — release scope, version authority, validation boundaries, publication and smoke sequence.
+- [`architecture/AUTHORITATIVE_FINDING_STATE_HANDOFF.md`](architecture/AUTHORITATIVE_FINDING_STATE_HANDOFF.md) — finding closure versus inspection/recommendation.
+- [`architecture/FIND_SUPPORTING_EVIDENCE_UX.md`](architecture/FIND_SUPPORTING_EVIDENCE_UX.md) — bounded search in a frozen snapshot.
+- [`architecture/REVIEW_EVIDENCE_JOURNEY_UX_POLISH.md`](architecture/REVIEW_EVIDENCE_JOURNEY_UX_POLISH.md) — two-room navigation and snapshot relationships.
+- [`architecture/UI_AUTHORSHIP_CONTEXT_POLISH.md`](architecture/UI_AUTHORSHIP_CONTEXT_POLISH.md) — action authorship, drafts, secondary context.
+- [`architecture/DIALOG_KEYBOARD_ACCESSIBILITY.md`](architecture/DIALOG_KEYBOARD_ACCESSIBILITY.md) — focus, Escape, pending challenge, and keyboard validation.
 
 ## Architecture detail
 
@@ -56,7 +67,7 @@ Historical Gate 17 records are retained because they capture the security, reten
 - [`operations/GATE17_RETENTION_DECISION.md`](operations/GATE17_RETENTION_DECISION.md)
 - [`operations/GATE17_COST_CONTROL_PLAN.md`](operations/GATE17_COST_CONTROL_PLAN.md)
 
-Do not treat an old “not yet testable” statement inside a historical gate record as the current production status. Current live results are in `PRODUCTION_BASELINE.md`, `BUILD_REPORT.md`, and the Post-Provisioning Production Acceptance record.
+Do not treat an old “not yet testable” statement inside a historical gate record as the current production status. The August live results are in `PRODUCTION_BASELINE.md`, `BUILD_REPORT.md`, and the Post-Provisioning Production Acceptance record. Current-release deployment evidence must identify the merged commit, image/revision, and acceptance run separately.
 
 ## Course model
 

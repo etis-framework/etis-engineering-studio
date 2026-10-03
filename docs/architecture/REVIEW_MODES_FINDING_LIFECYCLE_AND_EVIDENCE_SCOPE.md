@@ -1,6 +1,6 @@
 # Review Modes, Finding Lifecycle, and Evidence Scope
 
-> **Status:** Current design contract within the production-accepted 2026-08-21 baseline.
+> **Status:** Current design contract inherited and preserved in v0.18.0; dated acceptance evidence is separate.
 
 
 A review session has one purpose, selected before the session and held stable until the session is completed or paused. Students can ask questions naturally in every mode.
@@ -12,3 +12,5 @@ A review session has one purpose, selected before the session and held stable un
 Evidence is layered: phase-expected evidence, semantically discovered project evidence, and the compact review-specific subset shown to the reviewer. Canonical filenames are clues, not requirements. Equivalent evidence may live in another file, ADR, GitHub review, or project-specific artifact. Future scaffold is not an early-phase deficiency.
 
 Findings are REVIEW interpretations over immutable FACT snapshots. Their lifecycle includes Open, Under Discussion, Evidence Disputed, Confirmed, Corrected, Resolved, Accepted Risk, and Deferred. Corrected/resolved interpretations are preserved historically but should not be rediscovered as active challenges against the same evidence baseline.
+
+Only server-owned `corrected` or `resolved` states mean closed. Accepted risk, deferred, confirmed, disputed and under discussion remain open. Search, inspection, recommendation readiness and later repository changes do not establish closure. The explicit correction/disposition path validates frozen counterevidence and preserves provenance; see [finding-state handoff](AUTHORITATIVE_FINDING_STATE_HANDOFF.md).

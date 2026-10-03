@@ -6,6 +6,8 @@ The toolkit makes routine production inspection, validation, troubleshooting, an
 
 It is an operations interface, not an alternative deployment system.
 
+For the [v0.18.0 candidate](../../docs/releases/v0.18.0.md), operator acceptance remains separate from source tests and manual QA. Confirm live `/health.version` against `apps/api/app/version.py`, the workflow SHA/image/revision, and both analytical modes (`legacy` / `legacy`). The CLI health PASS is not by itself a version-provenance or student-journey proof.
+
 ## Quick Start
 
 Check local Azure operations readiness:

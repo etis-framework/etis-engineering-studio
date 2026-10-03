@@ -55,6 +55,15 @@ At minimum, preserve:
 - no PAT repository access path;
 - no weakening of institutional or GitHub identity controls.
 
+## Release and manual maintenance
+
+Studio software version lives in `apps/api/app/version.py`; course contracts, historical analytical versions, and the reserved `apps/web` package have independent versions. Update current release metadata and current documentation together. Preserve dated acceptance records and historical findings; do not replace every old version string.
+
+Release changes require focused tests, existing relevant war games, and complete pytest. Review weak/average/strong repositories and students across A1–A6, equivalent/missing/ambiguous/contradictory/stale/post-snapshot evidence, valid challenges, false positives/negatives, grading language, and UX failures. Passing offline harnesses does not establish live semantic quality.
+
+Maintain all impacted manuals in DOCX and regenerate paired PDFs from those DOCX files. Render and inspect every page for clipping, table splits, captions, screenshots, footer placement, and blank pages. See `docs/manuals/README.md` for the paired inventory and release checks.
+
+
 ## Repository hygiene
 
 Never commit:

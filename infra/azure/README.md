@@ -4,6 +4,8 @@
 
 This directory contains the Bicep templates used by the protected production deployment workflow.
 
+The current Studio source candidate is [v0.18.0](../../docs/releases/v0.18.0.md). Its release does not transfer analytical authority; preserve both workflow defaults as `legacy`. Compare source version, deployment SHA/image and live acceptance separately.
+
 ## Files
 
 ### `main.bicep`

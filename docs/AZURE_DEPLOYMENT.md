@@ -2,7 +2,7 @@
 
 > **Institutional adoption:** names, domains, tenant values, resource identifiers, budgets, and settings in this document describe the ETIS Framework reference deployment. Create institution-owned equivalents; do not reuse reference production credentials or identifiers.
 
-> **Status:** Production deployed and accepted. Gate 17 is closed; Post-Provisioning Production Acceptance reached **GO** on 2026-08-21.
+> **Status:** Current source deployment guidance for v0.18.0. The August GO decision is historical; every new deployment requires acceptance for its selected SHA.
 
 ## Purpose
 
@@ -281,7 +281,7 @@ Accepted live runtime after production acceptance:
 
 The minimum was changed from zero to one after intermittent long reloads were observed during acceptance, preventing normal scale-to-zero cold starts.
 
-**Important drift:** source `infra/azure/app.bicep` still defaults `minReplicas` to `0`. A future deployment may therefore revert production to scale-to-zero unless the source/default or deployment parameter is reconciled. This is a known follow-up item in `NEXT_BUILD.md`.
+**Current source:** `infra/azure/app.bicep` defaults to `minReplicas=1`, `maxReplicas=5`. The old scale-to-zero drift note remains in dated acceptance evidence only. Run runtime drift checks after deployment; source defaults alone do not prove live settings.
 
 ## Observability
 
@@ -324,3 +324,9 @@ Every production-changing deployment should verify at minimum:
 - production user journey relevant to the change.
 
 Production acceptance evidence is recorded in `operations/POST_PROVISIONING_PRODUCTION_ACCEPTANCE.md` and `PRODUCTION_BASELINE.md`.
+
+## Release version and analytical modes
+
+Use [`releases/v0.18.0.md`](releases/v0.18.0.md) for the release sequence and smoke checks. Compare `/health.version` with `apps/api/app/version.py` and the immutable deployment SHA; version alone is not image provenance.
+
+The workflow inputs `reasoning_validation_mode` and `review_planning_mode` default to `legacy`. Preserve `legacy` / `legacy` for this release. Shadow planning requires shadow reasoning validation and remains an internal comparison path; session-locked modes do not change inside existing reviews. No analytical authority transfer is authorized by v0.18.0.

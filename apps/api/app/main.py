@@ -8,6 +8,7 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from .version import STUDIO_VERSION
 from .db import database_readiness, init_db
 from .routers import course, reviews, repositories, instructor, dev, auth, admin, onboarding
 from .config import get_settings
@@ -34,7 +35,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="ETIS Engineering Studio API",
-    version="0.17.0",
+    version=STUDIO_VERSION,
     description="Evidence-centered engineering apprenticeship environment for COMP 330",
     lifespan=lifespan,
 )
@@ -218,7 +219,7 @@ def health():
     return {
         "status": "ok",
         "service": "etis-engineering-studio",
-        "version": "0.17.0",
+        "version": STUDIO_VERSION,
         "conversation_mode": "semantic" if semantic_ready else "semantic-required-not-configured",
         "semantic_coaching_ready": semantic_ready,
         "model": settings.openai_model if semantic_ready else None,

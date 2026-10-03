@@ -1,5 +1,7 @@
 # ETIS Engineering Studio v0.17 Analytical Evaluation & War Games
 
+> **Version scope:** This remains the v0.17 analytical design/evaluation history inherited by v0.18.0. Production defaults remain legacy/legacy; no authority transfer is included. See [current release](../releases/v0.18.0.md).
+
 > **Status:** PR4 evaluation contract. This package evaluates the PR2 shadow reasoning validator and PR3 shadow Review Planner / Next-Question Selector without changing student-visible analytical behavior.
 
 ## Purpose

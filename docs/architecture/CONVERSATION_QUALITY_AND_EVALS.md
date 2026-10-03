@@ -1,5 +1,7 @@
 # Conversation Quality and Behavioral Evals
 
+> **Current release boundary:** v0.18.0 preserves the inherited legacy/shadow authority described here. Later frozen-evidence, lifecycle and UX contracts are summarized in [the current release](../releases/v0.18.0.md); no PR5 transfer is included.
+
 > **Status:** Current conversation-quality contract plus v0.17 PR4 analytical evaluation boundary.
 
 

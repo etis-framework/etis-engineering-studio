@@ -1,25 +1,31 @@
-# Next Build / Maintenance Backlog
+# Next Build and Maintenance Backlog
 
-> **Status:** Production is accepted and should remain frozen unless an actual defect, security issue, required course change, or deliberately scheduled enhancement justifies a new release.
+**Revalidated for the v0.18.0 source candidate at main `7cc5beca327966652c1b5ef7eb3af2aff5841f7e`.** Production changes require observed defects, security/course needs or deliberately scheduled enhancements. The accepted Review Room / Engineering Evidence UX is frozen; release documentation and acceptance are the immediate work.
 
-The following items are **not** release blockers for the accepted 2026-08-21 production baseline.
+## Completed in current source
 
-## Priority maintenance
+- Bicep scaling defaults are 1/5; the August scale-to-zero drift is historical. Continue runtime drift checks after deployment.
+- Finding lifecycle/recommendation handoff explicitly separates closure from reasoning, inspection and post-snapshot work.
+- Find supporting evidence exposes bounded frozen equivalent-evidence discovery with draft preservation and cross-snapshot protection.
+- Two-room navigation, context disclosure, concern presentation, action authorship and keyboard dialog focus are implemented through PR #132.
+- Development pytest security pin is 9.0.3 through PR #133; PyJWT is pinned 2.15.1 in production and the included development dependency graph.
 
-1. **Reconcile Container App scaling in IaC.** The accepted production runtime is `minReplicas=1`, `maxReplicas=5`, but `infra/azure/app.bicep` still defaults `minReplicas` to `0`. Make this a separate infrastructure change with CI/Bicep validation and production acceptance.
-2. **Monitor intermittent reload latency.** The previously observed 15–25 second load became non-reproducible. Capture the browser Network waterfall and request timing if it returns before changing code.
+## Immediate release gates
 
-## Deferred product enhancements
+1. Validate the v0.18.0 version/documentation patch and all 12 paired manuals; require rendered page QA and green local/CI checks.
+2. Deploy merged source through the protected workflow with legacy/legacy defaults, run operator acceptance and human smoke, then tag/publish with verified date/SHA.
+3. Requery dependency alerts against the refreshed main graph. Do not dismiss stale-looking PyJWT alerts without verifying graph/ranges; retain unresolved alerts accurately.
 
-- richer repository-onboarding audit history in the instructor UI;
-- instructor GitHub diagnostics (owner, installation, scope, last verification) without exposing secrets;
-- additional multi-student live acceptance scenarios when appropriate test identities exist;
-- dedicated accessibility/keyboard/screen-reader pass;
-- reviewer-confirmed finding-correction handoff: when a dialogue inspection validates frozen counterevidence and the reviewer explicitly corrects/narrows its REVIEW interpretation, provide a clear, low-friction UI/state path to reflect that outcome on the finding card without silently auto-resolving the finding or conflating dialogue with evidence-backed lifecycle authority;
-- one-click evidence-discovery affordance: now that bounded equivalent-evidence discovery exists in conversation, consider a clearly labeled “Find supporting evidence” action on an active finding that starts the same bounded search without attaching the canonical PATH and without implying that the search is exhaustive; validate the interaction carefully so it does not replace normal Discuss/Challenge flows or encourage students to hunt for confirmation rather than evaluate evidence;
-- A3-A6 deep phase-specific reviewer content as those assignments approach;
-- research/export tooling only after explicit privacy/data-governance review.
+## Revalidate before implementation
+
+- **Analytical authority transfer (PR5):** deferred. Legacy accumulated reasoning is monotonic; contradiction/reopen handling and phase-grounded context warrant independent adversarial evaluation before any change. Shadow validator/planner evidence does not authorize transfer or promise a better student experience.
+- **A3–A6 depth:** existing contracts and offline cases cover all phases; any additional reviewer content needs concrete phase-specific gaps and live/fixture evidence. Strong repositories should receive useful tradeoff challenges; weak evidence must not invite fabricated certainty.
+- **Staff onboarding audit/diagnostics:** inspect existing instructor surfaces/endpoints before designing richer owner/installation/scope/last-verification views; expose no secrets and preserve role boundaries.
+- **Multiple live students:** automated owner/non-owner propagation is not equivalent to live multi-student acceptance. Schedule only when appropriate authorized identities exist.
+- **Accessibility beyond dialogs:** keyboard manager is complete for four dialog families; full screen-reader, zoom, contrast and broader workflow assessment remain separately scoped. Do not relabel the keyboard patch as whole-product accessibility certification.
+- **Intermittent latency:** capture browser/request/provider timings if it recurs; the earlier 15–25 second observation was non-reproducible. No speculative latency rewrite.
+- **Research/export:** requires an explicit privacy/data-governance decision and a defined use case before implementation.
 
 ## Change discipline
 
-Do not reopen production simply for polish. Use the normal branch → local validation → PR → CI → protected deployment → targeted production acceptance sequence for future changes.
+Branch → focused tests and adversarial cases → existing war games and complete pytest → PR → CI → merge → protected deployment → live acceptance. Preserve frozen evidence, provenance, closure authority, action authorship, private drafts, human decisions and grading boundaries. Prefer a clear next action over another dashboard or control.

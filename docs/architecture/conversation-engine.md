@@ -1,5 +1,7 @@
 # Engineering Studio Conversation Engine
 
+> **Current release boundary:** v0.18.0 preserves the inherited legacy/shadow authority described here. Later frozen-evidence, lifecycle and UX contracts are summarized in [the current release](../releases/v0.18.0.md); no PR5 transfer is included.
+
 > **Status:** Legacy conversation behavior from the production-accepted v0.16.1 baseline, with the v0.17 PR1 analytical-control-plane boundary documented below.
 
 
