@@ -29,3 +29,7 @@
 ## Change discipline
 
 Branch → focused tests and adversarial cases → existing war games and complete pytest → PR → CI → merge → protected deployment → live acceptance. Preserve frozen evidence, provenance, closure authority, action authorship, private drafts, human decisions and grading boundaries. Prefer a clear next action over another dashboard or control.
+
+## v0.18.1 candidate acceptance gates — not historical v0.18.0 completion
+
+The student-journey clarity revision is implemented and war-gamed locally, but production release remains pending. Revalidate these separately: (1) merged-commit CI and protected shadow/shadow deployment; (2) real authorized GitHub/new-commit snapshot transitions and cross-student boundaries; (3) keyboard and VoiceOver checks; (4) uncoached student comprehension of both rooms and multiple reviews; (5) production read-only finishing and draft/failure recovery. Do not treat the synthetic simulator as an analytics or integration acceptance. No added AI authority, grader behavior or Workbench work is authorized.

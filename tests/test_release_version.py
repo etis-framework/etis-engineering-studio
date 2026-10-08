@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_runtime_version_authority():
     client = TestClient(app)
-    assert STUDIO_VERSION == '0.18.0'
+    assert STUDIO_VERSION == '0.18.1'
     assert app.version == STUDIO_VERSION
     assert client.get('/health').json()['version'] == STUDIO_VERSION
     assert client.get('/openapi.json').json()['info']['version'] == STUDIO_VERSION
@@ -23,7 +23,7 @@ def test_runtime_version_authority():
 def test_current_release_metadata_and_manual_pairs():
     edition = json.loads((ROOT / 'docs/manuals/edition.json').read_text())
     assert edition['version'] == STUDIO_VERSION
-    assert edition['status'] == 'release'
+    assert edition['status'] == 'candidate'
     assert len(edition['manuals']) == 12
     actual = {p.name for p in (ROOT / 'docs/manuals').glob('*.docx')}
     assert {m['docx'] for m in edition['manuals']} == actual
@@ -37,7 +37,7 @@ def test_current_release_metadata_and_manual_pairs():
             body = ET.fromstring(archive.read('word/document.xml'))
             text = ' '.join(body.itertext())
             assert f'v{STUDIO_VERSION}' in text
-            assert 'release manual edition' in text.lower()
+            assert 'candidate manual edition' in text.lower()
             core = ET.fromstring(archive.read('docProps/core.xml'))
             assert f'v{STUDIO_VERSION}' in ' '.join(core.itertext())
         assert manual['pages'] > 0

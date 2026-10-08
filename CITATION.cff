@@ -8,9 +8,9 @@ authors:
 repository-code: "https://github.com/etis-framework/etis-engineering-studio"
 url: "https://simulator.etisframework.org"
 license: "Apache-2.0"
-version: "0.18.0"
-date-released: "2026-10-03"
-# GitHub publication timestamp: 2026-10-03T01:20:38Z; October 2 in America/Chicago.
+version: "0.18.1"
+# Candidate only; date-released will be set after verified publication.
+# Previously published v0.18.0 remains the production-accepted source.
 abstract: >-
   ETIS Engineering Studio is an engineering apprenticeship environment for
   evidence-based software engineering reviews in which students remain the

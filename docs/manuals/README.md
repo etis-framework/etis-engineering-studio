@@ -1,6 +1,8 @@
 # ETIS Engineering Studio Documentation Library
 
-**Current manual edition: v0.18.0 (release edition).** All 12 manuals are maintained as paired DOCX/PDF files. Publication follows [release acceptance](../releases/v0.18.0.md); source version is not live deployment evidence. Embedded August screenshots remain explicitly historical examples, with current text/source governing labels and behavior.
+**Current manual edition: v0.18.1 (candidate, not deployed).** All 12 manuals are maintained as paired DOCX/PDF files. Publication follows [v0.18.1 acceptance](../releases/v0.18.1.md); accepted production remains [v0.18.0](../releases/v0.18.0.md). Source version is not live deployment evidence. Embedded August screenshots remain explicitly historical examples, with current text/source governing labels and behavior.
+
+The new student walkthrough in Manual 05 covers two-room navigation, cumulative reviews, unchanged/new snapshots, finishing, returning to earlier sessions, and help/recovery. Manual 07 is the compact student reference. Synthetic local simulator screenshots are explicitly labeled and must not be mistaken for real student evidence.
 
 ## Complete paired inventory
 

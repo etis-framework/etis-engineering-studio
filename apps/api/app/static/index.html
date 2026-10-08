@@ -12,8 +12,8 @@
   <aside class="rail">
     <div class="brand"><div class="mark">E</div><div><b>ETIS</b><span>Engineering Studio</span></div></div>
     <nav id="studentNav">
-      <button class="nav active" data-view="studio">◈ <span>Review Room</span></button>
-      <button class="nav" data-view="evidence">⌁ <span>Engineering Evidence</span></button>
+      <button class="nav active" data-view="studio">◈ <span>Engineering Review Room</span></button>
+      <button class="nav" data-view="evidence">⌁ <span>Engineering Evidence Room</span></button>
       <button class="nav" data-view="history">↶ <span>Review History</span></button>
       <button class="nav" data-view="myteam">◎ <span>My Team</span></button>
     </nav>
@@ -33,27 +33,39 @@
 
   <main>
     <header class="topbar">
-      <div><span class="eyebrow">ENGINEERING APPRENTICESHIP ENVIRONMENT</span><h1 id="viewTitle">Engineering Review Room</h1></div>
-      <div class="top-actions"><select id="devPersona" class="dev-persona hidden" aria-label="Development persona"><option value="student">Dev · Student</option><option value="instructor">Dev · Instructor</option></select><div id="conversationMode" class="conversation-mode checking">Checking coaching mode…</div><button id="quickHelp" class="ghost">Need help?</button><div id="userIdentity" class="user"><div class="avatar">AR</div><div><b>Alex Rivera</b><small>Architecture & Integration Owner</small></div></div><button id="logoutButton" class="ghost hidden" type="button">Log out</button></div>
+      <div class="topbar-student-workflow"><span class="eyebrow">ENGINEERING APPRENTICESHIP ENVIRONMENT</span><h1 id="viewTitle">Engineering Review Room</h1><nav id="topRoomNavigation" class="top-room-navigation" aria-label="Switch between engineering rooms"><button type="button" data-room-jump="studio" class="top-room-btn">Review Room</button><button type="button" data-room-jump="evidence" class="top-room-btn">Evidence Room</button><button id="topReviewSelector" class="top-review-selector" type="button">All Board Reviews</button></nav></div>
+      <div class="top-actions"><select id="devPersona" class="dev-persona hidden" aria-label="Development persona"><option value="student">Dev · Student</option><option value="instructor">Dev · Instructor</option></select><div id="conversationMode" class="conversation-mode checking">Checking coaching mode…</div><button id="quickHelp" class="ghost">Help</button><div id="userIdentity" class="user"><div class="avatar">AR</div><div><b>Alex Rivera</b><small>Architecture & Integration Owner</small></div></div><button id="logoutButton" class="ghost hidden" type="button">Log out</button></div>
     </header>
 
     <section id="studio" class="view active-view">
       <div id="uiRuntimeWarning" class="semantic-warning danger hidden"><div><b>Review Room needs attention.</b><span id="uiRuntimeWarningText">The browser encountered an unexpected UI error.</span></div><button class="secondary" onclick="location.reload()">Refresh</button></div>
       <div id="semanticSetupWarning" class="semantic-warning hidden"><div><b>Natural reviewer coaching is not configured.</b><span>This build intentionally will not simulate a senior-engineer conversation with canned fallback responses.</span></div><button class="secondary" data-help-topic="semantic-required">Show setup</button></div>
       <div id="studentReadiness" class="semantic-warning student-readiness hidden" aria-live="polite"></div>
+      <p id="setupReviewExplanation" class="setup-review-explanation hidden">Once your GitHub identity and team repository are ready, you can start a review. Review Room holds the conversation; Engineering Evidence shows saved source and concerns. <button type="button" data-help-topic="room-guide" class="text-button">Learn about both rooms</button></p>
 
       <div class="contextbar professional-context">
         <div><small>TEAM</small><b id="contextTeam">Team Vector</b></div>
         <div><small>PROJECT</small><b id="contextProject">CampusConnect</b></div>
         <div><small>CURRENT PHASE</small><select id="phase"><option>A1 · Project Launch</option><option>A2 · Planning & Estimation</option><option>A3 · Architecture & Review</option><option>A4 · Construction & Integration</option><option>A5 · Cycle 1 Release</option><option>A6 · Final Release & Maturity</option></select><span id="phaseLockHint" class="context-hint"></span></div>
         <div class="repo-context"><small>TEAM REPOSITORY</small><input id="repoFullName" value="etis-framework/comp330-f26-starter-kit" aria-label="GitHub owner/repository" readonly><span id="repoMode"><span class="status green"></span> Repository connected</span></div>
-        <div class="context-actions"><button id="reviewHomeButton" class="secondary compact hidden">New Review Home</button><button id="newReview" class="primary" disabled>Start Review →</button></div>
+        <div class="context-actions"><button id="reviewHomeButton" class="secondary compact hidden">Start another Board Review</button><button id="newReview" class="primary" disabled>Start Review →</button></div>
       </div>
+      <section id="selectedReviewCard" class="selected-review-card" aria-label="Currently selected Board Review" aria-live="polite">
+        <div class="selected-review-details"><span class="eyebrow">YOUR BOARD REVIEWS · ONE VIEWED AT A TIME</span><h2 id="selectedReviewTitle">No review selected</h2><p id="selectedReviewFacts">You can start several separate reviews over the semester. Each has its own conversation and fixed repository evidence.</p><small id="selectedReviewMeaning">Earlier open reviews can be resumed; finished reviews stay available to read. Finishing is not instructor approval.</small></div>
+        <div class="selected-review-actions"><button id="selectedReviewList" type="button" class="secondary compact">Browse all reviews</button><button id="selectedReviewNew" type="button" class="secondary compact">Start another Board Review</button><button id="selectedReviewFinish" type="button" class="secondary compact hidden">Finish this review</button></div>
+      </section>
       <div id="reviewSessionPurpose" class="session-purpose hidden"></div>
+      <div id="studentReviewEntry" class="student-review-entry" aria-label="Your next review action">
+        <div><span class="eyebrow">YOUR NEXT STEP</span><h2 id="studentEntryTitle">Begin with a Board Review</h2>
+          <p id="studentEntryDescription">The board will inspect your selected phase against a fixed repository snapshot. You can ask questions and inspect the evidence afterward.</p></div>
+        <div class="student-entry-actions"><button type="button" id="studentEntryPrimary" class="primary">Start Board Review →</button>
+          <button type="button" id="studentEntryOptions" class="secondary" aria-expanded="false" aria-controls="reviewLauncher">Other review options</button>
+          <button type="button" id="studentEntryHelp" class="text-button">How reviews work</button></div>
+      </div>
       <div id="reviewLauncher" class="review-launcher-wrap">
-        <div class="review-launcher-heading"><div><span class="eyebrow">START HERE · REVIEW ROOM</span><h3>How do you want the senior board to engage?</h3></div><small id="reviewModeIntro" aria-live="polite">Let the board choose a phase question from your repository evidence. Select Start Board Review to begin. Engineering Evidence holds saved sources and concerns. You can move between rooms without ending a review.</small></div>
+        <div class="review-launcher-heading"><div><span class="eyebrow">START HERE · REVIEW ROOM</span><h3>How would you like the Review Board to engage?</h3></div><small id="reviewModeIntro" aria-live="polite">Let the board choose a phase question from your repository evidence. Select Start Board Review to begin. Engineering Evidence holds saved sources and concerns. You can move between rooms without ending a review.</small></div>
         <div class="review-launcher">
-          <button type="button" class="review-choice selected" data-review-mode="board" aria-pressed="true"><b>Board Review</b><span>Let the senior board choose the most valuable phase-gate question from your current evidence.</span><em>Normal phase-gate review</em></button>
+          <button type="button" class="review-choice selected" data-review-mode="board" aria-pressed="true"><b>Board Review</b><span>Let the Review Board choose the most valuable phase-gate question from your current evidence.</span><em>Normal phase-gate review</em></button>
           <button type="button" class="review-choice" data-review-mode="focused" aria-pressed="false"><b>Focused Review</b><span>Bring a decision, artifact, PR, architecture choice, risk, AI-use question, or concern you want challenged.</span><em>You choose the engineering subject</em></button>
           <button type="button" class="review-choice" data-review-mode="finding" aria-pressed="false"><b>Review Findings</b><span>Understand, challenge, resolve, accept, defer, or ask questions about findings the board already identified.</span><em>Work directly with board findings</em></button>
         </div>
@@ -62,11 +74,11 @@
         <div class="review-launcher-action"><div><b id="reviewModeSummary">Board Review · the board chooses the agenda.</b><span class="launcher-hint">Use the Start button above to begin the selected review. Selecting a review type does not start a session. In Engineering Evidence, a concern action starts a Finding Review directly.</span></div></div>
       </div>
 
-      <div class="apprentice-strip" id="guideStrip">
-        <div class="apprentice-step"><span>1</span><div><b>Understand the condition</b><small>Ask the senior reviewer when wording or consequences are unclear.</small></div></div>
-        <div class="apprentice-step"><span>2</span><div><b>Work toward a position</b><small>Use coaching as often as needed; early phases are deliberately guided.</small></div></div>
-        <div class="apprentice-step"><span>3</span><div><b>Discuss, refine, then recommend</b><small>When a decision is needed, state the recommendation you are prepared to defend. Not every conversation needs one.</small></div></div>
-        <button id="dismissGuide" class="text-button">Got it</button>
+      <div class="apprentice-strip student-quick-start" id="guideStrip" aria-label="Three-step Studio quick start">
+        <div class="apprentice-step"><span>1</span><div><b>Start or resume a review</b><small>Choose your phase and team repository. An existing conversation keeps its original frozen snapshot.</small></div></div>
+        <div class="apprentice-step"><span>2</span><div><b>Talk, inspect, and challenge</b><small>Review Room is for the conversation. Engineering Evidence is the saved source notebook; its latest snapshot may differ.</small></div></div>
+        <div class="apprentice-step"><span>3</span><div><b>Improve, commit, review again</b><small>After pushing changes, select Start another Board Review. The earlier conversation remains in Review History.</small></div></div>
+        <button id="dismissGuide" class="text-button" type="button" aria-label="Dismiss quick start; reopen it from Help">Got it</button>
       </div>
 
       <div class="hero-grid">
@@ -78,29 +90,31 @@
           <div class="chips" id="dimensionChips"><span>Business Value</span><span>Evidence</span><span>Accountability</span><span>AI Governance</span><span>Uncertainty</span></div>
         </article>
         <article class="pulse">
-          <div class="pulse-head"><span>ENGINEERING SIGNALS</span><b id="coverage">—</b></div>
+          <div class="pulse-head"><span>EXPECTED EVIDENCE LOCATIONS · NOT A GRADE</span><b id="coverage">—</b></div>
           <div class="meter"><i id="meter"></i></div>
           <div class="signal-grid"><div><small>Current review evidence</small><b id="evCoverage">No review open</b></div><div><small>Position</small><b id="defense">Not started</b></div><div><small>Reasoning Moves</small><b id="depth">—</b></div><div><small>Instructor Visibility</small><b>On</b></div></div>
-          <p class="quiet">Signals help you navigate the review. They are not an autonomous course grade.</p>
+          <p class="quiet">Coverage shows expected evidence locations identified in this saved snapshot, not completeness, engineering quality, participation, or an instructor grade. Findings require separate inspection.</p>
         </article>
       </div>
 
       <div class="workspace">
         <section class="review-room">
           <div class="panel-title review-titlebar">
-            <div><span class="eyebrow">SENIOR REVIEW BOARD</span><h3 id="challengeTitle">Start a review to convene the board</h3></div>
+            <div><span class="eyebrow">REVIEW BOARD</span><h3 id="challengeTitle">Start a review to convene the board</h3></div>
             <div class="board-lenses"><span>Maya · Evidence</span><span>Marcus · Architecture</span><span>Elena · Red Team</span><span>Priya · Delivery</span></div>
           </div>
 
           <div id="reviewStatus" class="review-status hidden">
             <div><span class="status green"></span><b id="reviewStatusLabel">Review in progress</b><small id="reviewStatusText">Evidence snapshot frozen for this session</small></div>
-            <div class="review-status-actions"><button id="retryStartReview" class="secondary hidden" type="button">Retry Review</button></div>
+            <div class="review-status-actions"><button id="jumpToReply" class="secondary compact" type="button" aria-controls="response">Go to your reply ↓</button><button id="retryStartReview" class="secondary hidden" type="button">Retry Review</button></div>
           </div>
           <div id="reviewCompletionSummary" class="review-completion-summary hidden" aria-live="polite"></div>
+          <nav class="two-room-switcher" aria-label="Two connected engineering rooms"><div class="two-room-intro"><b>Two rooms · one engineering workflow</b><span>Discuss with the Review Board in Review Room; inspect saved repository evidence in Evidence Room. Switching does not finish a review.</span></div><div class="two-room-tabs"><button type="button" data-room-jump="studio" class="two-room-tab is-current" aria-current="page">① Engineering Review Room <small>Discuss</small></button><button type="button" data-room-jump="evidence" class="two-room-tab">② Engineering Evidence Room <small>Inspect</small></button></div></nav>
           <div id="reviewRoomOrientation" class="room-orientation" aria-live="polite">
-            <div><span class="room-kicker">YOU ARE HERE</span><b>Review Room</b><small id="reviewRoomOrientationDetail">Talk with the reviewer. This conversation stays tied to one frozen repository snapshot.</small></div>
+            <div><span class="room-kicker">YOU ARE HERE</span><b>Engineering Review Room</b><small id="reviewRoomOrientationDetail">Talk with the reviewer. This conversation stays tied to one frozen repository snapshot.</small></div>
             <div class="room-route" aria-label="Review workflow"><button type="button" class="room-step active" data-room-jump="studio" aria-current="page">1 · Review</button><span>→</span><button type="button" class="room-step" data-room-jump="evidence">2 · Evidence</button></div>
           </div>
+          <div id="reviewSnapshotContext" class="snapshot-context" role="group" aria-label="Review repository snapshot context"><p id="reviewSnapshotContextText">No review snapshot is selected. Starting a review captures a fixed repository revision.</p><button type="button" data-help-topic="snapshot-lifecycle" class="text-button">How snapshots work</button></div>
           <div id="reviewJourney" class="review-journey" aria-label="How to use this review">
             <div><b>Talk here. Check evidence only when you need it.</b><span>Find supporting evidence searches this review’s frozen snapshot. Inspect cited source opens the file already tied to the concern. Engineering Evidence is the saved source notebook.</span></div>
             <div class="review-journey-actions"><button id="findCurrentConcernEvidence" class="primary compact hidden" type="button" title="Search this review’s frozen snapshot for equivalent evidence">Find supporting evidence</button><button id="inspectCurrentConcern" class="secondary compact" type="button">Inspect cited source</button><button id="browseReviewEvidence" class="secondary compact" type="button">Browse Engineering Evidence</button></div>
@@ -173,7 +187,7 @@
             <button id="askMode" class="mode-button"><b>Talk with the reviewer</b><span>Ask a question, answer what they asked, or think out loud. The reviewer will follow what you mean.</span></button>
             <button id="coachButton" class="mode-button coaching"><b>Explain this and show me how</b><span>Get a direct explanation, a useful example, a next step for your team, and related ES guidance.</span></button>
             <button id="decisionMode" class="mode-button"><b>Build my recommendation</b><span>Use this when the discussion reaches a real engineering decision. You can keep asking questions first.</span></button>
-            <div class="review-finish"><span>You can return to this review later. Finish it when you are done discussing this snapshot.</span><div><button id="startAnotherReview" class="secondary compact" type="button">Start another review</button><button id="completeReview" class="primary compact" type="button">Finish this review</button></div></div>
+            <div class="review-finish"><span>Your review uses a fixed snapshot. If you changed and pushed repository work, review the repository again; you do not have to finish this conversation first.</span><div><button id="startAnotherReview" class="secondary compact" type="button">Start another Board Review</button><button id="completeReview" class="primary compact" type="button">Finish this review</button></div></div>
           </div>
 
         </section>
@@ -188,24 +202,26 @@
         </aside>
       </div>
 
-      <div class="history-card"><div><span class="eyebrow">YOUR REVIEW HISTORY</span><h3>Practice is cumulative</h3><p>Early reviews may include substantial coaching. Over the semester, the board will expect more independent engineering reasoning.</p><p>“Saved for later” means a review is still open. Select its session to resume the original frozen conversation.</p></div><div><div id="reviewHistory" class="history-list"><span class="quiet">No review history loaded yet.</span></div><button id="viewAllHistory" class="text-button" type="button">See more recent reviews →</button></div></div>
+      <div class="history-card"><div><span class="eyebrow">YOUR REVIEW HISTORY</span><h3>Practice is cumulative</h3><p>Early reviews may include substantial coaching. Over the semester, the board will expect more independent engineering reasoning.</p><p>“Saved for later” means a review is still open. Select its session to resume the original frozen conversation.</p></div><div><div id="reviewHistory" class="history-list"><span class="quiet">No review history loaded yet.</span></div><button id="viewAllHistory" class="text-button" type="button">Browse all reviews (open and finished) →</button></div></div>
     </section>
 
-    <section id="history" class="view"><div class="page-card"><div class="page-heading"><div><span class="eyebrow">MY REVIEW HISTORY</span><h2>How your engineering judgment is developing</h2><p>Your conversations are individual, but every review remains tied to the same frozen team evidence used at that moment.</p></div></div><div id="reviewHistoryPage" class="history-list large-history"></div></div></section>
+    <section id="history" class="view"><div class="page-card"><div class="page-heading"><div><span class="eyebrow">MY REVIEW HISTORY</span><h2>All your Board Reviews</h2><p>Your conversations are individual, but every review remains tied to the same frozen team evidence used at that moment.</p></div></div><p class="review-history-explainer">One review is <b>currently viewed</b>. Several can be <b>open</b> at the same time. Select an open review to continue or a finished review to read it. Every conversation uses its original frozen evidence; finishing does not indicate instructor approval.</p><div id="reviewHistoryPage" class="history-list large-history" aria-live="polite"></div><div class="history-pagination"><p id="historyPaginationStatus" role="status" aria-live="polite"></p><button type="button" id="loadMoreReviews" class="secondary compact hidden">Load older reviews</button></div></div></section>
 
     <section id="myteam" class="view"><div class="page-card"><div class="page-heading"><div><span class="eyebrow">MY TEAM</span><h2 id="myTeamHeading">Team context</h2><p>Team membership and repository evidence are shared. Your coaching conversations and learning state remain individual.</p></div></div><div id="onboardingChecklist" class="onboarding-checklist"></div><div id="myTeamContent" class="team-context-grid"></div></div></section>
 
     <section id="evidence" class="view">
       <div class="page-card evidence-page engineering-evidence-page">
-        <div class="page-heading"><div><span class="eyebrow">ENGINEERING EVIDENCE</span><h2>See what needs work and what to check next</h2><p>These are coaching signals from a frozen repository snapshot, not a grade or a phase-gate decision. A file can be present and still fail to support its engineering claim.</p></div><button class="secondary" data-help-topic="evidence-map">How to use this page</button></div>
+        <div class="page-heading"><div><span class="eyebrow">ENGINEERING EVIDENCE</span><h2>See what needs work and what to check next</h2><p>These are coaching signals from a frozen repository snapshot, not a grade or a phase-gate decision. A file can be present and still fail to support its engineering claim.</p></div><button class="secondary" data-help-topic="evidence-map">Help with Engineering Evidence</button></div>
+        <nav class="two-room-switcher" aria-label="Two connected engineering rooms"><div class="two-room-intro"><b>Two rooms · one engineering workflow</b><span>Discuss with the Review Board in Review Room; inspect saved repository evidence in Evidence Room. Switching does not finish a review.</span></div><div class="two-room-tabs"><button type="button" data-room-jump="studio" class="two-room-tab">① Engineering Review Room <small>Discuss</small></button><button type="button" data-room-jump="evidence" class="two-room-tab is-current" aria-current="page">② Engineering Evidence Room <small>Inspect</small></button></div></nav>
         <div id="evidenceRoomOrientation" class="room-orientation evidence-orientation" aria-live="polite">
-          <div><span class="room-kicker">YOU ARE HERE</span><b>Engineering Evidence</b><small id="evidenceRoomOrientationDetail">Inspect saved evidence and concerns. Return to Review Room to continue the conversation.</small></div>
+          <div><span class="room-kicker">YOU ARE HERE</span><b>Engineering Evidence Room</b><small id="evidenceRoomOrientationDetail">Inspect saved evidence and concerns. Return to Review Room to continue the conversation.</small></div>
           <div class="room-route" aria-label="Review workflow"><button type="button" class="room-step" data-room-jump="studio">1 · Review</button><span>→</span><button type="button" class="room-step active" data-room-jump="evidence" aria-current="page">2 · Evidence</button></div>
         </div>
+        <div id="evidenceSnapshotContext" class="snapshot-context" role="group" aria-label="Saved engineering evidence snapshot context"><p id="evidenceSnapshotContextText">Loading saved evidence information. The latest saved snapshot is not automatically the one in your open review.</p><button type="button" data-help-topic="snapshot-lifecycle" class="text-button">How snapshots work</button></div><p id="evidenceSnapshotMismatch" class="evidence-snapshot-mismatch hidden" role="status"></p><button id="openSelectedReviewEvidence" class="secondary evidence-original-action hidden" type="button">Inspect the evidence from the selected review</button>
         <div id="evidenceWorkspaceStatus" class="evidence-workspace-status"><span class="mini-spinner"></span><span>Loading the latest frozen evidence snapshot…</span></div>
         <div id="evidenceWorkspace" class="hidden">
           <div class="evidence-workspace-head"><div><span class="eyebrow">LATEST SAVED EVIDENCE SNAPSHOT · SOURCE NOTEBOOK</span><h3 id="evidenceWorkspaceTitle">Current phase evidence</h3><p id="evidenceWorkspaceMeta"></p><p id="evidenceSnapshotNote" class="evidence-snapshot-note" role="status"></p></div><div class="evidence-workspace-actions"><button id="startBoardFromEvidence" class="primary compact">Choose Board Review →</button><button id="backToStudio" class="secondary">Open Review Room</button><small id="evidenceActionHint">Choose a concern below or return to Review Room.</small></div></div>
-          <div class="evidence-summary-strip" id="engineeringEvidenceSummary"></div>
+          <div class="evidence-summary-strip" id="engineeringEvidenceSummary" aria-label="Evidence area counts and separately categorized review findings"></div><p id="evidenceCountExplanation" class="evidence-count-explanation">Evidence-area counts and Review Board findings are separate. A zero in an evidence category does not mean there are no findings.</p>
           <div id="evidenceNextAction" class="evidence-next-action"></div>
           <section class="evidence-strengths-section" id="evidenceSupportedSection"><div class="section-heading"><div><span class="eyebrow">BOUNDED SUPPORT</span><h3>Supported phase claims</h3></div><small>Each observation points to a frozen excerpt and its limit. It does not approve the whole artifact or predict the phase gate.</small></div><div id="engineeringEvidenceStrengths" class="strength-grid"></div></section>
           <details class="evidence-lenses-section"><summary><span><b>Explore other engineering questions</b><small>Optional perspectives on cost, risk, traceability, and more</small></span></summary><div id="evidenceMatrix" class="matrix evidence-lens-grid"></div><div id="evidenceLensDetail" class="evidence-lens-detail hidden"></div></details>
@@ -234,7 +250,7 @@
   </main>
 </div>
 
-<div id="helpOverlay" class="help-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><aside class="help-drawer"><div class="help-header"><div><span class="eyebrow">STUDIO GUIDANCE</span><h2 id="helpTitle">Help</h2></div><button id="closeHelp" class="close-button" aria-label="Close help">×</button></div><div id="helpContent" class="help-content"></div></aside></div>
+<div id="helpOverlay" class="help-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><aside class="help-drawer"><div class="help-header"><div><span class="eyebrow">STUDIO GUIDANCE · NO REVIEW CALLS</span><h2 id="helpTitle">Help</h2></div><button id="closeHelp" class="close-button" aria-label="Close help">×</button></div><div id="helpContent" class="help-content"></div></aside></div>
 <div id="evidenceDisputeOverlay" class="dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="evidenceDisputeTitle"><div class="dialog-card challenge-dialog"><div class="help-header"><div><span class="eyebrow">CHALLENGE A FINDING</span><h2 id="evidenceDisputeTitle">What should the reviewer reconsider?</h2></div><button id="closeEvidenceDispute" class="close-button" aria-label="Close challenge">×</button></div><p>Choose how you want to challenge this finding. The reviewer will check your point against the frozen review snapshot.</p><fieldset class="challenge-choices"><legend>What is your challenge about?</legend><label><input type="radio" name="evidenceDisputeKind" value="interpretation" checked> I disagree with the interpretation <small>Explain your reasoning; no file path is needed.</small></label><label><input type="radio" name="evidenceDisputeKind" value="evidence"> The board missed repository evidence <small>Give the real path. Maya will inspect the retained frozen content when it is available; if it cannot be inspected, she will say so. You can also ask what it means or what to do next.</small></label></fieldset><div id="evidenceDisputePathGroup" class="hidden"><label for="evidenceDisputePath">Repository path to check</label><input id="evidenceDisputePath" type="text" placeholder="Example: docs/team/team-charter.md" aria-describedby="evidenceDisputeError"><small class="challenge-hint">The example above is not an entered path. Use your team's actual file location.</small></div><label for="evidenceDisputeExplanation">What should the reviewer reconsider?</label><textarea id="evidenceDisputeExplanation" placeholder="Explain what you disagree with, what the evidence shows, or ask what it means for your next step." aria-describedby="evidenceDisputeError"></textarea><p id="evidenceDisputeError" class="challenge-error hidden" role="alert"></p><p id="challengeProgress" class="challenge-progress hidden" role="status" aria-live="polite"></p><div class="dialog-actions"><button id="cancelEvidenceDispute" class="secondary">Cancel</button><button id="submitEvidenceDispute" class="primary">Ask reviewer to reconsider →</button></div></div></div>
 <div id="reviewExitOverlay" class="dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="reviewExitTitle"><div class="dialog-card"><div class="help-header"><div><span class="eyebrow">REVIEW SESSION</span><h2 id="reviewExitTitle">Finish this review?</h2></div><button id="closeReviewExit" class="close-button" aria-label="Keep reviewing">×</button></div><p id="reviewExitExplanation">Finishing makes this conversation read-only and preserves its frozen evidence. You can start another review of updated repository work afterward.</p><div class="dialog-actions"><button id="keepReviewing" class="secondary" type="button">Keep reviewing</button><button id="leaveReviewOpen" class="secondary hidden" type="button">Leave this review open</button><button id="confirmFinishReview" class="primary compact" type="button">Finish this review</button></div></div></div>
 <div id="artifactOverlay" class="dialog-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="artifactOverlayTitle"><div class="dialog-card artifact-dialog"><div class="help-header"><div><span class="eyebrow">FROZEN EVIDENCE</span><h2 id="artifactOverlayTitle">Evidence detail</h2></div><button id="closeArtifactOverlay" class="close-button" aria-label="Close evidence detail">×</button></div><div id="artifactOverlayMeta" class="artifact-meta"></div><p id="artifactConditionNote" class="student-language-note"></p><pre id="artifactOverlayExcerpt" class="artifact-excerpt"></pre><p id="artifactContentNote" class="student-language-note"></p><div class="dialog-actions"><button id="artifactReferenceButton" class="secondary">Reference in review</button><a id="artifactExternalLink" class="secondary compact hidden" target="_blank" rel="noopener noreferrer">View this commit on GitHub ↗</a></div><p id="artifactGithubNote" class="student-language-note hidden">Private GitHub repositories require a separate GitHub sign-in. You can inspect the retained review copy above without opening GitHub.</p></div></div>

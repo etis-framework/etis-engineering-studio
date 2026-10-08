@@ -6,6 +6,8 @@
 
 For [v0.18.0](../releases/v0.18.0.md), verify the expected live version from `apps/api/app/version.py`, selected workflow SHA and immutable image/revision; explicitly retain reasoning validation/planning shadow/shadow with legacy student-visible authority. Operator acceptance must be followed by student/staff smoke for frozen evidence, finding closure, transcript authorship, draft preservation and dialog keyboard behavior. A green health endpoint alone cannot certify these journeys.
 
+For the [v0.18.1 student UI candidate](../releases/v0.18.1.md), first verify PR/CI and explicit shadow/shadow deployment on merged main. Operator acceptance must be followed by authorized student testing of paired room navigation, multiple open/finished reviews, original frozen evidence versus newer saved phase evidence, draft preservation and read-only completion. The local synthetic simulator is not an alternative production acceptance.
+
 ## 1. Purpose
 
 This runbook defines the normal production operating procedure for the ETIS

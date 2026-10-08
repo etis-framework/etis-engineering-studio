@@ -1,6 +1,6 @@
 # Product Experience
 
-> **Status:** Current student and instructor contract for the v0.18.0 release; deployment acceptance is separate.
+> **Status:** v0.18.1 student-journey candidate; accepted production v0.18.0 is recorded separately.
 
 ## Student: Engineering Studio
 
@@ -112,3 +112,12 @@ Only authoritative `corrected` or `resolved` findings are closed. Inspection/sea
 Help, artifact, challenge and exit dialogs contain keyboard focus, make background content inert, handle nested focus, and restore a usable opener. Escape uses the existing close behavior; it never submits/completes and does not cancel an already submitted challenge. See the [keyboard contract](architecture/DIALOG_KEYBOARD_ACCESSIBILITY.md) and [release contract](releases/v0.18.0.md).
 
 `Build my recommendation` selects coaching mode; `Discuss Recommendation` sends the composer message in that mode. `State My Recommendation` is the distinct later action that records a ready position. Current recommendation is the optional, revisable posture; none of these establishes finding closure.
+
+## v0.18.1 candidate: self-explanatory student journey
+
+- **Two rooms:** Engineering Review Room holds the conversation with the Review Board; Engineering Evidence Room shows the latest saved phase evidence. Students can navigate in either direction without finishing a review.
+- **Selected versus open:** The user views only one session at a time; multiple Board Reviews can stay open. Review History exposes open/resumable and finished/read-only sessions and supports browsing older pages.
+- **Immutable session evidence:** The selected review displays its frozen phase, commit and snapshot ID. Evidence Room's latest saved phase snapshot may differ; an explicit mismatch warning and original-evidence action protect historical FACT. Multiple sessions can reuse one snapshot if phase/commit are unchanged.
+- **State-aware guidance:** First-review instructions do not persist into open/finished conversations. The main student action is obvious, reply and Send remain visible, and finishing preserves the read-only transcript. Unsent drafts belong to their original session context.
+- **Help:** Routine navigation help is deterministic and does not incur model calls. Engineering guidance remains a separate reviewer interaction; grades and instructor approval are never inferred from the UI.
+- **Local acceptance:** The simulator under tools/ is loopback-only and synthetic. Real student, Entra, GitHub, model, screen-reader and Azure acceptance require separate evidence.

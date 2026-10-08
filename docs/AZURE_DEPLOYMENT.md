@@ -2,7 +2,9 @@
 
 > **Institutional adoption:** names, domains, tenant values, resource identifiers, budgets, and settings in this document describe the ETIS Framework reference deployment. Create institution-owned equivalents; do not reuse reference production credentials or identifiers.
 
-> **Status:** Current source deployment guidance for v0.18.0. The August GO decision is historical; every new deployment requires acceptance for its selected SHA.
+> **Status:** v0.18.1 candidate deployment guidance; accepted production is still v0.18.0. The August GO decision is historical; every new deployment requires acceptance for its selected SHA.
+
+> **Critical mode guard:** The manual `deploy-azure.yml` workflow defaults to `legacy`/`legacy`. For the accepted shadow evaluation posture, explicitly input `reasoning_validation_mode=shadow` and `review_planning_mode=shadow` on the merged main SHA. Do not infer the required configuration from defaults. See [`releases/v0.18.1.md`](releases/v0.18.1.md).
 
 ## Purpose
 

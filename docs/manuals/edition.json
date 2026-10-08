@@ -1,102 +1,103 @@
 {
-  "version": "0.18.0",
-  "status": "release",
+  "version": "0.18.1",
+  "status": "candidate",
   "manuals": [
     {
       "id": "00",
       "docx": "00_ETIS_Engineering_Studio_Master_Manual_and_Documentation_Index.docx",
       "pdf": "00_ETIS_Engineering_Studio_Master_Manual_and_Documentation_Index.pdf",
-      "pages": 18,
-      "docx_sha256": "3cc48bc20dd1511a726ac399f673c18de11fc04b22dd743913dfee0f792c5f30",
-      "pdf_sha256": "10d3e9a7cdd53c5b1224f009b13cdec136e22f2d7d24ad89567b1e3da0be567d"
+      "pages": 19,
+      "docx_sha256": "547587c112e007f4943d19ce9843491851619b5328326e363c241d6e156a4f4d",
+      "pdf_sha256": "263ea82b49bd896b56b9641250c50a1381471ebea037a4cb5f3a72f98be16a81"
     },
     {
       "id": "01",
       "docx": "01_ETIS_Engineering_Studio_Executive_Overview.docx",
       "pdf": "01_ETIS_Engineering_Studio_Executive_Overview.pdf",
-      "pages": 10,
-      "docx_sha256": "16a0e829c74e6f94f76d05dcf464d4e370deb75e466bc0b67dd896342476adb4",
-      "pdf_sha256": "68be290a24d28b70f095a8739cb87a7fd184f4b690ccd95acf439a4592298ed5"
+      "pages": 11,
+      "docx_sha256": "b15228a8030f061c33b68c8d7c6b39204f5250f77fe996d927014f4a321a25d4",
+      "pdf_sha256": "9ef85443b213f57672915db4c827cf55aa553198267dc916d229280bddb655ec"
     },
     {
       "id": "02",
       "docx": "02_ETIS_Engineering_Studio_Installation_and_Administration_Guide.docx",
       "pdf": "02_ETIS_Engineering_Studio_Installation_and_Administration_Guide.pdf",
-      "pages": 24,
-      "docx_sha256": "dc6c7bb5ae84fa3095a9f3459e596b85810f882c2d7f77d7a4d6c6e7c5f1033a",
-      "pdf_sha256": "f503f521b97fb54e24a8489a0cafa75276489449cb1d7e2686310fec03d8087a"
+      "pages": 25,
+      "docx_sha256": "e4fa2d3f3dd55ccd0019afa8ee1f7cfc08f2a296d04e39de46f629afb83644e7",
+      "pdf_sha256": "fe2614a770d5d02de046d6785644e5f807d4cc4205425193747f8671b135f04b"
     },
     {
       "id": "03",
       "docx": "03_ETIS_Engineering_Studio_Architecture_and_Detailed_Design.docx",
       "pdf": "03_ETIS_Engineering_Studio_Architecture_and_Detailed_Design.pdf",
-      "pages": 17,
-      "docx_sha256": "1ff0936d2b44a3b36e3b748e529a3aeb48c84f842d556b59a8daf5e7058ede00",
-      "pdf_sha256": "58acce3597bdfd1f93b33a1071a5934b183321afb5edec3e622b771d938631b2"
+      "pages": 18,
+      "docx_sha256": "0a8cd1c7d635c269005bd4f4d055393ce441dfdaf39f452854b49b5e285eeb60",
+      "pdf_sha256": "91c2b875be69c8a2772e123438cf150d1959a2581fa7b450bf4f222cd5ac293e"
     },
     {
       "id": "04",
       "docx": "04_ETIS_Engineering_Studio_Instructor_and_Course_Owner_Handbook.docx",
       "pdf": "04_ETIS_Engineering_Studio_Instructor_and_Course_Owner_Handbook.pdf",
-      "pages": 17,
-      "docx_sha256": "a37c7b149e877c11328ae003a890c7d0125f323a57418c4350fd020577ff039f",
-      "pdf_sha256": "83acc8bfd3ca91555a062ec9720b1db7d9998f80cafb2851566bc80819881258"
+      "pages": 18,
+      "docx_sha256": "a922d24a0344a87b5aa1676c80ba8f6440a0ba507498780fcd2961e212691b82",
+      "pdf_sha256": "723d169456fe9d295ec71bda6241128faad524ac49cfbc7aa35122969f3b105e"
     },
     {
       "id": "05",
       "docx": "05_ETIS_Engineering_Studio_Student_User_Guide.docx",
       "pdf": "05_ETIS_Engineering_Studio_Student_User_Guide.pdf",
-      "pages": 33,
-      "docx_sha256": "578dc08d0d8a943e3ada19b84364d17404949c26423948d7b0ee8d92582e66ec",
-      "pdf_sha256": "844e17c94096c47cb008734c2968e420fb47d0d24e278dcb301ea2e93da43283"
+      "pages": 36,
+      "docx_sha256": "65363a209568e7b7ed3526871c0cced9a27a2ccb4e50ab495c526f9845fef42d",
+      "pdf_sha256": "cbb73f64d6d7dd43681fdff5c64236198dee5abd45352e2ce02171d7e0ed041f"
     },
     {
       "id": "06",
       "docx": "06_ETIS_Team_GitHub_and_Repository_Setup_Quickstart.docx",
       "pdf": "06_ETIS_Team_GitHub_and_Repository_Setup_Quickstart.pdf",
-      "pages": 3,
-      "docx_sha256": "9ea0e63feb48a8b852ed7e5dfb118170956bf91792e3629bbfe56b40c221ecdc",
-      "pdf_sha256": "f048fd59a12321ac097cecfaf4bba48a302223bf3bcf2a53b5b966ac465dac2c"
+      "pages": 4,
+      "docx_sha256": "344c61d88b8c37d96401836e1290264413ea81ff869d795c467a1973ae192860",
+      "pdf_sha256": "3030c3a90bf6afdd6cbc1fe8fc922b13f7481e71c8a258a30197621bdd83d9a1"
     },
     {
       "id": "07",
       "docx": "07_ETIS_Student_Cheat_Sheet_and_Quick_Reference.docx",
       "pdf": "07_ETIS_Student_Cheat_Sheet_and_Quick_Reference.pdf",
-      "pages": 3,
-      "docx_sha256": "c9fb9b2372e7f54bd39dd400e32bfe94d583335e3cf05b54bcb7588bb772a1fb",
-      "pdf_sha256": "304b6bd5d79e15da85b9b6805b522b9aabce331265f65da6d43dc9d7b4a96058"
+      "pages": 4,
+      "docx_sha256": "5762ac4afcd5381180ee476d4ec643ccf1f1b78efe5b3d9ba9882fe2c5883420",
+      "pdf_sha256": "ed725c481ef03a0ffc3a91f53dbf8708f9c1409f4efa1a1387d27464647f6b6b"
     },
     {
       "id": "08",
       "docx": "08_ETIS_Engineering_Studio_Azure_Operations_CLI_User_Guide.docx",
       "pdf": "08_ETIS_Engineering_Studio_Azure_Operations_CLI_User_Guide.pdf",
-      "pages": 14,
-      "docx_sha256": "e8ec4a809a091fee50946d0db436b6c01c576fd82679a66dcf7d385dd17af926",
-      "pdf_sha256": "72f5bb05e165a20ae8c2857e02c9fd94162a031baf27e439f340642c162429d4"
+      "pages": 15,
+      "docx_sha256": "f594f9fa3a47819327fda37bbf2effb49caf3d0084d78e8c96a9a5c21e42b15a",
+      "pdf_sha256": "b9a40ee7c19ad56d6225f9e0d7e08a0d5952c632b460963b8f36bfeed5f9c68c"
     },
     {
       "id": "09",
       "docx": "09_ETIS_Engineering_Studio_Production_Operations_Runbook.docx",
       "pdf": "09_ETIS_Engineering_Studio_Production_Operations_Runbook.pdf",
-      "pages": 10,
-      "docx_sha256": "49f583ac191c96c9b7524deb027d4626fe7d9f97ea660e2c60cce4325eaef3a9",
-      "pdf_sha256": "6805dd7135d0d6dda13fda9c0d943e500ba2a4005e45b466cffdaaa6d113a34d"
+      "pages": 11,
+      "docx_sha256": "01cad3910dd3f6c63529f11ef78e69ae2d5acc360f45e31fdeef7fa20982a34e",
+      "pdf_sha256": "a7564b0163bccd5b38dca10d502a6a216b4a6cf7e638fbc49f09046f01eccb09"
     },
     {
       "id": "10",
       "docx": "10_ETIS_Engineering_Studio_Semester_Administration_and_Course_Operations_Guide.docx",
       "pdf": "10_ETIS_Engineering_Studio_Semester_Administration_and_Course_Operations_Guide.pdf",
-      "pages": 13,
-      "docx_sha256": "39ac6cf88457c4f7d36c8bc6e33f3ac89b70c5115f54ff83f9512b453e370022",
-      "pdf_sha256": "2e98d892ca579abfc367f80ed224f0b291d82d6f96b9a7ef25463b823380253e"
+      "pages": 14,
+      "docx_sha256": "5d6c3997911187e7ac7fa01eb983e5ad7b5394b085685ed4de51726121c7c17e",
+      "pdf_sha256": "c3ad826a95f5fe911746e7a97197db9c8894f830b66c6f682ec5679b54840320"
     },
     {
       "id": "11",
       "docx": "11_ETIS_Engineering_Studio_Backup_Recovery_and_Disaster_Recovery_Runbook.docx",
       "pdf": "11_ETIS_Engineering_Studio_Backup_Recovery_and_Disaster_Recovery_Runbook.pdf",
-      "pages": 11,
-      "docx_sha256": "3fd3d311e6fcea007dd70a658b544aac5e2316ac156bdc620c0d47b496eb7bc0",
-      "pdf_sha256": "50e1cefc3ed7884ccf01b8326fe7e68f5dc40a84b344538508c9573b441bb3ee"
+      "pages": 12,
+      "docx_sha256": "fdc3f5eb9e852bb9ce6c9113e48f8554e94b68eca560a3452e80e1bbd6a35c02",
+      "pdf_sha256": "9bd4130070b850b356023a51d8460469a2ea540d2a0f0e9e8d569260d30b55d6"
     }
-  ]
+  ],
+  "note": "Candidate documentation/source metadata; v0.18.0 remains the accepted and published production release pending v0.18.1 deployment and human smoke."
 }

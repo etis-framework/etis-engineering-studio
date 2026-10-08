@@ -91,7 +91,8 @@ def test_student_ui_has_one_primary_start_action_and_explicit_new_review_home():
     html = (ROOT / 'apps/api/app/static/index.html').read_text()
     assert html.count('id="newReview"') == 1
     assert 'id="reviewHomeButton"' in html
-    assert 'New Review Home' in html
+    assert 'Start another Board Review' in html
+    assert 'Browse all reviews' in html
 
 
 def test_ui_context_is_propagated_instead_of_generic_review_start():

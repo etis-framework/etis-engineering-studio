@@ -1,6 +1,6 @@
 # Local Development
 
-> **Status:** Current developer path for the v0.18.0 source release. Release acceptance is recorded separately.
+> **Status:** Current developer path for v0.18.1 candidate. The last accepted published production release is v0.18.0.
 
 ## Fast path
 
@@ -56,3 +56,11 @@ Repository/evidence deterministic analysis can be exercised without GitHub/model
 ## Frontend note
 
 `apps/web/` is reserved for a future React/Vite split. The production frontend is currently the static FastAPI-served application. Do not treat `apps/web/` as the active deployable frontend unless architecture intentionally changes in a future release.
+
+## Local student journey simulator (v0.18.1 candidate)
+
+Run `python3 -u tools/student_ui_simulator.py` from the repository root and open `http://127.0.0.1:8766/`. The clearly labeled loopback-only simulator serves the real static UI with synthetic responses. It is **not** a production GitHub, Azure, model, database, or student session. It is excluded from the production API Docker image.
+
+Use the synthetic controls for older selected review versus newer saved phase evidence, long conversations, failed starts/replies and multiple open/finished reviews. Verify read-only finish, draft recovery, reply visibility, snapshot mismatches, and original frozen artifact inspection. Exit the process with Control+C.
+
+Test source/UI behavior using `python -m pytest -q`, the existing Node offline war games and available browser harnesses. Do not infer live GitHub or screen-reader acceptance from deterministic simulation.
