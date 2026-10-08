@@ -21,7 +21,8 @@ def test_review_preparation_has_visible_progress_and_persistent_retry():
 
 
 def test_student_review_history_and_session_header_are_clear():
-    assert "Awaiting your first response" in JS
+    assert "Currently viewing · Review #" in JS
+    assert "Finished · read-only" in JS
     assert "Discussion not started" not in JS
     assert ".session-purpose>div{display:grid;gap:4px;min-width:0}" in CSS
     assert "els.repo.title=repo||'Repository not connected'" in JS

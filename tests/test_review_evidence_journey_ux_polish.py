@@ -14,7 +14,7 @@ def test_two_room_orientation_is_visible_and_snapshot_aware():
     assert HTML.count('data-room-jump="studio"') >= 2
     assert HTML.count('data-room-jump="evidence"') >= 2
     assert "Same frozen snapshot as your active review" in JS
-    assert "active review keeps its own older frozen snapshot; do not mix them" in JS
+    assert "It differs from the snapshot attached to your active review; do not mix them." in JS
     assert "updateRoomOrientation();" in JS
 
 def test_button_search_shows_human_action_not_internal_prompt():

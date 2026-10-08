@@ -727,3 +727,133 @@
  .board-readout>summary{flex-wrap:wrap}
  .board-readout>summary>small{flex-basis:100%;margin-left:28px}
 }
+
+/* Student lifecycle clarity: existing review and saved evidence are distinct. */
+.snapshot-context{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px;padding:10px 13px;border:1px solid #37575e;border-radius:9px;background:#10282d}
+.snapshot-context p{margin:0;min-width:0;color:#c5ddd9;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.snapshot-context .text-button{color:#99e4d8;flex-shrink:0;font-size:11px}
+.student-quick-start{border:1px solid #477b70;border-radius:11px}
+.help-choice-list{display:grid;gap:9px;margin:14px 0}
+.help-choice-list button{border:1px solid #467771;border-radius:8px;background:#123a39;color:#e5f9f5;text-align:left;padding:13px;font-weight:700;cursor:pointer;min-height:44px}
+.help-choice-list button:hover,.help-choice-list button:focus-visible{border-color:#9be7db;outline:2px solid #9be7db;outline-offset:2px}
+@media(max-width:760px){.snapshot-context{align-items:flex-start;flex-direction:column}.snapshot-context .text-button{min-height:40px}.student-quick-start{align-items:stretch}}
+
+/* Student journey refinement: intent-first, with advanced controls explicitly disclosed. */
+.student-review-entry{display:flex;justify-content:space-between;gap:22px;align-items:center;margin:13px 0;padding:21px 23px;border:1px solid #53877d;background:#12302f;border-radius:12px}
+.student-review-entry h2{font-size:19px;line-height:1.3;margin:6px 0 9px;color:#f3fbf9}
+.student-review-entry p{font-size:13px;line-height:1.55;max-width:660px;color:#c3dcd6;margin:0}
+.student-entry-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end;flex-shrink:0}
+.student-entry-actions button{min-height:42px}
+body:not(.review-options-expanded) #reviewLauncher{display:none}
+body.review-session-active #studentReviewEntry,body.review-session-active #reviewLauncher{display:none}
+body.student-setup-blocked #studentReviewEntry,body.student-setup-blocked #reviewLauncher,
+body.student-setup-blocked #guideStrip,body.student-setup-blocked .hero-grid,
+body.student-setup-blocked .workspace,body.student-setup-blocked #reviewSessionPurpose{display:none}
+.setup-review-explanation{margin:12px 0 18px;padding:16px 20px;line-height:1.6;font-size:14px;border:1px solid #3e5b62;border-radius:9px;background:#132630;color:#e3f2f0}
+.student-setup-blocked .contextbar{margin-bottom:14px}
+.help-back{font-size:13px;margin-bottom:12px;color:#b6eee5;min-height:40px}
+.help-content{font-size:13px;line-height:1.65}
+.help-content p,.help-content li{line-height:1.65}
+.help-drawer{width:min(440px,100vw)}
+#quickHelp{min-height:38px;font-size:12px;border:1px solid #528078;color:#e4f7f2}
+#quickHelp:focus-visible,.student-entry-actions button:focus-visible,.help-back:focus-visible{outline:3px solid #9deee0;outline-offset:3px}
+@media(max-width:980px){.student-review-entry{align-items:stretch;flex-direction:column}.student-entry-actions{justify-content:flex-start}}
+@media(max-width:600px){.student-review-entry{padding:16px}.student-entry-actions{flex-direction:column;align-items:stretch}.student-entry-actions button{width:100%}}
+
+/* Keep the pre-review screen focused on the student's single next action. */
+body.student-review-idle:not(.review-options-expanded) .contextbar .context-actions{display:none}
+body.student-review-idle .hero-grid,body.student-review-idle .workspace{display:none}
+body.student-review-idle .review-launcher-action{border-top:1px solid #3b5a60}
+/* After choosing advanced review types, the selected mode owns the Start action. */
+body.review-options-expanded.student-review-idle #studentEntryPrimary{display:none}
+
+/* Review answer affordance and viewport positioning: student acceptance follow-up. */
+#jumpToReply{display:none;min-height:36px;white-space:nowrap;border-color:#70cabc;color:#eafffa;font-weight:750}
+.review-session-active #jumpToReply{display:inline-flex;align-items:center}
+.review-session-active .transcript{height:clamp(180px,27vh,310px)}
+.review-session-active .composer{border:2px solid #64c8b9;border-radius:10px;margin:10px 11px 0;padding:14px;box-shadow:0 0 0 2px rgba(100,200,185,.12)}
+.review-session-active #replyLabel{font-size:16px;color:#f0fff9}
+.review-session-active #response{min-height:110px;background:#082520;border:2px solid #78d8c7;color:#efffff;scroll-margin-top:116px;scroll-margin-bottom:30px}
+.review-session-active #response::placeholder{color:#bfd9d1;opacity:1}
+#jumpToReply:focus-visible{outline:3px solid #a5f4e9;outline-offset:3px}
+/* Display full source paths; do not clip unexpectedly long artifact names. */
+.eitem-main,.eitem-main b,.inventory-card h4,.evidence-next-action b,.evidence-finding-card h4,.artifact-meta,.artifact-meta b,.composer-context{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+@media(max-width:760px){.review-session-active .transcript{height:clamp(170px,25vh,240px)}.review-session-active .composer{margin:7px 5px 0;padding:12px}.review-status-actions{flex-wrap:wrap}#jumpToReply{white-space:normal}}
+@media(prefers-reduced-motion:reduce){.review-session-active .composer{scroll-behavior:auto}}
+
+/* Student journey: two connected rooms, one selected review, preserved history. */
+.two-room-switcher{display:grid;grid-template-columns:minmax(220px,1fr) minmax(300px,1.2fr);gap:14px;align-items:center;padding:14px 16px;margin:12px 0;border:2px solid #5bada1;border-radius:12px;background:#10302e;color:#edfff9}
+.two-room-intro{display:flex;flex-direction:column;gap:5px;min-width:0}
+.two-room-intro b{font-size:15px}.two-room-intro span{font-size:12px;line-height:1.45;color:#cce5de}
+.two-room-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.two-room-tab{min-width:0;white-space:normal;text-align:left;padding:11px;border:2px solid #537e78;border-radius:9px;background:#13252c;color:#e4f5f1;font-size:13px;font-weight:800;line-height:1.35;cursor:pointer}
+.two-room-tab small{display:block;margin-top:4px;color:#d5e5e2;font-size:11px}
+.two-room-tab.is-current{background:#226455;border-color:#a1f2db;color:#fff;box-shadow:0 0 0 2px rgba(161,242,219,.18)}
+.two-room-tab:hover,.two-room-tab:focus-visible{outline:3px solid #dffaf2;outline-offset:2px}
+.selected-review-card{display:flex;gap:18px;align-items:center;justify-content:space-between;background:#132933;border:1px solid #5c9d9b;border-left:5px solid #80d9c5;border-radius:12px;padding:14px 18px;margin:12px 0}
+.selected-review-details{min-width:0;flex:1}.selected-review-details h2{font-size:17px;line-height:1.4;color:#f0fff8;margin:5px 0}.selected-review-details p{color:#e0f0ef;font-size:12px;overflow-wrap:anywhere;line-height:1.5;margin:4px 0}.selected-review-details small{display:block;color:#c1d5d4;line-height:1.4;font-size:12px}
+.selected-review-actions{display:flex;flex-wrap:wrap;justify-content:end;gap:8px;max-width:450px}.selected-review-actions button{white-space:normal;min-height:38px}
+.review-history-explainer{background:#142c32;border-left:4px solid #77cbbc;border-radius:7px;padding:15px;color:#e0eee9;line-height:1.55}
+.history-pagination{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:16px 0}
+.history-pagination p{color:#c4d8d9;font-size:13px}
+.history-item{overflow-wrap:anywhere}.history-state{font-weight:700}
+@media(max-width:1100px){.two-room-switcher{grid-template-columns:1fr}.selected-review-card{flex-direction:column;align-items:stretch}.selected-review-actions{max-width:none;justify-content:flex-start}}
+@media(max-width:600px){.two-room-switcher{padding:12px}.two-room-tabs{grid-template-columns:1fr}.two-room-tab{min-height:44px}.selected-review-actions{flex-direction:column}.selected-review-actions button{width:100%}}
+
+/* Persistent viewport orientation while the reply editor is in view. */
+.topbar-student-workflow{min-width:0;flex:1}
+.top-room-navigation{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:5px}
+.top-room-navigation button{border:1px solid #40636b;border-radius:7px;background:#10262d;color:#d2eeea;font-size:11px;font-weight:750;padding:5px 9px;cursor:pointer}
+.top-room-navigation button.is-current{background:#226457;border-color:#9cfae2;color:white}
+.top-room-navigation button:hover,.top-room-navigation button:focus-visible{outline:2px solid #e9fff7;outline-offset:2px}
+.top-room-navigation .top-review-selector{background:#192d37;border-color:#5f9e9b;color:#e9f9f7}
+.topbar:has(.top-room-navigation:not(.hidden)){min-height:100px;height:auto;padding-block:9px;gap:12px}
+.topbar:has(.top-room-navigation:not(.hidden)) .top-actions{flex-shrink:0}
+@media(max-width:1100px){.topbar:has(.top-room-navigation:not(.hidden)){flex-wrap:wrap;align-items:center}.topbar:has(.top-room-navigation:not(.hidden)) .top-actions{gap:8px}}
+@media(max-width:760px){.topbar:has(.top-room-navigation:not(.hidden)){display:block;padding:10px 14px}.topbar:has(.top-room-navigation:not(.hidden)) .top-actions{display:none}.top-room-navigation{flex-wrap:wrap}.top-room-navigation button{min-height:36px}}
+/* Read-only sessions cannot masquerade as a live conversation. */
+.review-session-active #response{caret-color:#edfff9}
+#response[readonly]{opacity:.55;background:#18252b;border-color:#63757d;cursor:not-allowed}
+/* Keep guidance discoverable when the desktop sidebar collapses. */
+@media(max-width:760px){
+ .topbar:has(.top-room-navigation:not(.hidden)) .top-actions{display:flex;justify-content:flex-start;gap:8px;margin-top:7px}
+ .topbar:has(.top-room-navigation:not(.hidden)) #quickHelp{display:inline-flex;align-items:center;min-height:34px}
+ .topbar:has(.top-room-navigation:not(.hidden)) #userIdentity{display:none}
+ .topbar:has(.top-room-navigation:not(.hidden)) #devPersona{max-width:120px}
+}
+/* Transient notifications must not cover the live reply or Send action. */
+#toast{top:112px;bottom:auto;max-width:min(360px,calc(100vw - 28px));pointer-events:none}
+@media(max-width:760px){#toast{top:205px;left:14px;right:14px;bottom:auto;max-width:calc(100vw - 28px)}}
+
+/* Final local UI acceptance refinement: one obvious next action for each review state. */
+body.student-review-selected #studentReviewEntry,
+body.student-review-selected #reviewLauncher,
+body.student-review-selected #guideStrip,
+body.student-review-selected #reviewSessionPurpose,
+body.student-review-selected #reviewRoomOrientation,
+body.student-review-selected .contextbar .context-actions {display:none!important}
+body.student-review-selected-readonly .hero-grid {display:none}
+body.student-review-selected-readonly #reviewCompletionSummary {margin-top:6px}
+/* Display review findings separately from evidence-area categories; neither is a grade. */
+.evidence-summary-strip{grid-template-columns:repeat(5,minmax(0,1fr))}
+.evidence-summary-strip .evidence-review-count{border-color:#5d8074;background:#13302a}
+.evidence-summary-strip .evidence-review-count b{color:#b9f2dc}
+.evidence-count-explanation{color:#bed5d1;font-size:12px;line-height:1.55;margin:8px 0 16px;padding:8px 12px;border-left:3px solid #527f76;background:#10252a}
+.evidence-snapshot-mismatch{border:2px solid #c99d64;background:#332819;color:#ffe9c9;border-radius:9px;padding:13px 16px;line-height:1.55;font-size:13px;margin:12px 0}
+@media(max-width:850px){.evidence-summary-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.evidence-summary-strip .evidence-review-count{grid-column:1/-1}}
+@media(max-width:420px){.evidence-summary-strip{grid-template-columns:1fr 1fr}}
+
+/* The paired room switcher and factual snapshot bar already establish position. */
+.engineering-evidence-page #evidenceRoomOrientation{display:none}
+
+/* Local acceptance refinement: first-time students get ONE Start Board Review action.
+   The current-review panel remains an orientation and history surface. */
+body.student-review-idle:not(.student-setup-blocked) #selectedReviewCard #selectedReviewNew{display:none}
+/* Short conversations size to content; long conversations scroll within a bounded area.
+   This preserves the student's viewport-level reply/Send orientation. */
+.review-session-active .transcript{height:auto;min-height:104px;max-height:clamp(210px,32vh,350px);overflow-y:auto;overscroll-behavior:contain}
+.review-session-active .transcript:has(.empty){min-height:170px}
+/* Snapshot mismatch links directly to the selected review's immutable sources. */
+.evidence-original-action{margin:0 0 14px;padding:9px 13px;min-height:42px;border:2px solid #d4af79;background:#2c281d;color:#fff0d7;font-weight:750}
+.evidence-original-action:hover,.evidence-original-action:focus-visible{outline:3px solid #ffe3b5;outline-offset:2px}
+@media(max-width:760px){.review-session-active .transcript{min-height:92px;max-height:clamp(185px,30vh,300px)}.evidence-original-action{width:100%}}

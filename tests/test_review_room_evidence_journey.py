@@ -32,4 +32,5 @@ def test_empty_positive_section_collapses_without_hiding_real_support():
     assert "supported.map(x=>" in JS
     assert 'id="engineeringEvidenceSummary"' in HTML
     assert "Areas with supported claims</span>" in JS
-    assert "start.textContent=active?'Return to active review'" in JS
+    assert "start.textContent=active?" in JS
+    assert "Start another Board Review" in JS

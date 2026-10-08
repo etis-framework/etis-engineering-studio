@@ -1374,7 +1374,7 @@ def _authorize_finding_disposition_mutation(
     )
     return ctx.get("uid")
 @router.get("")
-def list_reviews(request:Request, team_id: int | None = None, user_id: int | None = None, limit: int = 12, db: Session = Depends(get_db)):
+def list_reviews(request:Request, team_id: int | None = None, user_id: int | None = None, limit: int = 12, offset: int = 0, db: Session = Depends(get_db)):
     ctx = auth_context(request)
     caller_user_id = ctx.get("uid")
 
@@ -1438,14 +1438,22 @@ def list_reviews(request:Request, team_id: int | None = None, user_id: int | Non
     if user_id:
         query = query.filter_by(user_id=user_id)
 
-    sessions = (
+    # Stable bounded pagination: existing authorization filters are applied first.
+    # Never turn a UI history request into an unbounded query or broader access.
+    page_size = min(max(limit, 1), 50)
+    page_offset = min(max(offset, 0), 10000)
+    window = (
         query
-        .order_by(ReviewSession.started_at.desc())
-        .limit(min(max(limit, 1), 50))
+        .order_by(ReviewSession.started_at.desc(), ReviewSession.id.desc())
+        .offset(page_offset)
+        .limit(page_size + 1)
         .all()
     )
+    has_more = len(window) > page_size
+    sessions = window[:page_size]
 
     return {
+        "has_more": has_more,
         "sessions": [
             {
                 "id": session.id,
@@ -1614,6 +1622,7 @@ def _review_start_response(
     return {
         "session_id": session.id,
         "snapshot_id": snapshot.id,
+        "snapshot_created_at": snapshot.created_at.isoformat(),
         "team": {
             "id": team.id,
             "name": team.name,

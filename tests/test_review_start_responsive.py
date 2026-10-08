@@ -37,12 +37,12 @@ const fn=source.slice(source.indexOf('function updateEvidenceReviewActions()'),s
 for(const state of ['new','active','saved']){
  const start={textContent:'',onclick:null},open={classList:{toggle:(key,yes)=>open.hidden=yes}};
  const calls=[];
- const ctx={sessionId:state==='new'?null:37,document:{body:{classList:{contains:()=>state==='active'}}},
+ const ctx={sessionId:state==='new'?null:37,reviewSnapshotId:null,engineeringSnapshotId:null,document:{body:{classList:{contains:()=>state==='active'}}},
   $:key=>key==='#startBoardFromEvidence'?start:open,
   switchView:v=>calls.push(['view',v]),selectReviewMode:m=>calls.push(['mode',m]),
   newReviewHome:()=>calls.push(['home']),requestAnimationFrame:fn=>fn(),window:{scrollTo:()=>{}},toast:t=>calls.push(['toast',t])};
  vm.runInNewContext(fn+';updateEvidenceReviewActions()',ctx);
- assert.strictEqual(start.textContent,state==='new'?'Choose Board Review →':state==='active'?'Return to active review':'Start another review');
+ assert.strictEqual(start.textContent,state==='new'?'Choose Board Review →':state==='active'?'Return to selected review':'Start another Board Review');
  start.onclick();
  if(state==='new'){
    assert.deepStrictEqual(calls.slice(0,2),[['view','studio'],['mode','board']]);

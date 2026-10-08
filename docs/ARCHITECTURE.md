@@ -2,6 +2,8 @@
 
 > **Status:** Current production architecture. Production Post-Provisioning Acceptance reached **GO** on 2026-08-21. See `PRODUCTION_BASELINE.md` for the accepted live topology and configuration.
 
+> **v0.18.1 source candidate only:** the student UI pairs Engineering Review Room with Engineering Evidence Room and explicitly distinguishes selected review, open/finished status, old immutable FACT and latest saved phase evidence. The loopback synthetic simulator under `tools/` is not part of the production API Docker image, database, or reviewer authority. This paragraph is not a new production-acceptance record.
+
 ## 1. Product posture
 
 ETIS Engineering Studio is an engineering apprenticeship system, not an autonomous engineering authority. Its architecture is built around a deterministic control plane that owns authorization, evidence boundaries, review purpose, persistence, and lifecycle rules, with bounded AI services used for semantic interpretation, coaching, critique, and synthesis.

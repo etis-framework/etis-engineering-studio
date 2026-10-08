@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.18.1 — Student Journey Clarity (release candidate; not yet deployed)
+
+- Paired, persistent Engineering Review Room / Engineering Evidence Room navigation makes the two-room relationship explicit.
+- Selected-review context clearly distinguishes the one currently viewed conversation from multiple other open/finished Board Reviews. Starting another review does not finish earlier ones. Review History pagination keeps older sessions reachable.
+- Finished reviews remain visible/read-only; the composer, review-start actions, and guidance adapt to session status. Drafts, historical dialogue, and original frozen snapshots are preserved.
+- The latest saved phase evidence is distinguished from an older selected review's snapshot; explicit navigation opens original review evidence. A new session may reuse a snapshot if phase/commit are unchanged.
+- Deterministic, loopback-only synthetic simulator fixtures cover old-versus-new evidence, long conversations, failures and review switching without GitHub, Azure, real student records or paid model calls. Simulator behavior is not production acceptance.
+- All twelve formal manuals and corresponding PDFs updated as a candidate documentation edition, with student and operator walkthroughs. No analytical authority, grading, identity, Workbench, production-mode migration or database-schema change.
+- **Release status:** v0.18.0 remains the last accepted production release; v0.18.1 requires PR review, green CI, merged-source deploy with both analytical modes explicitly `shadow`, operator acceptance and human smoke before publication.
+
 ## v0.18.0 - Evidence Authority and Review UX
 
 ### Changed
