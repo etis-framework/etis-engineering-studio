@@ -24,10 +24,13 @@ def test_current_release_metadata_and_manual_pairs():
     edition = json.loads((ROOT / 'docs/manuals/edition.json').read_text())
     assert edition['version'] == STUDIO_VERSION
     assert edition['status'] == 'candidate'
-    assert len(edition['manuals']) == 12
+    assert len(edition['manuals']) == 13
     actual = {p.name for p in (ROOT / 'docs/manuals').glob('*.docx')}
     assert {m['docx'] for m in edition['manuals']} == actual
-    assert len({m['id'] for m in edition['manuals']}) == 12
+    assert len({m['id'] for m in edition['manuals']}) == 13
+    published = {'00', '05', '05a', '07'}
+    assert {m['id'] for m in edition['manuals'] if m.get('publication_status') == 'published'} == published
+    assert all(m.get('publication_status') in {'candidate', 'published'} for m in edition['manuals'])
     for manual in edition['manuals']:
         for fmt in ('docx', 'pdf'):
             path = ROOT / 'docs/manuals' / manual[fmt]
@@ -37,7 +40,10 @@ def test_current_release_metadata_and_manual_pairs():
             body = ET.fromstring(archive.read('word/document.xml'))
             text = ' '.join(body.itertext())
             assert f'v{STUDIO_VERSION}' in text
-            assert 'candidate manual edition' in text.lower()
+            if manual['publication_status'] == 'candidate':
+                assert 'candidate manual edition' in text.lower()
+            else:
+                assert 'candidate manual edition' not in text.lower()
             core = ET.fromstring(archive.read('docProps/core.xml'))
             assert f'v{STUDIO_VERSION}' in ' '.join(core.itertext())
         assert manual['pages'] > 0

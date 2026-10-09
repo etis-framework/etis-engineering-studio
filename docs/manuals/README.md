@@ -1,8 +1,8 @@
 # ETIS Engineering Studio Documentation Library
 
-**Current manual edition: v0.18.1 (candidate, not deployed).** All 12 manuals are maintained as paired DOCX/PDF files. Publication follows [v0.18.1 acceptance](../releases/v0.18.1.md); accepted production remains [v0.18.0](../releases/v0.18.0.md). Source version is not live deployment evidence. Embedded August screenshots remain explicitly historical examples, with current text/source governing labels and behavior.
+**Runtime: Studio v0.18.1 deployed and operationally verified.** The full manual-library edition is still labeled **candidate** while older technical/instructor manuals await post-deployment publication review. Master Manual **00** and student Manuals **05**, **05a**, and **07** have approved published editions. Deployment and student UI smoke results were checked separately; source metadata alone is not deployment evidence. Use current v0.18.1 student screenshots for the student workflow; older technical-manual illustrations may be historical.
 
-The new student walkthrough in Manual 05 covers two-room navigation, cumulative reviews, unchanged/new snapshots, finishing, returning to earlier sessions, and help/recovery. Manual 07 is the compact student reference. Synthetic local simulator screenshots are explicitly labeled and must not be mistaken for real student evidence.
+**Student learning path:** 05a Start Here (one-page first-use orientation) → 07 Cheat Sheet (four-page desk reference) → 05 User Guide (15-page illustrated task reference). These cover both rooms, all three review types, changing conversation topics, saved snapshots, cumulative reviews, help and safe recovery. Production acceptance screenshots are examples from a test account; the isolated snapshot-mismatch demonstration in Manual 05 is explicitly synthetic.
 
 ## Complete paired inventory
 
@@ -14,6 +14,7 @@ The new student walkthrough in Manual 05 covers two-room navigation, cumulative 
 | 03 | ETIS Engineering Studio Architecture and Detailed Design | [Word](03_ETIS_Engineering_Studio_Architecture_and_Detailed_Design.docx) | [PDF](03_ETIS_Engineering_Studio_Architecture_and_Detailed_Design.pdf) |
 | 04 | ETIS Engineering Studio Instructor and Course Owner Handbook | [Word](04_ETIS_Engineering_Studio_Instructor_and_Course_Owner_Handbook.docx) | [PDF](04_ETIS_Engineering_Studio_Instructor_and_Course_Owner_Handbook.pdf) |
 | 05 | ETIS Engineering Studio Student User Guide | [Word](05_ETIS_Engineering_Studio_Student_User_Guide.docx) | [PDF](05_ETIS_Engineering_Studio_Student_User_Guide.pdf) |
+| 05a | ETIS Engineering Studio Start Here — One Page | [Word](05a_ETIS_Engineering_Studio_Start_Here_One_Page.docx) | [PDF](05a_ETIS_Engineering_Studio_Start_Here_One_Page.pdf) |
 | 06 | ETIS Team GitHub and Repository Setup Quickstart | [Word](06_ETIS_Team_GitHub_and_Repository_Setup_Quickstart.docx) | [PDF](06_ETIS_Team_GitHub_and_Repository_Setup_Quickstart.pdf) |
 | 07 | ETIS Student Cheat Sheet and Quick Reference | [Word](07_ETIS_Student_Cheat_Sheet_and_Quick_Reference.docx) | [PDF](07_ETIS_Student_Cheat_Sheet_and_Quick_Reference.pdf) |
 | 08 | ETIS Engineering Studio Azure Operations CLI User Guide | [Word](08_ETIS_Engineering_Studio_Azure_Operations_CLI_User_Guide.docx) | [PDF](08_ETIS_Engineering_Studio_Azure_Operations_CLI_User_Guide.pdf) |
@@ -87,6 +88,12 @@ It explains why engineering judgment becomes increasingly important in the AI er
 
 ## Students
 
+### 05a — Start Here (One-Page Orientation)
+
+[Open Start Here](05a_ETIS_Engineering_Studio_Start_Here_One_Page.docx) · [PDF](05a_ETIS_Engineering_Studio_Start_Here_One_Page.pdf)
+
+**Recommended first document for a student with no previous Studio demonstration.** Explains the two rooms, initial setup, Board versus Focused Review, talking with the reviewer, frozen evidence and getting help.
+
 ### 05 — Student User Guide
 
 [Open the Student User Guide](05_ETIS_Engineering_Studio_Student_User_Guide.docx)
@@ -133,7 +140,7 @@ Use this when a team is:
 
 [Open the Student Cheat Sheet & Quick Reference](07_ETIS_Student_Cheat_Sheet_and_Quick_Reference.docx)
 
-A compact reference for students who already understand the basic workflow.
+A four-page desk reference for new and returning students, including the three review types and how to ask for coaching.
 
 Includes:
 
@@ -421,6 +428,7 @@ Developmental Studio conversations do not silently become formal assessment evid
 |---|---|
 | Understand what ETIS Engineering Studio is | **00 — Master Manual & Documentation Index** |
 | Explain the system to leadership | **01 — Executive Overview** |
+| Get started without a live demo | **05a — Start Here (One Page)** |
 | Learn how to use Studio as a student | **05 — Student User Guide** |
 | Connect a team GitHub repository | **06 — Team GitHub & Repository Setup Quickstart** |
 | Get a fast student reference | **07 — Student Cheat Sheet** |
@@ -447,6 +455,7 @@ docs/manuals/
 ├── 03_ETIS_Engineering_Studio_Architecture_and_Detailed_Design.docx
 ├── 04_ETIS_Engineering_Studio_Instructor_and_Course_Owner_Handbook.docx
 ├── 05_ETIS_Engineering_Studio_Student_User_Guide.docx
+├── 05a_ETIS_Engineering_Studio_Start_Here_One_Page.docx
 ├── 06_ETIS_Team_GitHub_and_Repository_Setup_Quickstart.docx
 ├── 07_ETIS_Student_Cheat_Sheet_and_Quick_Reference.docx
 ├── 08_ETIS_Engineering_Studio_Azure_Operations_CLI_User_Guide.docx
