@@ -31,6 +31,7 @@ async function scenario(intent,{session=37,pending=false,draft=''}={}){
  const ctx={sessionId:session,pending,finishingReview:false,
    els:{response,transcript:{scrollIntoView:()=>calls.push('transcript-scroll')}},
    toast:t=>calls.push('toast:'+t),findingPrimaryPath:()=> 'docs/planning/tasks.md',
+       findingSnapshotMatchesActiveReview:()=>true,
    openEvidenceDispute:()=>calls.push('dispute'),configureFindingFromEvidence:async()=>calls.push('prepare'),
    switchView:()=>calls.push('view'),setMode:()=>calls.push('mode'),
    setComposerContext:()=>calls.push('context'),findingContext:()=>({}),

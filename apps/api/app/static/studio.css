@@ -920,3 +920,6 @@ body.review-session-active.conversation-focus .transcript {
 /* Increment 2 Revision 5: explain the independent transcript scroller only on overflow. */
 .conversation-scroll-hint{margin:5px 0 8px;color:var(--muted);font-size:12px;line-height:1.4}
 .conversation-scroll-hint.hidden{display:none}
+
+/* Increment 3: distinguish coaching from authoritative finding state. */
+.finding-state-explanation,.finding-context-explanation{display:block;color:var(--muted);font-size:.76rem;line-height:1.4;margin:5px 0 9px}
