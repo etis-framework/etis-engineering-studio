@@ -535,9 +535,54 @@ function showSubmittedExchange(studentTurn){
     updateReadingCue();
   });
 }
-function updateReadingCue(){const cue=$('#continueReading');if(!cue)return;cue.classList.toggle('hidden',!sessionId||!document.body.classList.contains('review-session-active')||els.transcript.scrollHeight-els.transcript.scrollTop-els.transcript.clientHeight<12)}
+function updateReadingCue(){
+  const cue=$('#continueReading'),hint=$('#conversationScrollHint');
+  const active=!!sessionId&&document.body.classList.contains('review-session-active');
+  const overflow=active&&els.transcript.scrollHeight>els.transcript.clientHeight+12;
+  if(hint)hint.classList.toggle('hidden',!overflow);
+  if(cue)cue.classList.toggle('hidden',!overflow||els.transcript.scrollHeight-els.transcript.scrollTop-els.transcript.clientHeight<12);
+}
+// The hint follows actual overflow, including font, viewport and view-mode changes.
+if(typeof ResizeObserver!=='undefined'){
+  const conversationOverflowObserver=new ResizeObserver(()=>updateReadingCue());
+  conversationOverflowObserver.observe(els.transcript);
+}
+window.addEventListener('resize',()=>requestAnimationFrame(updateReadingCue));
 els.transcript.addEventListener('scroll',updateReadingCue);
 $('#continueReading').onclick=()=>els.transcript.scrollBy({top:Math.max(160,els.transcript.clientHeight*.8),behavior:'smooth'});
+// Focus mode changes presentation only: review, snapshot, finding, draft and messages are unchanged.
+const focusButton=$('#toggleConversationFocus');
+const standardViewButton=$('#conversationStandard');
+function setConversationFocus(enabled){
+  const transcript=els.transcript;
+  const oldMax=Math.max(0,transcript.scrollHeight-transcript.clientHeight);
+  const wasAtEnd=oldMax-transcript.scrollTop<=24;
+  const readingRatio=oldMax>0?transcript.scrollTop/oldMax:0;
+  document.body.classList.toggle('conversation-focus',!!enabled);
+  focusButton.setAttribute('aria-pressed',String(!!enabled));
+  standardViewButton.setAttribute('aria-pressed',String(!enabled));
+  requestAnimationFrame(()=>{
+    const nextMax=Math.max(0,transcript.scrollHeight-transcript.clientHeight);
+    // Preserve the reader's proportional position, or the end if they were at it.
+    transcript.scrollTop=wasAtEnd?nextMax:Math.min(nextMax,Math.round(readingRatio*nextMax));
+    updateReadingCue();
+  });
+}
+standardViewButton.addEventListener('click',()=>{
+  setConversationFocus(false);
+});
+focusButton.addEventListener('click',()=>{
+  setConversationFocus(true);
+});
+// Standard is the initial view; students explicitly opt into Expanded.
+// Review changes do not silently expand the reading workspace.
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&document.body.classList.contains('conversation-focus')){
+    setConversationFocus(false);
+    standardViewButton.focus();
+  }
+});
+
 function renderStrengths(ev){const panel=$('#boardReadout .board-readout-details');if(!panel)return;panel.querySelector('.strengths-strip')?.remove()}
 function preparationHTML(p){
  if(!p)return '';

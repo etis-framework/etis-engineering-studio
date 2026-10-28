@@ -143,6 +143,15 @@
             <div class="decision-callout"><span class="brief-label">YOUR ENGINEERING DECISION</span><p id="decisionQuestionText"></p></div>
           </div>
 
+          <div class="conversation-workspace-toolbar" id="conversationWorkspaceToolbar" aria-label="Conversation display controls">
+            <div class="conversation-workspace-heading"><span class="conversation-workspace-label">Review Board conversation</span><span class="conversation-view-hint" id="conversationViewHint">Expanded gives your conversation more room; switch back anytime.</span></div>
+            <div class="conversation-view-selector" role="group" aria-label="Conversation view" aria-describedby="conversationViewHint">
+              <span class="conversation-view-title">Conversation view</span>
+              <button id="conversationStandard" type="button" class="conversation-view-option" aria-pressed="true" aria-controls="transcript">Standard</button>
+              <button id="toggleConversationFocus" type="button" class="conversation-view-option" aria-pressed="false" aria-controls="transcript">Expanded</button>
+            </div>
+          </div>
+          <p id="conversationScrollHint" class="conversation-scroll-hint hidden">Scroll within the conversation to read earlier messages.</p>
           <div id="transcript" class="transcript conversation">
             <div class="empty"><div class="glyph">⌬</div><h3>Your engineering review starts here.</h3><p>The board will use your team's evidence and coach you through one engineering move at a time. You may ask questions before you make a decision.</p><button class="inline-help" data-help-topic="first-review">What happens when I begin?</button></div>
           </div>
