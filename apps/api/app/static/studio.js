@@ -1553,7 +1553,16 @@ function renderReviewCompletionSummary(){
 }
 function closeReviewExit(){reviewExitIntent=null;closeStudioDialog('reviewExitOverlay')}
 function openReviewExit(intent='finish'){
-  if(!sessionId||!document.body.classList.contains('review-session-active')||pending||finishingReview)return;
+  // A click must never be silently ignored. Preserve the current review if a request is running.
+  if(pending||finishingReview){
+    toast('The current review action is still completing. Try again when it finishes.');
+    return;
+  }
+  if(!sessionId||!document.body.classList.contains('review-session-active')){
+    if(intent==='new')newReviewHome('Choose the kind of review you want to start.',true);
+    else toast('Select an Open review before finishing it.');
+    return;
+  }
   reviewExitIntent=intent;
   $('#reviewExitTitle').textContent=intent==='new'?'Start another Board Review?':'Finish this review?';
   $('#reviewExitExplanation').textContent=intent==='new'
@@ -1617,8 +1626,20 @@ async function finishReview(){
     return false;
   }finally{finishingReview=false;$('#confirmFinishReview').disabled=false;$('#leaveReviewOpen').disabled=false}
 }
+// Route every 'another review' entry through a single state-aware controller.
+function requestAnotherBoardReview(){
+  if(pending||finishingReview){
+    toast('The current review action is still completing. Try again when it finishes.');
+    return;
+  }
+  if(sessionId&&document.body.classList.contains('review-session-active')){
+    openReviewExit('new');
+    return;
+  }
+  newReviewHome('Choose the kind of review you want to start. Your earlier reviews remain in Review History.',true);
+}
 $('#completeReview').onclick=()=>openReviewExit('finish');
-$('#startAnotherReview').onclick=()=>openReviewExit('new');
+$('#startAnotherReview').onclick=()=>requestAnotherBoardReview();
 $('#closeReviewExit').onclick=closeReviewExit;
 $('#keepReviewing').onclick=closeReviewExit;
 $('#reviewExitOverlay').onclick=e=>{if(e.target.id==='reviewExitOverlay')closeReviewExit()};
@@ -1798,7 +1819,7 @@ async function loadHistory(){
 $('#viewAllHistory').onclick=()=>switchView('history');
 $('#selectedReviewList').onclick=()=>switchView('history');
 $('#topReviewSelector').onclick=()=>switchView('history');
-$('#selectedReviewNew').onclick=()=>{if(sessionId)newReviewHome('Choose the kind of review you want to start. Your previous conversations remain saved.');else{switchView('studio');$('#studentReviewEntry')?.scrollIntoView({block:'center',behavior:'auto'});}};
+$('#selectedReviewNew').onclick=()=>requestAnotherBoardReview();
 $('#selectedReviewFinish').onclick=()=>openReviewExit('finish');
 function refreshHistorySelection(){
  for(const box of [$('#reviewHistory'),$('#reviewHistoryPage')]){
@@ -2169,7 +2190,7 @@ function localDateValue(v){if(!v)return'';const d=new Date(v),z=new Date(d.getTi
 async function renderStaff(){const d=await jsonRequest(`/api/v1/admin/sections/${selectedSectionId}/staff`,{},'Teaching-staff access could not be loaded.');$('#staffList').innerHTML=d.staff.map(x=>`<div class="staff-row"><b>${escapeHtml(x.name)}</b><span>${escapeHtml(x.email||'')} · ${escapeHtml(x.role)}</span></div>`).join('')||'<p class="quiet">No staff assignments yet.</p>'}
 
 
-$('#closeArtifactOverlay').onclick=closeArtifact;$('#artifactOverlay').onclick=e=>{if(e.target.id==='artifactOverlay')closeArtifact()};$('#artifactReferenceButton').onclick=()=>{if(!artifactContext)return;if(!sessionId){closeArtifact();configureFocusedFromEvidence(`Review the evidence at ${artifactContext.path}. Tell me what it supports, what it does not support, and what is worth improving.`,artifactContext.path);return}setComposerContext(artifactContext);closeArtifact();switchView('studio');setMode('ask');els.response.focus();toast('Evidence attached to your next message.')};$('#reviewHomeButton').onclick=()=>newReviewHome();
+$('#closeArtifactOverlay').onclick=closeArtifact;$('#artifactOverlay').onclick=e=>{if(e.target.id==='artifactOverlay')closeArtifact()};$('#artifactReferenceButton').onclick=()=>{if(!artifactContext)return;if(!sessionId){closeArtifact();configureFocusedFromEvidence(`Review the evidence at ${artifactContext.path}. Tell me what it supports, what it does not support, and what is worth improving.`,artifactContext.path);return}setComposerContext(artifactContext);closeArtifact();switchView('studio');setMode('ask');els.response.focus();toast('Evidence attached to your next message.')};$('#reviewHomeButton').onclick=()=>requestAnotherBoardReview();
 $('#createTerm').onclick=async()=>{const btn=$('#createTerm');await withBusy(btn,'Creating…',async()=>{const namespace=$('#termNamespace').value.trim(),term_label=$('#termLabel').value.trim(),starts_on=$('#termStart').value,ends_on=$('#termEnd').value;if(!namespace||!term_label||!starts_on){toast('Term namespace, label, and start date are required.');return}await jsonRequest('/api/v1/admin/terms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({namespace,term_label,starts_on,ends_on,course_code:'COMP 330'})},'The course term could not be created.');toast('Course term created. Add its section next.');$('#termNamespace').value='';$('#termLabel').value='';$('#termStart').value='';$('#termEnd').value='';await loadSemesterSetup()})}
 $('#createSection').onclick=async()=>{const btn=$('#createSection');await withBusy(btn,'Adding…',async()=>{const termId=Number($('#newSectionTerm').value),section_key=$('#newSectionKey').value.trim(),display_name=$('#newSectionName').value.trim(),meeting_pattern=$('#newSectionMeeting').value.trim();if(!termId||!section_key){toast('Choose the term and enter a section key.');return}await jsonRequest(`/api/v1/admin/terms/${termId}/sections`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({section_key,display_name:display_name||null,meeting_pattern})},'The section could not be created.');toast('Section created with a proposed A1–A6 review calendar.');$('#newSectionKey').value='';$('#newSectionName').value='';$('#newSectionMeeting').value='';await loadSemesterSetup()})}
 $('#importRoster').onclick=async()=>{const btn=$('#importRoster'),f=$('#rosterFile').files[0];if(!f){toast('Choose the Sakai gradebook CSV first.');return}await withBusy(btn,'Importing…',async()=>{const fd=new FormData();fd.append('file',f);const d=await jsonRequest(`/api/v1/admin/sections/${selectedSectionId}/roster?deactivate_missing=${$('#deactivateMissing').checked}`,{method:'POST',body:fd},'Roster import failed. The existing roster was not silently removed.');$('#rosterImportResult').textContent=`${d.rows} roster rows · ${d.added} added · ${d.reactivated} reactivated · ${d.deactivated} deactivated`;await renderSetupTeams();toast('Roster import complete.')})}
