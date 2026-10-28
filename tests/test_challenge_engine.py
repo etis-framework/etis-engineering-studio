@@ -20,7 +20,9 @@ def test_response_evaluation_rewards_engineering_moves_not_length():
 
 
 def test_weak_response_is_challenged():
-    e=ChallengeEngine(); c=e.start('A1',demo_snapshot('A1'))
+    # Keep this contract test deterministic even when local OpenAI credentials are configured.
+    no_ai = type("NoAI", (), {"available": lambda self: False})()
+    e=ChallengeEngine(ai=no_ai); c=e.start('A1',demo_snapshot('A1'))
     r=e.evaluate_response(c,"Looks fine to me.")
     f=e.follow_up(c,"Looks fine to me.",r)
     assert r['disposition']=='insufficient_defense'

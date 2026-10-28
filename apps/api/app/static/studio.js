@@ -243,6 +243,34 @@ function opsError(target,msg,retry){const box=$(target);if(!box)return;box.inner
 async function withBusy(control,label,fn){if(!control||control.disabled)return;const original=control.textContent;control.disabled=true;control.setAttribute('aria-busy','true');if(label)control.textContent=label;try{return await fn()}catch(e){toast(safeErrorMessage(e));throw e}finally{control.disabled=false;control.removeAttribute('aria-busy');control.textContent=original}}
 function currentFindingById(fid){const sources=currentView==='evidence'?[engineeringEvidenceData,currentEvidence]:[currentEvidence,engineeringEvidenceData];for(const source of sources){const match=(source?.findings||[]).find(f=>String(f.id)===String(fid));if(match)return match}return null}
 function actualArtifact(path){if(!path)return null;const all=(currentView==='evidence'?engineeringEvidenceData?.artifacts:currentEvidence?.artifacts)||[];return all.find(a=>String(a.path)===String(path))||null}
+// An artifact path is user input, not evidence of its existence. Never let a
+// path request silently change a selected Board Review's frozen snapshot.
+function requestedArtifactPath(){
+ const path=String($('#evidenceArtifactPath')?.value||'').trim().replaceAll('\\','/');
+ if(!path||path.startsWith('/')||path.split('/').includes('..')||!(/^[A-Za-z0-9_./ -]+$/.test(path))){
+  artifactRouteFeedback('Enter a repository-relative file path (for example, docs/planning/README.md).');
+  return null;
+ }
+ return path;
+}
+function artifactRouteFeedback(message){const el=$('#evidenceArtifactRouteFeedback');if(el)el.textContent=message}
+function inspectRequestedArtifact(){
+ const path=requestedArtifactPath();if(!path)return;
+ const found=(engineeringEvidenceData?.artifacts||[]).some(a=>String(a.path)===path);
+ if(!found){artifactRouteFeedback(`The saved Evidence snapshot does not expose ${path}. This does not prove that the file is absent from GitHub. Use a new focused review to request inspection of this path.`);return}
+ artifactRouteFeedback(`Inspecting ${path} in saved Evidence snapshot #${engineeringSnapshotId||'unknown'}.`);
+ showArtifact(path,path);
+}
+async function prepareRequestedArtifactReview(){
+ const path=requestedArtifactPath();if(!path)return;
+ if(pending||finishingReview){artifactRouteFeedback('Finish the current Review Board action before preparing another review.');return}
+ if(sessionId&&document.body.classList.contains('review-session-active')){
+  artifactRouteFeedback(`Review #${sessionId} remains tied to frozen snapshot #${reviewSnapshotId||'unknown'}. Use “Start another Board Review” in Review Room, then choose Focused Review and enter ${path}. Your existing review will remain available.`);
+  return;
+ }
+ artifactRouteFeedback(`Preparing a focused review request for ${path}. This does not claim the artifact has been inspected.`);
+ await configureFocusedFromEvidence(`Inspect ${path} in the review's frozen repository evidence and explain what it proves and does not prove.`,path);
+}
 function evidenceActualPath(item){return item?.equivalent_path||item?.title||''}
 function artifactForEvidence(item){return actualArtifact(evidenceActualPath(item))}
 function setComposerContext(ctx){composerContext=ctx||null;const box=$('#composerContext');if(!box)return;if(!ctx){box.classList.add('hidden');box.innerHTML='';return}const isFinding=ctx.kind==='finding'||ctx.kind==='finding_search';const kind=isFinding?'Finding':'Evidence';const snapshot=isFinding&&reviewSnapshotId?`Frozen review snapshot #${reviewSnapshotId}`:'';const status=isFinding?findingStatusExplanation(ctx.status||'open'):'';box.innerHTML=`<div><span class="composer-context-kind">${escapeHtml(kind)} in this question${snapshot?` · ${escapeHtml(snapshot)}`:''}</span><b>${escapeHtml(ctx.label||ctx.path||ctx.id||kind)}</b>${ctx.detail?`<small>${escapeHtml(ctx.detail)}</small>`:''}${status?`<small class="finding-context-explanation">${escapeHtml(status)}</small>`:''}</div><button type="button" id="clearComposerContext" class="text-button">Clear</button>`;box.classList.remove('hidden');$('#clearComposerContext').onclick=()=>setComposerContext(null)}
@@ -2017,6 +2045,8 @@ $('#findCurrentConcernEvidence').onclick=()=>{const f=currentChallenge?.finding;
 $('#browseReviewEvidence').onclick=()=>switchView('evidence');
 $('#backToStudio').onclick=()=>switchView('studio');
 $$('[data-room-jump]').forEach(b=>b.onclick=()=>switchView(b.dataset.roomJump));
+$('#inspectEvidenceArtifact').onclick=inspectRequestedArtifact;
+$('#prepareArtifactReview').onclick=prepareRequestedArtifactReview;
 async function loadInstructor(){try{const setup=await adminSetupData();fillSectionSelectors(setup);const d=await jsonRequest(`/api/v1/instructor/overview${instructorSectionQuery()}`,{},'Instructor intelligence could not be loaded.');const sig=d.class_signals||{},u=d.ai_usage||{};$('#classSignals').innerHTML=`<div><b>${sig.students??0}</b><span>Students</span></div><div><b>${sig.teams??0}</b><span>Teams</span></div><div><b>${sig.repositories_connected??0}</b><span>Repositories</span></div><div><b>${sig.teams_needing_attention??0}</b><span>Need attention</span></div><div><b>${sig.active_reviews??0}</b><span>Active reviews</span></div><div><b>${sig.review_sessions??0}</b><span>Review sessions</span></div>`;$('#aiUsageMetrics').innerHTML=`<div><b>${formatEstimatedCost(u.estimated_cost_usd)}</b><span>Estimated cost</span></div><div><b>${Number(u.input_tokens||0).toLocaleString()}</b><span>Input tokens</span></div><div><b>${Number(u.cached_input_tokens||0).toLocaleString()}</b><span>Cached input</span></div><div><b>${Number(u.output_tokens||0).toLocaleString()}</b><span>Output tokens</span></div><div><b>${Math.round(Number(u.cache_hit_ratio||0)*100)}%</b><span>Cache hit</span></div><div><b>${u.calls?`${(Number(u.avg_latency_ms||0)/1000).toFixed(1)}s`:'—'}</b><span>Avg response</span></div><div><b>${Number(u.calls||0).toLocaleString()}</b><span>Model calls</span></div>`;const box=$('#teamCards');box.innerHTML='';d.teams.forEach(t=>{const c=document.createElement('button');c.className=`teamcard ${t.attention}`;c.dataset.team=t.id;const context=[t.section?.display_name,teamIdentifierLabel(t.team_key)].filter(Boolean).join(' · ');c.innerHTML=`<div class="team-name"><span class="attention-dot"></span><div><b>${escapeHtml(t.name)}</b><small>${escapeHtml(t.project)}</small><small class="team-card-context">${escapeHtml(context)}</small></div></div><div><small>Phase</small><b>${t.phase}</b></div><div><small>Evidence</small><b>${t.evidence_coverage==null?'Not scanned':t.evidence_coverage+'%'}</b></div><div><small>AI cost</small><b>${formatEstimatedCost(t.ai_usage?.estimated_cost_usd)}</b></div><span class="inspect">Inspect →</span>`;c.onclick=()=>loadTeamDetail(t.id,{focus:true,history:true});box.appendChild(c)});if(d.teams.length){const selected=currentInstructorTeamId&&d.teams.some(t=>Number(t.id)===Number(currentInstructorTeamId))?currentInstructorTeamId:d.teams[0].id;loadTeamDetail(Number(selected))}else{$('#teamDetail').classList.add('hidden');currentInstructorTeamId=null}}catch(e){console.error(e);$('#teamCards').innerHTML='<div class="error-card">Could not load instructor overview.</div>'}}
 $('#refreshInstructor').onclick=loadInstructor;
 async function loadTeamDetail(teamId,opts={}){

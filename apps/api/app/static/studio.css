@@ -923,3 +923,12 @@ body.review-session-active.conversation-focus .transcript {
 
 /* Increment 3: distinguish coaching from authoritative finding state. */
 .finding-state-explanation,.finding-context-explanation{display:block;color:var(--muted);font-size:.76rem;line-height:1.4;margin:5px 0 9px}
+
+/* Increment 4: explicit, bounded artifact transition in Evidence Room. */
+.evidence-artifact-route{margin:12px 0 16px;padding:14px 16px;border:1px solid var(--border,#526071);border-radius:10px}
+.evidence-artifact-route p{margin:5px 0 8px;font-size:13px;line-height:1.5}
+.evidence-artifact-route-controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.evidence-artifact-route-controls label{font-size:13px;font-weight:650}
+.evidence-artifact-route-controls input{flex:1 1 230px;min-width:0}
+.evidence-artifact-route-feedback{min-height:1em}
+@media(max-width:760px){.evidence-artifact-route-controls{align-items:stretch;flex-direction:column}.evidence-artifact-route-controls input,.evidence-artifact-route-controls button{width:100%}}
