@@ -2,7 +2,7 @@
 
 This directory contains the durable architecture, security, deployment, operations, acceptance, and product documentation for ETIS Engineering Studio.
 
-> **Source candidate:** v0.18.2 review-workflow and conversation improvements. See [`releases/v0.18.2.md`](releases/v0.18.2.md) for acceptance and publication gates. v0.18.1 manual editions remain separately versioned; this source candidate is not evidence of v0.18.2 deployment.
+> **Production-accepted source:** v0.18.2 review-workflow and conversation improvements. See [`releases/v0.18.2.md`](releases/v0.18.2.md) for acceptance and publication gates. v0.18.1 manual editions remain separately versioned; the accepted production deployment SHA is `2c47b95896f8c10f10786b43534e9cdb2f7aee51`.
 
 ## Start here
 
