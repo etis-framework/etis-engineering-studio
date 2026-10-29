@@ -33,3 +33,17 @@ def test_top_new_review_button_reenabled_when_initial_review_finishes():
     assert 'refreshSelectedReviewCard();' in body
     renderer = JS.split('function refreshSelectedReviewCard(){', 1)[1].split('function snapshotContextText(', 1)[0]
     assert "$('#selectedReviewNew').disabled=!!pending||!!finishingReview;" in renderer
+
+
+def test_completion_reenables_new_review_without_room_navigation():
+    completion = JS.split('async function finishReview(){', 1)[1].split(
+        'function requestAnotherBoardReview(){', 1
+    )[0]
+    finally_block = completion.split('}finally{', 1)[1]
+    assert finally_block.index('finishingReview=false;') < finally_block.index(
+        'refreshSelectedReviewCard();'
+    )
+    assert finally_block.index('finishingReview=false;') < finally_block.index(
+        'updateStartReviewButton();'
+    )
+    assert 'switchView(' not in finally_block

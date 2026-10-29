@@ -1720,7 +1720,15 @@ async function finishReview(){
     }catch(_ignored){}
     toast('Could not confirm review completion: '+safeErrorMessage(e)+' Try again; the review remains available in history.');
     return false;
-  }finally{finishingReview=false;$('#confirmFinishReview').disabled=false;$('#leaveReviewOpen').disabled=false}
+  }finally{
+    finishingReview=false;
+    $('#confirmFinishReview').disabled=false;
+    $('#leaveReviewOpen').disabled=false;
+    // Completion rendered these controls while finishingReview was true.
+    // Refresh immediately without requiring a room transition.
+    refreshSelectedReviewCard();
+    updateStartReviewButton();
+  }
 }
 // Route every 'another review' entry through a single state-aware controller.
 function requestAnotherBoardReview(){
