@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.18.2 — Review Workflow Reliability and Conversation Usability (release candidate)
+
+- Unifies Board Review transitions, preserves multiple Open reviews, and corrects the top start-another-review control after initial review creation; blocked actions provide visible feedback.
+- Improves active Review Board conversation usability with discoverable Standard/Expanded views, bounded internal scrolling, scroll guidance, and preserved reply drafts.
+- Clarifies recorded finding states versus conversational reassessment and verified engineering outcomes; prevents cross-snapshot finding actions.
+- Adds snapshot-bounded artifact inspection and guided focused-review preparation in Engineering Evidence Room, without silently broadening an existing frozen Board Review.
+- Adds focused regression coverage, deterministic challenge-engine testing, and an A3 evaluation-oracle correction accepting a defensible architecture change-trigger coaching path; no AI authority transfer.
+- **Acceptance posture:** local Python regression, UI simulator checks, and a bounded live A2/A3 evaluation were reported as passing or adjudicated in development. These do not replace protected CI, authenticated production smoke, security review, or human accessibility verification.
+- **Release status:** candidate only; deployed version, branch merge, production modes, release tag, and rollback readiness must be verified and recorded before publication. Historical production evidence remains unchanged.
+
+
 ## v0.18.1 — Student Journey Clarity (release candidate; not yet deployed)
 
 - Paired, persistent Engineering Review Room / Engineering Evidence Room navigation makes the two-room relationship explicit.
