@@ -23,3 +23,13 @@ def test_transition_preserves_leave_open_and_finish_paths():
     assert "$('#leaveReviewOpen').onclick=()=>{if(finishingReview)return;closeReviewExit();newReviewHome(" in JS
     assert "$('#confirmFinishReview').onclick=async()=>{const startAnother=reviewExitIntent==='new';" in JS
     assert "if(!preserveDraftBeforeContextChange())return" in JS
+
+
+def test_top_new_review_button_reenabled_when_initial_review_finishes():
+    # The top action is disabled by the selected-review renderer during startup.
+    # setPending(false) must redraw it immediately, without requiring room navigation.
+    body = JS.split('function setPending(on,', 1)[1].split('function addGuidance(', 1)[0]
+    assert 'pending=on;' in body
+    assert 'refreshSelectedReviewCard();' in body
+    renderer = JS.split('function refreshSelectedReviewCard(){', 1)[1].split('function snapshotContextText(', 1)[0]
+    assert "$('#selectedReviewNew').disabled=!!pending||!!finishingReview;" in renderer

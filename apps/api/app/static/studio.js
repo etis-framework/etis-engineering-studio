@@ -523,6 +523,9 @@ function setPending(on,status='Reviewing your answer and the frozen evidence…'
     els.response.disabled=false;
     els.send.disabled=!sessionId;
   }
+  // Keep the top review action in sync with the pending state. Without this,
+  // review creation leaves it disabled until a later room navigation refreshes it.
+  refreshSelectedReviewCard();
 }
 function addGuidance(refs=[]){if(!refs.length)return;const box=$('#relatedGuidance');if(box.querySelector('.quiet'))box.innerHTML='';refs.forEach(r=>{if(box.querySelector(`[data-guidance="${CSS.escape(r.id||r.title)}"]`))return;const a=document.createElement('a');a.className='guidance-link';a.dataset.guidance=r.id||r.title;a.href=r.website_url||'#';a.target='_blank';a.rel='noopener noreferrer';a.innerHTML=`<span>${escapeHtml(r.stage||'ETIS guidance')}</span><b>${escapeHtml(r.title)}</b><p>${escapeHtml(r.student_hint||r.why||'Open the related Engineering Platform guidance.')}</p>`;box.appendChild(a)})}
 function readableGuidanceText(value,refs=[]){let result=String(value||'');for(const ref of refs){const stage=String(ref.stage||'');if(!/^ES-\d{3}$/.test(stage)||!/^https:\/\//.test(ref.website_url||''))continue;result=result.replace(new RegExp(`\\bSee \\[${stage}\\]\\([^\\n)]*\\) for (?:the )?(?:relevant )?guidance\\.`, 'gi'),'')}return result.replace(/\[(ES-\d{3})\]\([^\n)]*\)/g,'$1').replace(/\n{3,}/g,'\n\n').trim()}
