@@ -52,8 +52,8 @@
       "docx": "05_ETIS_Engineering_Studio_Student_User_Guide.docx",
       "pdf": "05_ETIS_Engineering_Studio_Student_User_Guide.pdf",
       "pages": 15,
-      "docx_sha256": "fd091adab2b8fcff388e4b3bccebb0c129790a156d686137ee95a6957eeb5b9d",
-      "pdf_sha256": "cccf161b79ba532dbf1f61651da58f681d3a5b6d0c30d962da7f55fc0c299320",
+      "docx_sha256": "d8121308699d5faf1908922b94980c239487657b7af205411eb50fd2c330fa1d",
+      "pdf_sha256": "e3004047c485d3b7b05e21af6ece37b43db764517d3ef40c671e8012862e40bb",
       "publication_status": "published"
     },
     {
@@ -61,8 +61,8 @@
       "docx": "05a_ETIS_Engineering_Studio_Start_Here_One_Page.docx",
       "pdf": "05a_ETIS_Engineering_Studio_Start_Here_One_Page.pdf",
       "pages": 1,
-      "docx_sha256": "65ebbe43ef9c34b45fa2ad8c6516a2a6dcfe10c6adb98d6f027469e5f3f7976f",
-      "pdf_sha256": "45aac4ef22e915fb91e082a0bae1428b1e214efad52c23ab5451b7bca9a8b8e2",
+      "docx_sha256": "cace62d7486d02fc07f54276257869fecac98426dd1a7b90fbe3b650e0ba2449",
+      "pdf_sha256": "ece500165c07eece8c60b0348e6d1b43c4420a9d8db67f89b53fb7f945f99b7b",
       "publication_status": "published"
     },
     {
@@ -79,8 +79,8 @@
       "docx": "07_ETIS_Student_Cheat_Sheet_and_Quick_Reference.docx",
       "pdf": "07_ETIS_Student_Cheat_Sheet_and_Quick_Reference.pdf",
       "pages": 4,
-      "docx_sha256": "6f96dd11acbb2a204e60b2084c3aed24ae68525472b60c8e95c07127b4f2183e",
-      "pdf_sha256": "9a4fb382f3c6ff0deb2b6d9e743f5349b846529d139f06d3c7a5ac9c08624692",
+      "docx_sha256": "63c3de0c63ae1b9fa74c2bf1b4a7d74c29b5c1f6c2576d4035a2d73e36176fd8",
+      "pdf_sha256": "706dbd17348f091a0003368c9636e34ca9dafd097905c93ff47f89bafe541861",
       "publication_status": "published"
     },
     {

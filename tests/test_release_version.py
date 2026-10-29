@@ -41,13 +41,22 @@ def test_current_release_metadata_and_manual_pairs():
         with ZipFile(ROOT / 'docs/manuals' / manual['docx']) as archive:
             body = ET.fromstring(archive.read('word/document.xml'))
             text = ' '.join(body.itertext())
-            assert f"v{edition['version']}" in text
+            # Student-facing manuals 05, 05a, and 07 were updated for v0.18.2.
+            # All other manuals remain in the v0.18.1 documentation edition.
+            student_manuals = {'05', '05a', '07'}
+            expected_version = (
+                '0.18.2' if manual['id'] in student_manuals else edition['version']
+            )
+            if manual['id'] not in student_manuals:
+                assert f"v{expected_version}" in text
+            # Student banner is embedded artwork, not searchable document text.
+            # All manuals must identify their edition in DOCX core properties.
             if manual['publication_status'] == 'candidate':
                 assert 'candidate manual edition' in text.lower()
             else:
                 assert 'candidate manual edition' not in text.lower()
             core = ET.fromstring(archive.read('docProps/core.xml'))
-            assert f"v{edition['version']}" in ' '.join(core.itertext())
+            assert f"v{expected_version}" in ' '.join(core.itertext())
         assert manual['pages'] > 0
         assert manual['pdf'].replace('.pdf', '.docx') == manual['docx']
         assert (ROOT / 'docs/manuals' / manual['pdf']).read_bytes().startswith(b'%PDF-')
