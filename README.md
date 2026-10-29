@@ -10,7 +10,7 @@ The project was first developed and production-tested in the Loyola University C
 
 ## Release and documentation
 
-**v0.18.2 release candidate:** The Engineering Review Room supports reliable multiple-review transitions and a discoverable Standard/Expanded conversation workspace with bounded scrolling. The Engineering Evidence Room supports snapshot-bounded artifact inspection and focused-review preparation. Recorded finding status is distinct from Review Board discussion or completed verification. See the [v0.18.2 candidate release contract](docs/releases/v0.18.2.md).
+**v0.18.2 production-accepted application:** The Engineering Review Room supports reliable multiple-review transitions and a discoverable Standard/Expanded conversation workspace with bounded scrolling. The Engineering Evidence Room supports snapshot-bounded artifact inspection and focused-review preparation. Recorded finding status is distinct from Review Board discussion or completed verification. See the [v0.18.2 release record](docs/releases/v0.18.2.md).
 
 The authoritative source version is [`apps/api/app/version.py`](apps/api/app/version.py). A source release candidate is **not** proof of deployment. The exact deployed SHA/version and production evaluation modes must be checked at acceptance. Do not assume historical v0.18.0 or v0.18.1 operational records establish acceptance for v0.18.2.
 
