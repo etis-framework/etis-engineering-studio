@@ -932,3 +932,26 @@ body.review-session-active.conversation-focus .transcript {
 .evidence-artifact-route-controls input{flex:1 1 230px;min-width:0}
 .evidence-artifact-route-feedback{min-height:1em}
 @media(max-width:760px){.evidence-artifact-route-controls{align-items:stretch;flex-direction:column}.evidence-artifact-route-controls input,.evidence-artifact-route-controls button{width:100%}}
+
+/* v0.18.2 follow-up: clear next action and responsive review room. */
+.selected-review-actions{max-width:none;align-items:center}
+.selected-review-actions #selectedReviewContinue,
+.selected-review-actions #selectedReviewNew{order:0}
+.selected-review-actions #selectedReviewList{order:1}
+.selected-review-actions #selectedReviewFinish{order:2}
+.selected-review-actions .primary{min-height:42px;white-space:normal}
+@media(max-width:1350px){
+  #studio .workspace{grid-template-columns:minmax(0,1fr)}
+  #studio .workspace>.evidence-rail{min-height:0;margin-top:0}
+  #studio .review-room{min-width:0}
+  #studio .two-room-switcher{grid-template-columns:minmax(0,1fr)}
+  #studio .selected-review-card{flex-direction:column;align-items:stretch}
+  #studio .selected-review-actions{justify-content:flex-start}
+  #studio .conversation-workspace-toolbar{flex-wrap:wrap}
+  #studio .conversation-view-selector{flex-wrap:nowrap}
+}
+@media(max-width:600px){
+  #studio .conversation-view-selector{flex-wrap:wrap}
+  #studio .conversation-view-title{flex:0 0 100%}
+  #studio .selected-review-actions button{width:100%}
+}
