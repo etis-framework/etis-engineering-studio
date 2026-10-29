@@ -20,7 +20,7 @@ def test_transition_reports_busy_state_instead_of_silent_return():
 
 
 def test_transition_preserves_leave_open_and_finish_paths():
-    assert "$('#leaveReviewOpen').onclick=()=>{if(finishingReview)return;closeReviewExit();newReviewHome(" in JS
+    assert "$('#leaveReviewOpen').onclick=()=>{if(finishingReview)return;closeReviewExit();startBoardReviewFromSelection(" in JS
     assert "$('#confirmFinishReview').onclick=async()=>{const startAnother=reviewExitIntent==='new';" in JS
     assert "if(!preserveDraftBeforeContextChange())return" in JS
 
@@ -47,3 +47,15 @@ def test_completion_reenables_new_review_without_room_navigation():
         'updateStartReviewButton();'
     )
     assert 'switchView(' not in finally_block
+
+
+def test_direct_start_after_finished_review():
+    source = JS.split('function startBoardReviewFromSelection(){',1)[1].split(
+        "function requestAnotherBoardReview(){",1)[0]
+    assert 'newReviewHome(' in source
+    assert 'startReviewAction();' in source
+    assert 'if(sessionId||pending||finishingReview)return;' in source
+
+def test_finished_review_primary_action():
+    assert 'finished?()=>requestAnotherBoardReview()' in JS
+    assert "$('#selectedReviewContinue').onclick=" in JS

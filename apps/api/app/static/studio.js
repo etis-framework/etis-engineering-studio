@@ -721,8 +721,12 @@ function refreshSelectedReviewCard(){
  const status=sessionId?(active?'Open':selectedReviewStatus==='completed'?'Finished · read-only':selectedReviewStatus==='archived_incomplete'?'Archived · read-only':'Read-only'):'No review selected';
  $('#selectedReviewTitle').textContent=sessionId?`Currently viewing · Review #${sessionId} · ${status}`:'No review currently selected';
  $('#selectedReviewFacts').textContent=sessionId?`${currentPhase} · Repository ${els.repo?.value||'not connected'} · frozen snapshot #${reviewSnapshotId??'unavailable'} · commit ${shortCommit(currentEvidence)||'unavailable'} · captured ${snapshotCaptureLabel(reviewSnapshotCapturedAt)}.`:'Start a Board Review to capture repository evidence. You can open several separate conversations over time.';
- $('#selectedReviewMeaning').textContent=sessionId?`Other reviews remain in Browse all reviews. ${active?'You can continue here, finish later, or start another without finishing this one.':'This conversation is read-only. Its original evidence and discussion remain saved.'} Finishing does not indicate instructor approval.`:'Only one review is on screen at a time; other open and finished reviews remain available in history.';
- $('#selectedReviewNew').textContent=sessionId?'Start another Board Review':'Start a Board Review';
+ $('#selectedReviewMeaning').textContent=sessionId?`${active?'Continue this conversation, or start a separate review without losing it.':'The original discussion and frozen evidence are preserved. Finishing does not indicate instructor approval.'}`:'Only one review is on screen at a time; other open and finished reviews remain available in history.';
+ $('#selectedReviewNew').textContent=sessionId?'Start another Board Review →':'Start a Board Review';
+ $('#selectedReviewNew').classList.toggle('primary',selectedReadOnly);
+ $('#selectedReviewNew').classList.toggle('secondary',!selectedReadOnly);
+ $('#selectedReviewContinue').classList.toggle('hidden',!active);
+ $('#selectedReviewContinue').disabled=!!pending||!!finishingReview;
  $('#selectedReviewFinish').classList.toggle('hidden',!active);
  $('#selectedReviewNew').disabled=!!pending||!!finishingReview;
  $('#selectedReviewFinish').disabled=!!pending||!!finishingReview;
@@ -1538,7 +1542,7 @@ function updateStudentEntry(){
   desc.textContent=finished?'The original conversation and frozen evidence remain available. Start another Board Review only when you want a separate conversation.':'Continue the original conversation, inspect its frozen evidence, or start another Board Review without closing this one.';
   primary.textContent=finished?'Start another Board Review →':'Go to your reply ↓';
   primary.disabled=!!pending||!!finishingReview;
-  primary.onclick=finished?()=>newReviewHome():()=>queueActiveReplyOrientation({focus:true});
+  primary.onclick=finished?()=>requestAnotherBoardReview():()=>queueActiveReplyOrientation({focus:true});
   return;
  }
  title.textContent='Begin with a Board Review';desc.textContent='The Review Board selects a question using the connected repository revision for this phase. You can inspect evidence, discuss findings and return after improving your work.';
@@ -1730,6 +1734,12 @@ async function finishReview(){
     updateStartReviewButton();
   }
 }
+// Direct start retains all persisted reviews and frozen evidence.
+function startBoardReviewFromSelection(){
+  newReviewHome('Preparing a separate Board Review.',true);
+  if(sessionId||pending||finishingReview)return;
+  startReviewAction();
+}
 // Route every 'another review' entry through a single state-aware controller.
 function requestAnotherBoardReview(){
   if(pending||finishingReview){
@@ -1740,15 +1750,15 @@ function requestAnotherBoardReview(){
     openReviewExit('new');
     return;
   }
-  newReviewHome('Choose the kind of review you want to start. Your earlier reviews remain in Review History.',true);
+  startBoardReviewFromSelection();
 }
 $('#completeReview').onclick=()=>openReviewExit('finish');
 $('#startAnotherReview').onclick=()=>requestAnotherBoardReview();
 $('#closeReviewExit').onclick=closeReviewExit;
 $('#keepReviewing').onclick=closeReviewExit;
 $('#reviewExitOverlay').onclick=e=>{if(e.target.id==='reviewExitOverlay')closeReviewExit()};
-$('#leaveReviewOpen').onclick=()=>{if(finishingReview)return;closeReviewExit();newReviewHome('Choose a new review. Your earlier review remains open in history.',true)};
-$('#confirmFinishReview').onclick=async()=>{const startAnother=reviewExitIntent==='new';if(await finishReview()&&startAnother)newReviewHome()};
+$('#leaveReviewOpen').onclick=()=>{if(finishingReview)return;closeReviewExit();startBoardReviewFromSelection()};
+$('#confirmFinishReview').onclick=async()=>{const startAnother=reviewExitIntent==='new';if(await finishReview()&&startAnother)startBoardReviewFromSelection()};
 let disputePath='',disputeFindingId=null,challengeInFlight=false,challengeSpinnerTimer=null,challengeSlowTimer=null;
 function beginChallengeProgress(){
   challengeInFlight=true;
@@ -1924,6 +1934,7 @@ $('#viewAllHistory').onclick=()=>switchView('history');
 $('#selectedReviewList').onclick=()=>switchView('history');
 $('#topReviewSelector').onclick=()=>switchView('history');
 $('#selectedReviewNew').onclick=()=>requestAnotherBoardReview();
+$('#selectedReviewContinue').onclick=()=>queueActiveReplyOrientation({focus:true});
 $('#selectedReviewFinish').onclick=()=>openReviewExit('finish');
 function refreshHistorySelection(){
  for(const box of [$('#reviewHistory'),$('#reviewHistoryPage')]){
