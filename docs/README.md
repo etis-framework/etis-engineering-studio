@@ -2,7 +2,7 @@
 
 This directory contains the durable architecture, security, deployment, operations, acceptance, and product documentation for ETIS Engineering Studio.
 
-> **Source candidate:** v0.18.1 student-journey refinement. See [`releases/v0.18.1.md`](releases/v0.18.1.md) for candidate scope and publication gates. Accepted production remains v0.18.0 under its historical record. The 2026-08-21 GO decision and Gate 17 records are historical evidence, not acceptance of this release.
+> **Source candidate:** v0.18.2 review-workflow and conversation improvements. See [`releases/v0.18.2.md`](releases/v0.18.2.md) for acceptance and publication gates. v0.18.1 manual editions remain separately versioned; this source candidate is not evidence of v0.18.2 deployment.
 
 ## Start here
 
@@ -27,7 +27,8 @@ For the ETIS Framework reference deployment:
 
 All 12 manuals (00–11), in both DOCX and PDF, are indexed in [`manuals/README.md`](manuals/README.md). Manual 00 is the front door; manual 01 remains the active leadership brief. Older embedded screenshots are labeled as historical examples; current instructions and source contracts control behavior.
 
-- [`releases/v0.18.1.md`](releases/v0.18.1.md) — pending student UI candidate, all-manual update, protected deploy and human-acceptance gates.
+- [`releases/v0.18.2.md`](releases/v0.18.2.md) — current source candidate and release acceptance gates.
+- [`releases/v0.18.1.md`](releases/v0.18.1.md) — previous release contract and historical acceptance record.
 - [`releases/v0.18.0.md`](releases/v0.18.0.md) — accepted prior release; historical source and production evidence.
 - [`architecture/AUTHORITATIVE_FINDING_STATE_HANDOFF.md`](architecture/AUTHORITATIVE_FINDING_STATE_HANDOFF.md) — finding closure versus inspection/recommendation.
 - [`architecture/FIND_SUPPORTING_EVIDENCE_UX.md`](architecture/FIND_SUPPORTING_EVIDENCE_UX.md) — bounded search in a frozen snapshot.

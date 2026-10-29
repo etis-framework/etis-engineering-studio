@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_runtime_version_authority():
     client = TestClient(app)
-    assert STUDIO_VERSION == '0.18.1'
+    assert STUDIO_VERSION == '0.18.2'
     assert app.version == STUDIO_VERSION
     assert client.get('/health').json()['version'] == STUDIO_VERSION
     assert client.get('/openapi.json').json()['info']['version'] == STUDIO_VERSION
@@ -22,7 +22,9 @@ def test_runtime_version_authority():
 
 def test_current_release_metadata_and_manual_pairs():
     edition = json.loads((ROOT / 'docs/manuals/edition.json').read_text())
-    assert edition['version'] == STUDIO_VERSION
+    # Manuals are a separately versioned, hash-verified v0.18.1 edition.
+    # They must not be relabeled as v0.18.2 without rebuilding every pair.
+    assert edition['version'] == '0.18.1'
     assert edition['status'] == 'candidate'
     assert len(edition['manuals']) == 13
     actual = {p.name for p in (ROOT / 'docs/manuals').glob('*.docx')}
@@ -39,13 +41,13 @@ def test_current_release_metadata_and_manual_pairs():
         with ZipFile(ROOT / 'docs/manuals' / manual['docx']) as archive:
             body = ET.fromstring(archive.read('word/document.xml'))
             text = ' '.join(body.itertext())
-            assert f'v{STUDIO_VERSION}' in text
+            assert f"v{edition['version']}" in text
             if manual['publication_status'] == 'candidate':
                 assert 'candidate manual edition' in text.lower()
             else:
                 assert 'candidate manual edition' not in text.lower()
             core = ET.fromstring(archive.read('docProps/core.xml'))
-            assert f'v{STUDIO_VERSION}' in ' '.join(core.itertext())
+            assert f"v{edition['version']}" in ' '.join(core.itertext())
         assert manual['pages'] > 0
         assert manual['pdf'].replace('.pdf', '.docx') == manual['docx']
         assert (ROOT / 'docs/manuals' / manual['pdf']).read_bytes().startswith(b'%PDF-')

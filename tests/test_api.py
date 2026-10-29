@@ -1,3 +1,4 @@
+from apps.api.app.version import STUDIO_VERSION
 import json
 from fastapi.testclient import TestClient
 
@@ -156,7 +157,7 @@ def test_health():
         r = client.get('/health')
         assert r.status_code == 200
         assert r.json()['status'] == 'ok'
-        assert r.json()['version'] == '0.18.1'
+        assert r.json()['version'] == STUDIO_VERSION
         assert r.json()['reasoning_validation_mode'] in {'legacy', 'shadow'}
         assert 'reasoning_validator_model' in r.json()
         assert r.json()['review_planning_mode'] in {'legacy', 'shadow'}

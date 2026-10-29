@@ -10,19 +10,13 @@ The project was first developed and production-tested in the Loyola University C
 
 ## Release and documentation
 
-**v0.18.1 candidate UI:** Engineering Review Room and Engineering Evidence Room have paired navigation; the selected Board Review is distinguished from other open and finished sessions, and original frozen evidence is separated from newer saved evidence. Local synthetic simulator workflows are not production evidence. See [Student User Guide](docs/manuals/05_ETIS_Engineering_Studio_Student_User_Guide.docx) and [release contract](docs/releases/v0.18.1.md).
+**v0.18.2 release candidate:** The Engineering Review Room supports reliable multiple-review transitions and a discoverable Standard/Expanded conversation workspace with bounded scrolling. The Engineering Evidence Room supports snapshot-bounded artifact inspection and focused-review preparation. Recorded finding status is distinct from Review Board discussion or completed verification. See the [v0.18.2 candidate release contract](docs/releases/v0.18.2.md).
 
+The authoritative source version is [`apps/api/app/version.py`](apps/api/app/version.py). A source release candidate is **not** proof of deployment. The exact deployed SHA/version and production evaluation modes must be checked at acceptance. Do not assume historical v0.18.0 or v0.18.1 operational records establish acceptance for v0.18.2.
 
-The current source candidate is **v0.18.1 — Student Journey Clarity**. Production remains on accepted, published **v0.18.0** until a protected deployment and authenticated acceptance confirm otherwise. The single software version authority is [`apps/api/app/version.py`](apps/api/app/version.py); FastAPI/OpenAPI and `/health` use it. A source version does not prove that the same version is deployed or published.
+The Studio maintains frozen evidence boundaries: a new conversation need not imply changed evidence, and later repository work cannot rewrite an earlier Board Review's snapshot. The Review Board coaches and interprets; students and engineers retain decisions and verification responsibility.
 
-Production v0.18.0 was accepted on October 2, 2026 with shadow/shadow evaluation and legacy student-visible authority. See the [exact source, deployment and human-smoke evidence](docs/operations/V018_PRODUCTION_ACCEPTANCE_2026-10-02.md). [v0.18.0 is published](https://github.com/etis-framework/etis-engineering-studio/releases/tag/v0.18.0). The final accepted/tagged commit is `d2d4a4c5a00033f6517511a71d045d617c0b256c`, deployed by run `37084900540` as revision `etis-studio-prod--0000103`; production acceptance and final human smoke passed.
-
-Read the [v0.18.1 candidate release contract](docs/releases/v0.18.1.md), the [historical v0.18.0 release contract](docs/releases/v0.18.0.md), [documentation map](docs/README.md), and [complete 12-manual DOCX/PDF library](docs/manuals/README.md). The v0.17.0 release and the August production acceptance records remain historical evidence. The October 2026 UI candidate requires its own green CI, protected shadow/shadow deployment and live acceptance before publication.
-
-The Review Room is the conversation home; Engineering Evidence is the saved source notebook. Inspect cited source, Find supporting evidence, Discuss, Challenge, and Help me resolve this have distinct purposes. Search and dialogue do not close a finding: only authoritative `corrected` or `resolved` states are closed. New commits cannot rewrite an active review's frozen snapshot.
-
-Button-triggered instructions appear as review actions, never student-authored prose. Optional review context stays secondary, unsent drafts are preserved, and Help, artifact, challenge, and exit dialogs support bounded keyboard focus and Escape dismissal.
-
+Historical release contracts, the [documentation map](docs/README.md), and formal manuals remain available. The v0.18.2 manual edition must be checked and synchronized before public publication; existing manual files are not automatically certified by this metadata change.
 
 ## Why institutions may want ETIS
 

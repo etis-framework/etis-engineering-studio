@@ -243,9 +243,37 @@ function opsError(target,msg,retry){const box=$(target);if(!box)return;box.inner
 async function withBusy(control,label,fn){if(!control||control.disabled)return;const original=control.textContent;control.disabled=true;control.setAttribute('aria-busy','true');if(label)control.textContent=label;try{return await fn()}catch(e){toast(safeErrorMessage(e));throw e}finally{control.disabled=false;control.removeAttribute('aria-busy');control.textContent=original}}
 function currentFindingById(fid){const sources=currentView==='evidence'?[engineeringEvidenceData,currentEvidence]:[currentEvidence,engineeringEvidenceData];for(const source of sources){const match=(source?.findings||[]).find(f=>String(f.id)===String(fid));if(match)return match}return null}
 function actualArtifact(path){if(!path)return null;const all=(currentView==='evidence'?engineeringEvidenceData?.artifacts:currentEvidence?.artifacts)||[];return all.find(a=>String(a.path)===String(path))||null}
+// An artifact path is user input, not evidence of its existence. Never let a
+// path request silently change a selected Board Review's frozen snapshot.
+function requestedArtifactPath(){
+ const path=String($('#evidenceArtifactPath')?.value||'').trim().replaceAll('\\','/');
+ if(!path||path.startsWith('/')||path.split('/').includes('..')||!(/^[A-Za-z0-9_./ -]+$/.test(path))){
+  artifactRouteFeedback('Enter a repository-relative file path (for example, docs/planning/README.md).');
+  return null;
+ }
+ return path;
+}
+function artifactRouteFeedback(message){const el=$('#evidenceArtifactRouteFeedback');if(el)el.textContent=message}
+function inspectRequestedArtifact(){
+ const path=requestedArtifactPath();if(!path)return;
+ const found=(engineeringEvidenceData?.artifacts||[]).some(a=>String(a.path)===path);
+ if(!found){artifactRouteFeedback(`The saved Evidence snapshot does not expose ${path}. This does not prove that the file is absent from GitHub. Use a new focused review to request inspection of this path.`);return}
+ artifactRouteFeedback(`Inspecting ${path} in saved Evidence snapshot #${engineeringSnapshotId||'unknown'}.`);
+ showArtifact(path,path);
+}
+async function prepareRequestedArtifactReview(){
+ const path=requestedArtifactPath();if(!path)return;
+ if(pending||finishingReview){artifactRouteFeedback('Finish the current Review Board action before preparing another review.');return}
+ if(sessionId&&document.body.classList.contains('review-session-active')){
+  artifactRouteFeedback(`Review #${sessionId} remains tied to frozen snapshot #${reviewSnapshotId||'unknown'}. Use “Start another Board Review” in Review Room, then choose Focused Review and enter ${path}. Your existing review will remain available.`);
+  return;
+ }
+ artifactRouteFeedback(`Preparing a focused review request for ${path}. This does not claim the artifact has been inspected.`);
+ await configureFocusedFromEvidence(`Inspect ${path} in the review's frozen repository evidence and explain what it proves and does not prove.`,path);
+}
 function evidenceActualPath(item){return item?.equivalent_path||item?.title||''}
 function artifactForEvidence(item){return actualArtifact(evidenceActualPath(item))}
-function setComposerContext(ctx){composerContext=ctx||null;const box=$('#composerContext');if(!box)return;if(!ctx){box.classList.add('hidden');box.innerHTML='';return}const kind=ctx.kind==='finding'||ctx.kind==='finding_search'?'Finding':'Evidence';box.innerHTML=`<div><span class="composer-context-kind">${escapeHtml(kind)} in this question</span><b>${escapeHtml(ctx.label||ctx.path||ctx.id||kind)}</b>${ctx.detail?`<small>${escapeHtml(ctx.detail)}</small>`:''}</div><button type="button" id="clearComposerContext" class="text-button">Clear</button>`;box.classList.remove('hidden');$('#clearComposerContext').onclick=()=>setComposerContext(null)}
+function setComposerContext(ctx){composerContext=ctx||null;const box=$('#composerContext');if(!box)return;if(!ctx){box.classList.add('hidden');box.innerHTML='';return}const isFinding=ctx.kind==='finding'||ctx.kind==='finding_search';const kind=isFinding?'Finding':'Evidence';const snapshot=isFinding&&reviewSnapshotId?`Frozen review snapshot #${reviewSnapshotId}`:'';const status=isFinding?findingStatusExplanation(ctx.status||'open'):'';box.innerHTML=`<div><span class="composer-context-kind">${escapeHtml(kind)} in this question${snapshot?` · ${escapeHtml(snapshot)}`:''}</span><b>${escapeHtml(ctx.label||ctx.path||ctx.id||kind)}</b>${ctx.detail?`<small>${escapeHtml(ctx.detail)}</small>`:''}${status?`<small class="finding-context-explanation">${escapeHtml(status)}</small>`:''}</div><button type="button" id="clearComposerContext" class="text-button">Clear</button>`;box.classList.remove('hidden');$('#clearComposerContext').onclick=()=>setComposerContext(null)}
 function contextRefs(){if(!composerContext)return[];if(composerContext.kind==='finding_search')return [`FINDING:${composerContext.id}`];if(composerContext.kind==='finding')return [`FINDING:${composerContext.id}`,...(composerContext.evidence_refs||[])];if(composerContext.kind==='evidence')return [`PATH:${composerContext.path}`];return[]}
 async function showArtifact(path,label='Evidence'){
   const art=actualArtifact(path);
@@ -495,6 +523,9 @@ function setPending(on,status='Reviewing your answer and the frozen evidence…'
     els.response.disabled=false;
     els.send.disabled=!sessionId;
   }
+  // Keep the top review action in sync with the pending state. Without this,
+  // review creation leaves it disabled until a later room navigation refreshes it.
+  refreshSelectedReviewCard();
 }
 function addGuidance(refs=[]){if(!refs.length)return;const box=$('#relatedGuidance');if(box.querySelector('.quiet'))box.innerHTML='';refs.forEach(r=>{if(box.querySelector(`[data-guidance="${CSS.escape(r.id||r.title)}"]`))return;const a=document.createElement('a');a.className='guidance-link';a.dataset.guidance=r.id||r.title;a.href=r.website_url||'#';a.target='_blank';a.rel='noopener noreferrer';a.innerHTML=`<span>${escapeHtml(r.stage||'ETIS guidance')}</span><b>${escapeHtml(r.title)}</b><p>${escapeHtml(r.student_hint||r.why||'Open the related Engineering Platform guidance.')}</p>`;box.appendChild(a)})}
 function readableGuidanceText(value,refs=[]){let result=String(value||'');for(const ref of refs){const stage=String(ref.stage||'');if(!/^ES-\d{3}$/.test(stage)||!/^https:\/\//.test(ref.website_url||''))continue;result=result.replace(new RegExp(`\\bSee \\[${stage}\\]\\([^\\n)]*\\) for (?:the )?(?:relevant )?guidance\\.`, 'gi'),'')}return result.replace(/\[(ES-\d{3})\]\([^\n)]*\)/g,'$1').replace(/\n{3,}/g,'\n\n').trim()}
@@ -535,9 +566,54 @@ function showSubmittedExchange(studentTurn){
     updateReadingCue();
   });
 }
-function updateReadingCue(){const cue=$('#continueReading');if(!cue)return;cue.classList.toggle('hidden',!sessionId||!document.body.classList.contains('review-session-active')||els.transcript.scrollHeight-els.transcript.scrollTop-els.transcript.clientHeight<12)}
+function updateReadingCue(){
+  const cue=$('#continueReading'),hint=$('#conversationScrollHint');
+  const active=!!sessionId&&document.body.classList.contains('review-session-active');
+  const overflow=active&&els.transcript.scrollHeight>els.transcript.clientHeight+12;
+  if(hint)hint.classList.toggle('hidden',!overflow);
+  if(cue)cue.classList.toggle('hidden',!overflow||els.transcript.scrollHeight-els.transcript.scrollTop-els.transcript.clientHeight<12);
+}
+// The hint follows actual overflow, including font, viewport and view-mode changes.
+if(typeof ResizeObserver!=='undefined'){
+  const conversationOverflowObserver=new ResizeObserver(()=>updateReadingCue());
+  conversationOverflowObserver.observe(els.transcript);
+}
+window.addEventListener('resize',()=>requestAnimationFrame(updateReadingCue));
 els.transcript.addEventListener('scroll',updateReadingCue);
 $('#continueReading').onclick=()=>els.transcript.scrollBy({top:Math.max(160,els.transcript.clientHeight*.8),behavior:'smooth'});
+// Focus mode changes presentation only: review, snapshot, finding, draft and messages are unchanged.
+const focusButton=$('#toggleConversationFocus');
+const standardViewButton=$('#conversationStandard');
+function setConversationFocus(enabled){
+  const transcript=els.transcript;
+  const oldMax=Math.max(0,transcript.scrollHeight-transcript.clientHeight);
+  const wasAtEnd=oldMax-transcript.scrollTop<=24;
+  const readingRatio=oldMax>0?transcript.scrollTop/oldMax:0;
+  document.body.classList.toggle('conversation-focus',!!enabled);
+  focusButton.setAttribute('aria-pressed',String(!!enabled));
+  standardViewButton.setAttribute('aria-pressed',String(!enabled));
+  requestAnimationFrame(()=>{
+    const nextMax=Math.max(0,transcript.scrollHeight-transcript.clientHeight);
+    // Preserve the reader's proportional position, or the end if they were at it.
+    transcript.scrollTop=wasAtEnd?nextMax:Math.min(nextMax,Math.round(readingRatio*nextMax));
+    updateReadingCue();
+  });
+}
+standardViewButton.addEventListener('click',()=>{
+  setConversationFocus(false);
+});
+focusButton.addEventListener('click',()=>{
+  setConversationFocus(true);
+});
+// Standard is the initial view; students explicitly opt into Expanded.
+// Review changes do not silently expand the reading workspace.
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&document.body.classList.contains('conversation-focus')){
+    setConversationFocus(false);
+    standardViewButton.focus();
+  }
+});
+
 function renderStrengths(ev){const panel=$('#boardReadout .board-readout-details');if(!panel)return;panel.querySelector('.strengths-strip')?.remove()}
 function preparationHTML(p){
  if(!p)return '';
@@ -711,11 +787,30 @@ function updateRoomOrientation(){
  if(evidenceContext)evidenceContext.textContent=snapshotContextText('evidence');
  refreshSelectedReviewCard();
 }
-function findingContext(f,intent='discuss'){return {kind:'finding',id:f.id,label:f.title,detail:f.statement,evidence_refs:f.evidence_refs||[],intent}}
+function findingContext(f,intent='discuss'){return {kind:'finding',id:f.id,label:f.title,detail:f.statement,evidence_refs:f.evidence_refs||[],intent,snapshotId:reviewSnapshotId,status:findingStatus(f)}}
+function findingStatusExplanation(status){
+ const explanations={
+  open:'Open concern — discussing it does not resolve it.',
+  under_discussion:'Under discussion — no engineering correction has been verified.',
+  evidence_disputed:'Evidence challenged — the challenge has not automatically been accepted.',
+  confirmed:'Finding acknowledged — completing the engineering work still requires evidence.',
+  corrected:'Finding interpretation corrected — this does not certify the implementation.',
+  resolved:'Recorded as resolved — verify the authoritative finding record for its basis.',
+  accepted_risk:'Risk accepted in the finding record — not an implementation fix.',
+  deferred:'Deferred — the concern remains visible in the frozen record.'
+ };
+ return explanations[status]||'Review Board advice is not a recorded finding disposition or verification.';
+}
+function findingSnapshotMatchesActiveReview(f){
+ if(!sessionId||!document.body.classList.contains('review-session-active'))return true;
+ // Never use the latest Evidence Room object to act on a different frozen review.
+ if(currentView==='evidence'&&reviewSnapshotId&&engineeringSnapshotId&&Number(reviewSnapshotId)!==Number(engineeringSnapshotId))return false;
+ return (currentEvidence?.findings||[]).some(item=>String(item.id)===String(f.id));
+}
 function findingStudentPrompt(f,intent){if(intent==='resolve')return `I agree the finding “${f.title}” has merit. Help me act on this exact finding: what should we improve first, why, and what evidence would show it is addressed?`;if(intent==='challenge')return `I think the board may have missed or misinterpreted evidence for the finding “${f.title}”. I want to challenge this exact finding.`;return `I want to discuss the finding “${f.title}”. Please stay on this finding and help me understand what the evidence supports, why it matters, and what I should consider next.`}
 function findingIsClosed(f){return ['corrected','resolved'].includes(findingStatus(f))}
 function findingSearchPrompt(f){return `Search the frozen repository for equivalent evidence relevant to the finding “${f.title}”. Identify the strongest candidates, tell me what each actually proves and does not prove, and say whether any project-specific evidence changes the finding. Stay within this review’s frozen snapshot; do not treat later work or my assertion as evidence.`}
-function findingSearchContext(f){return {kind:'finding_search',id:f.id,label:f.title,detail:'Search this frozen snapshot for equivalent evidence',evidence_refs:[],intent:'find_evidence'}}
+function findingSearchContext(f){return {kind:'finding_search',id:f.id,label:f.title,detail:'Search this frozen snapshot for equivalent evidence',evidence_refs:[],intent:'find_evidence',snapshotId:reviewSnapshotId,status:findingStatus(f)}}
 async function findSupportingEvidence(f,source='studio'){
   if(!f){toast('That finding is not available in this snapshot. Refresh Engineering Evidence and try again.');return}
   if(findingIsClosed(f)){toast('This finding is already closed in this snapshot. Open its evidence or start a new review for current work.');return}
@@ -757,6 +852,7 @@ async function findSupportingEvidence(f,source='studio'){
 async function actOnFinding(f,intent='discuss',source='studio'){
   if(!f){toast('That finding is no longer available in this snapshot. Refresh the evidence view.');return}
   if(pending||finishingReview){toast('Wait for the current reviewer response to finish.');return}
+  if(!findingSnapshotMatchesActiveReview(f)){toast('This finding is from a different saved snapshot. Return to the selected review’s original evidence or start a new review; its frozen context will not change.');return}
   if(intent==='challenge'){
     const path=findingPrimaryPath(f);
     if(sessionId){openEvidenceDispute(path,f.id);return}
@@ -785,7 +881,7 @@ async function actOnFinding(f,intent='discuss',source='studio'){
   await sending;
   setComposerContext(null);
 }
-function renderFindings(ev){const box=$('#findingList');const fs=(ev.findings||ev.challenge_candidates||[]).slice(0,8);const openCount=fs.filter(f=>!['corrected','resolved'].includes(findingStatus(f))).length;const summary=$('#findingSummaryLabel');if(summary)summary.textContent=`Review findings${openCount?` · ${openCount} open`:''}`;if(!fs.length){box.innerHTML='<p class="quiet">No high-priority repository finding is blocking this snapshot; the board can still challenge engineering judgment.</p>';renderFindingPicker([]);return}box.innerHTML='';fs.forEach(f=>{const status=findingStatus(f),d=document.createElement('div');d.className='finding-item'+(selectedFindingIds.has(f.id)?' in-review':'');const path=findingPrimaryPath(f),art=path?actualArtifact(path):null;d.innerHTML=`<div class="finding-head"><b>${escapeHtml(f.title)}</b><span><span class="provenance-badge review">REVIEW</span><span class="finding-state ${status}">${escapeHtml(status.replaceAll('_',' '))}</span></span></div><p>${escapeHtml(f.statement)}</p><div class="finding-actions"><button type="button" class="discuss-finding">Discuss</button>${!findingIsClosed(f)?'<button type="button" class="find-finding-evidence">Find supporting evidence</button>':''}<button type="button" class="challenge-finding">Challenge</button><button type="button" class="resolve-finding">Help me resolve this</button>${art?'<button type="button" class="open-finding-evidence">Open evidence ↗</button>':''}</div>`;d.querySelector('.discuss-finding').onclick=()=>actOnFinding(f,'discuss','studio_finding_rail');const find=d.querySelector('.find-finding-evidence');if(find)find.onclick=()=>findSupportingEvidence(f,'studio_finding_rail');d.querySelector('.challenge-finding').onclick=()=>actOnFinding(f,'challenge','studio_finding_rail');d.querySelector('.resolve-finding').onclick=()=>actOnFinding(f,'resolve','studio_finding_rail');const op=d.querySelector('.open-finding-evidence');if(op)op.onclick=()=>showArtifact(path,`Evidence for ${f.title}`);box.appendChild(d)});renderFindingPicker(fs)}
+function renderFindings(ev){const box=$('#findingList');const fs=(ev.findings||ev.challenge_candidates||[]).slice(0,8);const openCount=fs.filter(f=>!['corrected','resolved'].includes(findingStatus(f))).length;const summary=$('#findingSummaryLabel');if(summary)summary.textContent=`Review findings${openCount?` · ${openCount} open`:''}`;if(!fs.length){box.innerHTML='<p class="quiet">No high-priority repository finding is blocking this snapshot; the board can still challenge engineering judgment.</p>';renderFindingPicker([]);return}box.innerHTML='';fs.forEach(f=>{const status=findingStatus(f),d=document.createElement('div');d.className='finding-item'+(selectedFindingIds.has(f.id)?' in-review':'');const path=findingPrimaryPath(f),art=path?actualArtifact(path):null;d.innerHTML=`<div class="finding-head"><b>${escapeHtml(f.title)}</b><span><span class="provenance-badge review">REVIEW</span><span class="finding-state ${status}">${escapeHtml(status.replaceAll('_',' '))}</span></span></div><p>${escapeHtml(f.statement)}</p><small class="finding-state-explanation">${escapeHtml(findingStatusExplanation(status))}</small><div class="finding-actions"><button type="button" class="discuss-finding">Discuss</button>${!findingIsClosed(f)?'<button type="button" class="find-finding-evidence">Find supporting evidence</button>':''}<button type="button" class="challenge-finding">Challenge</button><button type="button" class="resolve-finding">Help me resolve this</button>${art?'<button type="button" class="open-finding-evidence">Open evidence ↗</button>':''}</div>`;d.querySelector('.discuss-finding').onclick=()=>actOnFinding(f,'discuss','studio_finding_rail');const find=d.querySelector('.find-finding-evidence');if(find)find.onclick=()=>findSupportingEvidence(f,'studio_finding_rail');d.querySelector('.challenge-finding').onclick=()=>actOnFinding(f,'challenge','studio_finding_rail');d.querySelector('.resolve-finding').onclick=()=>actOnFinding(f,'resolve','studio_finding_rail');const op=d.querySelector('.open-finding-evidence');if(op)op.onclick=()=>showArtifact(path,`Evidence for ${f.title}`);box.appendChild(d)});renderFindingPicker(fs)}
 function renderEvidence(ev){currentEvidence=ev;els.evidenceList.innerHTML='';(ev.items||[]).forEach(i=>{const d=document.createElement('div');d.className='eitem';d.title='Evidence currently in scope for this review';const actualPath=evidenceActualPath(i),art=artifactForEvidence(i),scope=(i.phase_scope||'CURRENT_PHASE').toLowerCase();d.innerHTML=`<div class="eitem-main"><span class="pill ${evidenceStatusClass(i)}">${escapeHtml(evidenceStatusLabel(i))}</span><span class="eref">${escapeHtml(i.ref)}</span><b>${escapeHtml(i.title)}</b><small>${escapeHtml(evidenceCondition(i).why)}</small><span class="e-meta"><em class="provenance-badge fact">FACT</em>${i.source_provenance&&i.source_provenance!=='UNKNOWN'?`<em class="source-badge ${String(i.source_provenance).toLowerCase()}">${escapeHtml(String(i.source_provenance).replaceAll('_',' '))}</em>`:''}<em class="scope-badge ${scope}">${escapeHtml((i.phase_scope||'CURRENT_PHASE').replaceAll('_',' '))}</em></span><span class="scope-reason">${escapeHtml(i.scope_reason||`${currentPhase} evidence`)}</span>${i.equivalent_path?`<span class="equivalent-evidence">Equivalent evidence detected: ${escapeHtml(i.equivalent_path)}</span>`:''}</div><div class="eitem-actions">${sessionId?'<button type="button" class="ask-evidence">Ask about this</button>':''}<button type="button" class="reference-evidence">Reference</button><button type="button" class="open-evidence" ${art?'':'disabled title="No exact frozen artifact is available to open"'}>Open ↗</button></div>`;const ctx={kind:'evidence',path:actualPath,label:`${i.ref} · ${actualPath}`,detail:i.detail};const ask=d.querySelector('.ask-evidence');if(ask)ask.onclick=()=>{setMode('ask');setComposerContext(ctx);els.response.focus();toast(`Ask the reviewer anything about ${actualPath}.`)};d.querySelector('.reference-evidence').onclick=()=>{setComposerContext(ctx);insertText(`${i.ref} `);els.response.focus();toast(`${i.ref} is attached to your next message.`)};const open=d.querySelector('.open-evidence');if(art)open.onclick=()=>showArtifact(art.path,`${i.ref} · ${art.path}`);else open.onclick=()=>toast('This expected evidence was not found as an exact artifact in the frozen snapshot.');els.evidenceList.appendChild(d)});const canonical=new Set((ev.items||[]).map(i=>String(i.equivalent_path||i.title||'')));const refs=(currentChallenge?.evidence_refs||[]).filter(r=>String(r).startsWith('PATH:')).map(r=>String(r).slice(5));refs.forEach((path,idx)=>{if(canonical.has(path))return;const a=(ev.artifacts||[]).find(x=>x.path===path);if(!a)return;const d=document.createElement('div');d.className='eitem';d.innerHTML=`<div class="eitem-main"><span class="pill present">in scope</span><span class="eref">X-${idx+1}</span><b>${escapeHtml(path)}</b><small>${escapeHtml(a.summary||'Repository-discovered evidence relevant to this review.')}</small><span class="e-meta"><em class="provenance-badge fact">FACT</em><em class="source-badge ${String(a.provenance||'UNKNOWN').toLowerCase()}">${escapeHtml(String(a.provenance||'UNKNOWN').replaceAll('_',' '))}</em><em class="scope-badge project_specific">PROJECT SPECIFIC</em></span><span class="scope-reason">${escapeHtml(a.scope_reason||'Selected because it supports or challenges the current engineering question.')}</span></div><div class="eitem-actions">${sessionId?'<button type="button" class="ask-evidence">Ask about this</button>':''}<button type="button" class="reference-evidence">Reference</button><button type="button" class="open-evidence">Open ↗</button></div>`;const ctx={kind:'evidence',path,label:path,detail:a.summary||''};const ask=d.querySelector('.ask-evidence');if(ask)ask.onclick=()=>{setMode('ask');setComposerContext(ctx);els.response.focus()};d.querySelector('.reference-evidence').onclick=()=>{setComposerContext(ctx);insertText(`X-${idx+1} `);els.response.focus()};d.querySelector('.open-evidence').onclick=()=>showArtifact(path,path);els.evidenceList.appendChild(d)});$('#coverage').textContent=ev.coverage+'%';$('#evCoverage').textContent=ev.coverage+'% team evidence';$('#meter').style.width=ev.coverage+'%';renderEvidenceSummary(ev);renderFindings(ev);updateReviewJourney()}
 async function ensureDemo(){if(demoContext)return demoContext;demoContext=await fetch('/api/v1/dev/seed',{method:'POST'}).then(r=>r.json());return demoContext}
 async function loadStudentContext(userId=null){const seed=userId?{user_id:userId}:await ensureDemo();studentContext=await fetch(`/api/v1/onboarding/users/${seed.user_id}`).then(r=>r.json());const sc=studentContext.sections?.[0];if(sc){selectedSectionId=sc.section.id;const team=sc.team;if(team){$('#contextTeam').textContent=team.name;$('#contextProject').textContent=team.project_name;els.repo.value=team.repo_full_name||'';}configurePhaseSelector(sc.phase_access)}updateRepoMode();renderMyTeam();renderStudentReadiness();updateStartReviewButton();setIdentity(currentView);applyStudentGuideVisibility();updateRoomOrientation();return studentContext}
@@ -1553,7 +1649,16 @@ function renderReviewCompletionSummary(){
 }
 function closeReviewExit(){reviewExitIntent=null;closeStudioDialog('reviewExitOverlay')}
 function openReviewExit(intent='finish'){
-  if(!sessionId||!document.body.classList.contains('review-session-active')||pending||finishingReview)return;
+  // A click must never be silently ignored. Preserve the current review if a request is running.
+  if(pending||finishingReview){
+    toast('The current review action is still completing. Try again when it finishes.');
+    return;
+  }
+  if(!sessionId||!document.body.classList.contains('review-session-active')){
+    if(intent==='new')newReviewHome('Choose the kind of review you want to start.',true);
+    else toast('Select an Open review before finishing it.');
+    return;
+  }
   reviewExitIntent=intent;
   $('#reviewExitTitle').textContent=intent==='new'?'Start another Board Review?':'Finish this review?';
   $('#reviewExitExplanation').textContent=intent==='new'
@@ -1617,8 +1722,20 @@ async function finishReview(){
     return false;
   }finally{finishingReview=false;$('#confirmFinishReview').disabled=false;$('#leaveReviewOpen').disabled=false}
 }
+// Route every 'another review' entry through a single state-aware controller.
+function requestAnotherBoardReview(){
+  if(pending||finishingReview){
+    toast('The current review action is still completing. Try again when it finishes.');
+    return;
+  }
+  if(sessionId&&document.body.classList.contains('review-session-active')){
+    openReviewExit('new');
+    return;
+  }
+  newReviewHome('Choose the kind of review you want to start. Your earlier reviews remain in Review History.',true);
+}
 $('#completeReview').onclick=()=>openReviewExit('finish');
-$('#startAnotherReview').onclick=()=>openReviewExit('new');
+$('#startAnotherReview').onclick=()=>requestAnotherBoardReview();
 $('#closeReviewExit').onclick=closeReviewExit;
 $('#keepReviewing').onclick=closeReviewExit;
 $('#reviewExitOverlay').onclick=e=>{if(e.target.id==='reviewExitOverlay')closeReviewExit()};
@@ -1798,7 +1915,7 @@ async function loadHistory(){
 $('#viewAllHistory').onclick=()=>switchView('history');
 $('#selectedReviewList').onclick=()=>switchView('history');
 $('#topReviewSelector').onclick=()=>switchView('history');
-$('#selectedReviewNew').onclick=()=>{if(sessionId)newReviewHome('Choose the kind of review you want to start. Your previous conversations remain saved.');else{switchView('studio');$('#studentReviewEntry')?.scrollIntoView({block:'center',behavior:'auto'});}};
+$('#selectedReviewNew').onclick=()=>requestAnotherBoardReview();
 $('#selectedReviewFinish').onclick=()=>openReviewExit('finish');
 function refreshHistorySelection(){
  for(const box of [$('#reviewHistory'),$('#reviewHistoryPage')]){
@@ -1931,6 +2048,8 @@ $('#findCurrentConcernEvidence').onclick=()=>{const f=currentChallenge?.finding;
 $('#browseReviewEvidence').onclick=()=>switchView('evidence');
 $('#backToStudio').onclick=()=>switchView('studio');
 $$('[data-room-jump]').forEach(b=>b.onclick=()=>switchView(b.dataset.roomJump));
+$('#inspectEvidenceArtifact').onclick=inspectRequestedArtifact;
+$('#prepareArtifactReview').onclick=prepareRequestedArtifactReview;
 async function loadInstructor(){try{const setup=await adminSetupData();fillSectionSelectors(setup);const d=await jsonRequest(`/api/v1/instructor/overview${instructorSectionQuery()}`,{},'Instructor intelligence could not be loaded.');const sig=d.class_signals||{},u=d.ai_usage||{};$('#classSignals').innerHTML=`<div><b>${sig.students??0}</b><span>Students</span></div><div><b>${sig.teams??0}</b><span>Teams</span></div><div><b>${sig.repositories_connected??0}</b><span>Repositories</span></div><div><b>${sig.teams_needing_attention??0}</b><span>Need attention</span></div><div><b>${sig.active_reviews??0}</b><span>Active reviews</span></div><div><b>${sig.review_sessions??0}</b><span>Review sessions</span></div>`;$('#aiUsageMetrics').innerHTML=`<div><b>${formatEstimatedCost(u.estimated_cost_usd)}</b><span>Estimated cost</span></div><div><b>${Number(u.input_tokens||0).toLocaleString()}</b><span>Input tokens</span></div><div><b>${Number(u.cached_input_tokens||0).toLocaleString()}</b><span>Cached input</span></div><div><b>${Number(u.output_tokens||0).toLocaleString()}</b><span>Output tokens</span></div><div><b>${Math.round(Number(u.cache_hit_ratio||0)*100)}%</b><span>Cache hit</span></div><div><b>${u.calls?`${(Number(u.avg_latency_ms||0)/1000).toFixed(1)}s`:'—'}</b><span>Avg response</span></div><div><b>${Number(u.calls||0).toLocaleString()}</b><span>Model calls</span></div>`;const box=$('#teamCards');box.innerHTML='';d.teams.forEach(t=>{const c=document.createElement('button');c.className=`teamcard ${t.attention}`;c.dataset.team=t.id;const context=[t.section?.display_name,teamIdentifierLabel(t.team_key)].filter(Boolean).join(' · ');c.innerHTML=`<div class="team-name"><span class="attention-dot"></span><div><b>${escapeHtml(t.name)}</b><small>${escapeHtml(t.project)}</small><small class="team-card-context">${escapeHtml(context)}</small></div></div><div><small>Phase</small><b>${t.phase}</b></div><div><small>Evidence</small><b>${t.evidence_coverage==null?'Not scanned':t.evidence_coverage+'%'}</b></div><div><small>AI cost</small><b>${formatEstimatedCost(t.ai_usage?.estimated_cost_usd)}</b></div><span class="inspect">Inspect →</span>`;c.onclick=()=>loadTeamDetail(t.id,{focus:true,history:true});box.appendChild(c)});if(d.teams.length){const selected=currentInstructorTeamId&&d.teams.some(t=>Number(t.id)===Number(currentInstructorTeamId))?currentInstructorTeamId:d.teams[0].id;loadTeamDetail(Number(selected))}else{$('#teamDetail').classList.add('hidden');currentInstructorTeamId=null}}catch(e){console.error(e);$('#teamCards').innerHTML='<div class="error-card">Could not load instructor overview.</div>'}}
 $('#refreshInstructor').onclick=loadInstructor;
 async function loadTeamDetail(teamId,opts={}){
@@ -2169,7 +2288,7 @@ function localDateValue(v){if(!v)return'';const d=new Date(v),z=new Date(d.getTi
 async function renderStaff(){const d=await jsonRequest(`/api/v1/admin/sections/${selectedSectionId}/staff`,{},'Teaching-staff access could not be loaded.');$('#staffList').innerHTML=d.staff.map(x=>`<div class="staff-row"><b>${escapeHtml(x.name)}</b><span>${escapeHtml(x.email||'')} · ${escapeHtml(x.role)}</span></div>`).join('')||'<p class="quiet">No staff assignments yet.</p>'}
 
 
-$('#closeArtifactOverlay').onclick=closeArtifact;$('#artifactOverlay').onclick=e=>{if(e.target.id==='artifactOverlay')closeArtifact()};$('#artifactReferenceButton').onclick=()=>{if(!artifactContext)return;if(!sessionId){closeArtifact();configureFocusedFromEvidence(`Review the evidence at ${artifactContext.path}. Tell me what it supports, what it does not support, and what is worth improving.`,artifactContext.path);return}setComposerContext(artifactContext);closeArtifact();switchView('studio');setMode('ask');els.response.focus();toast('Evidence attached to your next message.')};$('#reviewHomeButton').onclick=()=>newReviewHome();
+$('#closeArtifactOverlay').onclick=closeArtifact;$('#artifactOverlay').onclick=e=>{if(e.target.id==='artifactOverlay')closeArtifact()};$('#artifactReferenceButton').onclick=()=>{if(!artifactContext)return;if(!sessionId){closeArtifact();configureFocusedFromEvidence(`Review the evidence at ${artifactContext.path}. Tell me what it supports, what it does not support, and what is worth improving.`,artifactContext.path);return}setComposerContext(artifactContext);closeArtifact();switchView('studio');setMode('ask');els.response.focus();toast('Evidence attached to your next message.')};$('#reviewHomeButton').onclick=()=>requestAnotherBoardReview();
 $('#createTerm').onclick=async()=>{const btn=$('#createTerm');await withBusy(btn,'Creating…',async()=>{const namespace=$('#termNamespace').value.trim(),term_label=$('#termLabel').value.trim(),starts_on=$('#termStart').value,ends_on=$('#termEnd').value;if(!namespace||!term_label||!starts_on){toast('Term namespace, label, and start date are required.');return}await jsonRequest('/api/v1/admin/terms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({namespace,term_label,starts_on,ends_on,course_code:'COMP 330'})},'The course term could not be created.');toast('Course term created. Add its section next.');$('#termNamespace').value='';$('#termLabel').value='';$('#termStart').value='';$('#termEnd').value='';await loadSemesterSetup()})}
 $('#createSection').onclick=async()=>{const btn=$('#createSection');await withBusy(btn,'Adding…',async()=>{const termId=Number($('#newSectionTerm').value),section_key=$('#newSectionKey').value.trim(),display_name=$('#newSectionName').value.trim(),meeting_pattern=$('#newSectionMeeting').value.trim();if(!termId||!section_key){toast('Choose the term and enter a section key.');return}await jsonRequest(`/api/v1/admin/terms/${termId}/sections`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({section_key,display_name:display_name||null,meeting_pattern})},'The section could not be created.');toast('Section created with a proposed A1–A6 review calendar.');$('#newSectionKey').value='';$('#newSectionName').value='';$('#newSectionMeeting').value='';await loadSemesterSetup()})}
 $('#importRoster').onclick=async()=>{const btn=$('#importRoster'),f=$('#rosterFile').files[0];if(!f){toast('Choose the Sakai gradebook CSV first.');return}await withBusy(btn,'Importing…',async()=>{const fd=new FormData();fd.append('file',f);const d=await jsonRequest(`/api/v1/admin/sections/${selectedSectionId}/roster?deactivate_missing=${$('#deactivateMissing').checked}`,{method:'POST',body:fd},'Roster import failed. The existing roster was not silently removed.');$('#rosterImportResult').textContent=`${d.rows} roster rows · ${d.added} added · ${d.reactivated} reactivated · ${d.deactivated} deactivated`;await renderSetupTeams();toast('Roster import complete.')})}

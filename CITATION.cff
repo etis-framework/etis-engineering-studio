@@ -8,7 +8,7 @@ authors:
 repository-code: "https://github.com/etis-framework/etis-engineering-studio"
 url: "https://simulator.etisframework.org"
 license: "Apache-2.0"
-version: "0.18.1"
+version: "0.18.2"
 # Candidate only; date-released will be set after verified publication.
 # Previously published v0.18.0 remains the production-accepted source.
 abstract: >-

@@ -143,6 +143,15 @@
             <div class="decision-callout"><span class="brief-label">YOUR ENGINEERING DECISION</span><p id="decisionQuestionText"></p></div>
           </div>
 
+          <div class="conversation-workspace-toolbar" id="conversationWorkspaceToolbar" aria-label="Conversation display controls">
+            <div class="conversation-workspace-heading"><span class="conversation-workspace-label">Review Board conversation</span><span class="conversation-view-hint" id="conversationViewHint">Expanded gives your conversation more room; switch back anytime.</span></div>
+            <div class="conversation-view-selector" role="group" aria-label="Conversation view" aria-describedby="conversationViewHint">
+              <span class="conversation-view-title">Conversation view</span>
+              <button id="conversationStandard" type="button" class="conversation-view-option" aria-pressed="true" aria-controls="transcript">Standard</button>
+              <button id="toggleConversationFocus" type="button" class="conversation-view-option" aria-pressed="false" aria-controls="transcript">Expanded</button>
+            </div>
+          </div>
+          <p id="conversationScrollHint" class="conversation-scroll-hint hidden">Scroll within the conversation to read earlier messages.</p>
           <div id="transcript" class="transcript conversation">
             <div class="empty"><div class="glyph">⌬</div><h3>Your engineering review starts here.</h3><p>The board will use your team's evidence and coach you through one engineering move at a time. You may ask questions before you make a decision.</p><button class="inline-help" data-help-topic="first-review">What happens when I begin?</button></div>
           </div>
@@ -218,6 +227,11 @@
           <div class="room-route" aria-label="Review workflow"><button type="button" class="room-step" data-room-jump="studio">1 · Review</button><span>→</span><button type="button" class="room-step active" data-room-jump="evidence" aria-current="page">2 · Evidence</button></div>
         </div>
         <div id="evidenceSnapshotContext" class="snapshot-context" role="group" aria-label="Saved engineering evidence snapshot context"><p id="evidenceSnapshotContextText">Loading saved evidence information. The latest saved snapshot is not automatically the one in your open review.</p><button type="button" data-help-topic="snapshot-lifecycle" class="text-button">How snapshots work</button></div><p id="evidenceSnapshotMismatch" class="evidence-snapshot-mismatch hidden" role="status"></p><button id="openSelectedReviewEvidence" class="secondary evidence-original-action hidden" type="button">Inspect the evidence from the selected review</button>
+        <section class="evidence-artifact-route" aria-labelledby="evidenceArtifactRouteTitle">
+          <div><b id="evidenceArtifactRouteTitle">Need help with another repository file?</b><p>Enter its repository-relative path. Inspect it in the saved Evidence snapshot, or prepare a focused review. An existing Board Review keeps its original frozen scope.</p></div>
+          <div class="evidence-artifact-route-controls"><label for="evidenceArtifactPath">Repository file path</label><input id="evidenceArtifactPath" type="text" placeholder="docs/planning/README.md" autocomplete="off" spellcheck="false"><button type="button" id="inspectEvidenceArtifact" class="secondary compact">Inspect saved artifact</button><button type="button" id="prepareArtifactReview" class="secondary compact">Prepare focused review</button></div>
+          <p id="evidenceArtifactRouteFeedback" class="evidence-artifact-route-feedback" role="status" aria-live="polite"></p>
+        </section>
         <div id="evidenceWorkspaceStatus" class="evidence-workspace-status"><span class="mini-spinner"></span><span>Loading the latest frozen evidence snapshot…</span></div>
         <div id="evidenceWorkspace" class="hidden">
           <div class="evidence-workspace-head"><div><span class="eyebrow">LATEST SAVED EVIDENCE SNAPSHOT · SOURCE NOTEBOOK</span><h3 id="evidenceWorkspaceTitle">Current phase evidence</h3><p id="evidenceWorkspaceMeta"></p><p id="evidenceSnapshotNote" class="evidence-snapshot-note" role="status"></p></div><div class="evidence-workspace-actions"><button id="startBoardFromEvidence" class="primary compact">Choose Board Review →</button><button id="backToStudio" class="secondary">Open Review Room</button><small id="evidenceActionHint">Choose a concern below or return to Review Room.</small></div></div>

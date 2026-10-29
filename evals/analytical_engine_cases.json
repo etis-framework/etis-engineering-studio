@@ -2097,14 +2097,16 @@
     "expectations": {
       "acceptable_moves": [
         "STRESS_TEST_POSITION",
-        "SURFACE_UNCERTAINTY"
+        "SURFACE_UNCERTAINTY",
+        "ESTABLISH_CHANGE_TRIGGER"
       ],
       "preferred_moves": [
         "STRESS_TEST_POSITION"
       ],
       "acceptable_target_outcomes": [
         "ENGINEERING_CONSEQUENCE_CLEAR",
-        "UNCERTAINTY_CLEAR"
+        "UNCERTAINTY_CLEAR",
+        "CHANGE_OR_CLOSURE_CONDITION_CLEAR"
       ],
       "forbidden_moves": [
         "REQUEST_MISSING_EVIDENCE"

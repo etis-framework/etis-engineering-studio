@@ -857,3 +857,78 @@ body.student-review-idle:not(.student-setup-blocked) #selectedReviewCard #select
 .evidence-original-action{margin:0 0 14px;padding:9px 13px;min-height:42px;border:2px solid #d4af79;background:#2c281d;color:#fff0d7;font-weight:750}
 .evidence-original-action:hover,.evidence-original-action:focus-visible{outline:3px solid #ffe3b5;outline-offset:2px}
 @media(max-width:760px){.review-session-active .transcript{min-height:92px;max-height:clamp(185px,30vh,300px)}.evidence-original-action{width:100%}}
+
+/* Increment 2: conversation-first reading without changing review/evidence state. */
+.conversation-workspace-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 16px;border-top:1px solid var(--line);background:var(--panel)}
+.conversation-workspace-label{font-size:12px;font-weight:700;color:var(--text)}
+.conversation-workspace-toolbar button{min-height:40px;white-space:normal;text-align:center}
+/* Override the legacy 32vh / 350px bound; the composer remains below the transcript. */
+.review-session-active .transcript{max-height:clamp(360px,55vh,720px);min-height:180px}
+body.conversation-focus .review-session-active .transcript,body.conversation-focus.review-session-active .transcript{height:auto;max-height:min(70dvh,900px);min-height:180px;overflow-y:auto}
+body.conversation-focus .board-readout,body.conversation-focus .review-journey,body.conversation-focus .active-reviewer,body.conversation-focus .challenge-brief{display:none}
+body.conversation-focus .workspace{grid-template-columns:minmax(0,1fr)}
+body.conversation-focus .workspace>.evidence-rail{display:none}
+body.conversation-focus .conversation-workspace-toolbar{position:relative;z-index:1}
+#toggleConversationFocus:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+@media(max-width:760px){
+  .conversation-workspace-toolbar{flex-wrap:wrap;padding:9px 12px}
+  .review-session-active .transcript{max-height:clamp(320px,52dvh,620px);min-height:160px}
+  body.conversation-focus.review-session-active .transcript{height:auto;max-height:62dvh;min-height:160px}
+  body.conversation-focus .workspace{display:block}
+}
+@media(max-width:420px){.conversation-workspace-toolbar button{width:100%}}
+
+/* Increment 2 discoverability refinement: explicit, visible view selection. */
+.conversation-workspace-heading{display:flex;flex-direction:column;gap:3px;min-width:0}
+.conversation-view-hint{font-size:12px;color:var(--muted);line-height:1.4}
+.conversation-view-selector{display:flex;align-items:center;gap:0;flex-wrap:wrap}
+.conversation-view-title{font-size:12px;font-weight:700;margin-right:10px}
+.conversation-view-option{border:1px solid var(--line);border-radius:0;padding:8px 13px;min-height:42px;font-weight:700;background:var(--panel);color:var(--text);cursor:pointer}
+.conversation-view-option:first-of-type{border-radius:7px 0 0 7px}
+.conversation-view-option:last-of-type{border-radius:0 7px 7px 0;border-left:0}
+.conversation-view-option[aria-pressed="true"]{background:var(--accent);color:#071a18;border-color:var(--accent)}
+.conversation-view-option:focus-visible{outline:3px solid var(--accent);outline-offset:3px;position:relative;z-index:1}
+@media(max-width:760px){.conversation-workspace-toolbar{align-items:flex-start}.conversation-view-title{width:100%;margin:0 0 4px}}
+
+/* Increment 2 Revision 4: the conversation, not the browser page, owns long-turn scrolling.
+   Use a content-sized area up to a viewport bound; do not manufacture blank height. */
+body.review-session-active #transcript,
+body.review-session-active .transcript {
+  box-sizing:border-box;
+  height:auto;
+  max-height:min(55dvh,680px);
+  min-height:180px;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior-y:contain;
+  scrollbar-gutter:stable;
+}
+body.review-session-active.conversation-focus #transcript,
+body.review-session-active.conversation-focus .transcript {
+  height:auto;
+  max-height:min(70dvh,900px);
+  min-height:180px;
+  overflow-y:auto;
+}
+@media (max-width:760px) {
+  body.review-session-active #transcript,
+  body.review-session-active .transcript {max-height:52dvh;min-height:150px}
+  body.review-session-active.conversation-focus #transcript,
+  body.review-session-active.conversation-focus .transcript {max-height:62dvh;min-height:150px}
+}
+
+/* Increment 2 Revision 5: explain the independent transcript scroller only on overflow. */
+.conversation-scroll-hint{margin:5px 0 8px;color:var(--muted);font-size:12px;line-height:1.4}
+.conversation-scroll-hint.hidden{display:none}
+
+/* Increment 3: distinguish coaching from authoritative finding state. */
+.finding-state-explanation,.finding-context-explanation{display:block;color:var(--muted);font-size:.76rem;line-height:1.4;margin:5px 0 9px}
+
+/* Increment 4: explicit, bounded artifact transition in Evidence Room. */
+.evidence-artifact-route{margin:12px 0 16px;padding:14px 16px;border:1px solid var(--border,#526071);border-radius:10px}
+.evidence-artifact-route p{margin:5px 0 8px;font-size:13px;line-height:1.5}
+.evidence-artifact-route-controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.evidence-artifact-route-controls label{font-size:13px;font-weight:650}
+.evidence-artifact-route-controls input{flex:1 1 230px;min-width:0}
+.evidence-artifact-route-feedback{min-height:1em}
+@media(max-width:760px){.evidence-artifact-route-controls{align-items:stretch;flex-direction:column}.evidence-artifact-route-controls input,.evidence-artifact-route-controls button{width:100%}}
