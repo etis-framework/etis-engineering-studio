@@ -176,13 +176,22 @@ def test_strong_profile_clears_wave1_evidence_gaps(
     )
 
 
-def test_contradictory_profile_surfaces_readiness_conflict(tmp_path):
+def test_readiness_claim_does_not_create_ungrounded_contradiction(tmp_path):
+    """Readiness prose alone cannot prove a contradictory engineering fact.
+
+    Preserve concrete evidence-gap findings, but do not fabricate a semantic
+    contradiction without verified conflicting claims and provenance.
+    """
     root = clone(tmp_path)
     adapt(root / "README.md", "A1 is complete and launch-ready.")
 
     result = analyze_local_repository(root, "A1")
 
     assert any(
+        finding["category"] in UNRESOLVED_EVIDENCE_CATEGORIES
+        for finding in result["findings"]
+    )
+    assert not any(
         finding["category"] == "contradiction"
         for finding in result["findings"]
     )

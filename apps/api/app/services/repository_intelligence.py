@@ -334,6 +334,35 @@ def _find_artifact(artifacts: list[ArtifactFact], path: str) -> ArtifactFact | N
     return ArtifactFact(path=path, exists=True, provenance=prov, quality=quality, summary=f'{len(children)} artifact(s) visible under this evidence area.')
 
 
+# Specific, evidenced COMP 330 aliases. A candidate's presence only establishes
+# that relevant evidence exists; it does not establish adequacy or correctness.
+EVIDENCE_ALIASES = {
+    'docs/planning/re-estimation.md': ('docs/planning/reestimation.md', 'docs/planning/Re Estimates.md'),
+    'docs/planning/task-plan.md': ('docs/planning/taskplan.md',),
+    'docs/team/team-charter.md': ('docs/team-charter.md',),
+    'docs/team/roles.md': ('docs/roles.md',),
+    'docs/team/working-agreements.md': ('docs/working-agreements.md',),
+}
+
+
+def find_expected_artifact(artifacts: list[ArtifactFact], path: str) -> ArtifactFact | None:
+    found = _find_artifact(artifacts, path)
+    if found is not None:
+        return found
+    # Canonical folders remain bounded evidence areas, not arbitrary filename
+    # fuzzy matching. Alias discovery is explicit to avoid false substitutions.
+    for alias in EVIDENCE_ALIASES.get(path, ()):
+        found = _find_artifact(artifacts, alias)
+        if found is not None:
+            return found
+    return None
+
+
+def metric_observed(metrics: dict, key: str) -> bool:
+    """An unavailable remote metric must never be interpreted as zero."""
+    return key in metrics and metrics[key] is not None
+
+
 def build_findings(phase_id: str, artifacts: list[ArtifactFact], metrics: dict, expected_evidence: list[dict]) -> list[ReviewFinding]:
     findings: list[ReviewFinding] = []
     refs = {a.path: f'PATH:{a.path}' for a in artifacts}
@@ -342,26 +371,26 @@ def build_findings(phase_id: str, artifacts: list[ArtifactFact], metrics: dict, 
     for idx, exp in enumerate(expected_evidence, 1):
         path = exp['path']
         if path == 'GitHub Issues':
-            if metrics.get('issue_count', 0) == 0:
+            if metric_observed(metrics, 'issue_count') and metrics['issue_count'] == 0:
                 findings.append(ReviewFinding(f'workflow-issues-{phase_id}', 'workflow_gap', 'No visible issue-based work', 'No GitHub Issues were visible in the reviewed repository state.', 'The course workflow expects meaningful work to have visible intent, ownership, and completion evidence.', 3 if phase_id in {'A2','A3','A4','A5','A6'} else 2, 'high', evidence_refs=['GITHUB:issues'], suggested_lens='delivery'))
             continue
         if path == 'GitHub Pull Requests':
-            if metrics.get('pr_count', 0) == 0:
+            if metric_observed(metrics, 'pr_count') and metrics['pr_count'] == 0:
                 findings.append(ReviewFinding(f'workflow-prs-{phase_id}', 'workflow_gap', 'No visible pull-request review history', 'No pull requests were visible in the reviewed repository state.', 'Later phase claims about controlled implementation and review need repository-visible review behavior.', 4 if phase_id in {'A4','A5','A6'} else 2, 'high', evidence_refs=['GITHUB:pulls'], suggested_lens='evidence_auditor'))
             continue
-        art = _find_artifact(artifacts, path)
+        art = find_expected_artifact(artifacts, path)
         if not art:
             findings.append(ReviewFinding(f'missing-{idx}', 'missing_evidence', f'Expected evidence not visible: {path}', f'The snapshot did not contain `{path}` or an equivalent artifact detected in that evidence area.', exp['claim'], 4, 'high', evidence_refs=[f'PATH:{path}'], suggested_lens='evidence_auditor'))
         elif art.provenance == 'BASELINE':
-            findings.append(ReviewFinding(f'baseline-{idx}', 'artifact_theater', f'Scaffold is present but not yet team evidence: {path}', f'`{path}` is unchanged from the official COMP 330 starter-kit baseline.', 'Starter-kit scaffolding is course infrastructure. Its presence does not prove that the team performed, adopted, reviewed, or agreed to the engineering practice.', 3, 'high', evidence_refs=[f'PATH:{path}'], suggested_lens='evidence_auditor'))
+            findings.append(ReviewFinding(f'baseline-{idx}', 'artifact_theater', f'Scaffold is present but not yet team evidence: {path}', f'`{art.path}` is unchanged from the official COMP 330 starter-kit baseline.', 'Starter-kit scaffolding is course infrastructure. Its presence does not prove that the team performed, adopted, reviewed, or agreed to the engineering practice.', 3, 'high', evidence_refs=[f'PATH:{art.path}'], suggested_lens='evidence_auditor'))
         elif art.quality in {'uninspected', 'too_large'}:
-            findings.append(ReviewFinding(f'uninspected-{idx}', 'inspection_boundary', f'Evidence could not be inspected: {path}', f'`{path}` is located in the frozen tree, but its content could not be inspected.', 'The Studio cannot judge the engineering quality or claim support of content it did not inspect. Verify the frozen file and retry after the acquisition limit or failure is addressed.', 2, 'high', evidence_refs=[f'PATH:{path}'], suggested_lens='evidence_auditor'))
+            findings.append(ReviewFinding(f'uninspected-{idx}', 'inspection_boundary', f'Evidence could not be inspected: {path}', f'`{art.path}` is located in the frozen tree, but its content could not be inspected.', 'The Studio cannot judge the engineering quality or claim support of content it did not inspect. Verify the frozen file and retry after the acquisition limit or failure is addressed.', 2, 'high', evidence_refs=[f'PATH:{art.path}'], suggested_lens='evidence_auditor'))
         elif art.quality in {'empty', 'thin', 'partial'}:
-            findings.append(ReviewFinding(f'weak-{idx}', 'weak_evidence', f'Evidence may be too thin: {path}', f'`{path}` exists but appears incomplete or still scaffold-like.', exp['claim'], 3, 'moderate', evidence_refs=[f'PATH:{path}'], suggested_lens='evidence_auditor'))
+            findings.append(ReviewFinding(f'weak-{idx}', 'weak_evidence', f'Evidence may be too thin: {path}', f'`{art.path}` exists but appears incomplete or still scaffold-like.', exp['claim'], 3, 'moderate', evidence_refs=[f'PATH:{art.path}'], suggested_lens='evidence_auditor'))
 
     # A1 still expects the team to demonstrate that the repository workflow can operate.
     # This is a workflow fact, not a repository-folder requirement.
-    if phase_id == 'A1' and metrics.get('issue_count', 0) == 0 and not any(f.id == 'workflow-issues-A1' for f in findings):
+    if phase_id == 'A1' and metric_observed(metrics, 'issue_count') and metrics['issue_count'] == 0 and not any(f.id == 'workflow-issues-A1' for f in findings):
         findings.append(ReviewFinding(
             'workflow-issues-A1', 'workflow_gap', 'No team issue workflow is visible yet',
             'No GitHub Issues were visible in the reviewed repository state.',
@@ -369,16 +398,9 @@ def build_findings(phase_id: str, artifacts: list[ArtifactFact], metrics: dict, 
             2, 'high', evidence_refs=['GITHUB:issues'], suggested_lens='delivery', phase_relevance=3, educational_value=4
         ))
 
-    # Contradiction: readiness language while phase evidence is still scaffold/missing.
-    readme = next((a for a in artifacts if a.path == 'README.md'), None)
-    unresolved = [f for f in findings if f.category in {'missing_evidence','artifact_theater','weak_evidence'} and f.severity >= 3]
-    if (
-        readme
-        and readme.provenance != 'BASELINE'
-        and READY_CLAIM_RE.search(readme.content_excerpt or '')
-        and unresolved
-    ):
-        findings.append(ReviewFinding('readiness-contradiction', 'contradiction', 'Readiness language may outrun the evidence', 'The README uses readiness/completion language while material phase evidence remains missing, scaffolded, or weak.', 'A reviewer should be able to reconcile the team\'s readiness claim with the actual evidence baseline.', 4, 'moderate', evidence_refs=['PATH:README.md'] + [x.evidence_refs[0] for x in unresolved[:2] if x.evidence_refs], suggested_lens='chief_architect'))
+    # A readiness contradiction requires an exact claim and a demonstrably
+    # inconsistent fact. A bare keyword such as "ready" plus partial files is
+    # insufficient. Leave this to evidence-grounded semantic review.
 
     # CI placeholder is a known course baseline control, not actual CI evidence.
     ci = next((a for a in artifacts if a.path == '.github/workflows/ci.yml'), None)
@@ -390,7 +412,7 @@ def build_findings(phase_id: str, artifacts: list[ArtifactFact], metrics: dict, 
     # point-in-time baseline when the team submits the package for final instructor
     # review. Existing release claims may still be challenged semantically when they
     # outrun the evidence, but absence of a tag during preparation is not a defect.
-    if phase_id == 'A6' and metrics.get('actions_runs', 0) == 0:
+    if phase_id == 'A6' and metric_observed(metrics, 'actions_runs') and metrics['actions_runs'] == 0:
         findings.append(ReviewFinding('ops-automation-gap', 'operational_gap', 'No recent automation runs were visible', 'No recent GitHub Actions runs were visible in the repository evidence gathered for the final maturity review.', 'Operational and release maturity should include inspectable automation or a documented reason why automation is not applicable.', 3, 'moderate', evidence_refs=['GITHUB:actions'], suggested_lens='delivery'))
 
     findings.sort(key=lambda f: (f.rank_score, f.severity), reverse=True)
@@ -414,7 +436,7 @@ def rank_challenges(findings: list[ReviewFinding], prior_categories: Iterable[st
 
 
 def analyze_local_repository(root: Path, phase_id: str, metrics: dict | None = None) -> dict:
-    metrics = {**{'issue_count': 0, 'pr_count': 0, 'actions_runs': 0, 'tag_count': 0, 'commit_count': 0}, **(metrics or {})}
+    metrics = dict(metrics or {})  # Absent external metrics are unknown, never zero.
     artifacts: list[ArtifactFact] = []
     for p in root.rglob('*'):
         if not p.is_file() or '.git' in p.parts:
