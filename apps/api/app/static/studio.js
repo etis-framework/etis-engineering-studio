@@ -1023,6 +1023,36 @@ $('#openSelectedReviewEvidence').onclick=()=>{
 
 function updateRepoMode(){const b=$('#repoMode'),repo=els.repo.value.trim();els.repo.title=repo||'Repository not connected';if(appRole==='student'&&studentContext){const sc=studentContext.sections?.[0],ob=studentContext.onboarding||{},candidate=sc?.repository;if(ob.repository_connected&&candidate?.production_test_repository){b.innerHTML='<span class="status green"></span> Production acceptance test repository';return}if(ob.repository_connected){b.innerHTML='<span class="status green"></span> Repository connected · Verified team repository';return}if(candidate?.owner_type==='User'&&candidate.owner_is_current_user){b.innerHTML='<span class="status amber"></span> Repository owner action required';return}if(candidate?.owner_type==='User'){b.innerHTML='<span class="status amber"></span> Waiting for repository owner';return}if(candidate?.organization_approval_required){b.innerHTML='<span class="status amber"></span> Repository pending organization approval';return}if(candidate){b.innerHTML='<span class="status amber"></span> Candidate repository · owner not confirmed';return}b.innerHTML='<span class="status amber"></span> Repository not connected';return}b.innerHTML=repo==='etis-framework/comp330-f26-starter-kit'?'<span class="status green"></span> Public starter-kit acceptance test':'<span class="status amber"></span> Repository selected'}
 els.repo.addEventListener('input',updateRepoMode);
+// v0.18.4: Keep feedback next to the clicked Start Review control.
+function showReviewStartProgress(active,label='Board Review'){
+  const main=els.newReview,entry=$('#studentEntryPrimary'),host=main?.parentElement;
+  if(!host)return;
+  let note=$('#reviewStartProgress');
+  if(!note){
+    note=document.createElement('span');
+    note.id='reviewStartProgress';
+    note.className='review-start-progress hidden';
+    note.setAttribute('role','status');
+    note.setAttribute('aria-live','polite');
+    host.appendChild(note);
+  }
+  note.classList.toggle('hidden',!active);
+  note.textContent=active?'Preparing review — retrieving and freezing repository evidence…':'';
+  if(active){
+    main.disabled=true;
+    main.setAttribute('aria-busy','true');
+    main.innerHTML=`<span class="button-spinner" aria-hidden="true"></span> Starting ${escapeHtml(label)}…`;
+    if(entry&&!entry.classList.contains('hidden')){
+      entry.disabled=true;
+      entry.setAttribute('aria-busy','true');
+      entry.innerHTML='<span class="button-spinner" aria-hidden="true"></span> Starting review…';
+    }
+  }else{
+    entry?.removeAttribute('aria-busy');
+    main.removeAttribute('aria-busy');
+    updateStudentEntry();
+  }
+}
 async function beginReview(mode='board',opts={}){
   if(!semanticReady){openHelp('semantic-required');return}
   if(pending)return;
@@ -1055,6 +1085,7 @@ async function beginReview(mode='board',opts={}){
     'Freezing repository evidence…',
     'review_start'
   );
+  showReviewStartProgress(true,reviewLabel);
 
   try{
     const seed=await ensureDemo();
@@ -1208,6 +1239,7 @@ async function beginReview(mode='board',opts={}){
   }finally{
     els.newReview.removeAttribute('aria-busy');
     setPending(false);
+    showReviewStartProgress(false);
     updateStartReviewButton();
     if(!sessionId)els.response.focus();
   }
