@@ -955,3 +955,8 @@ body.review-session-active.conversation-focus .transcript {
   #studio .conversation-view-title{flex:0 0 100%}
   #studio .selected-review-actions button{width:100%}
 }
+
+/* v0.18.4: in-place acknowledgement beside Start Review. */
+.review-start-progress{display:inline-flex;align-items:center;max-width:25rem;font-size:.82rem;line-height:1.4;color:var(--muted,#aebdc0)}
+.review-start-progress.hidden{display:none}
+@media (prefers-reduced-motion:reduce){.button-spinner{animation:none;border-top-color:currentColor}}
