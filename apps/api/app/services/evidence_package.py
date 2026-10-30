@@ -79,6 +79,42 @@ class CompactEvidencePackage:
         return rendered
 
 
+def inspect_markdown_tables(content: str) -> list[dict]:
+    """Report mechanical column-count errors; make no semantic adequacy claims."""
+    if not content:
+        return []
+    findings = []
+    lines = content.splitlines()
+    fenced = False
+    for idx, line in enumerate(lines):
+        if line.strip().startswith(('```', '~~~')):
+            fenced = not fenced
+            continue
+        if fenced or not line.lstrip().startswith('|') or not line.rstrip().endswith('|'):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip('|').split('|')]
+        if idx + 1 >= len(lines):
+            continue
+        sep = lines[idx + 1].strip()
+        if not (sep.startswith('|') and sep.endswith('|')):
+            continue
+        separators = [cell.strip() for cell in sep.strip('|').split('|')]
+        if len(separators) != len(cells) or not all(re.fullmatch(r':?-{3,}:?', c) for c in separators):
+            continue
+        expected = len(cells)
+        bad = []
+        for rowidx in range(idx + 2, len(lines)):
+            row = lines[rowidx].strip()
+            if not row.startswith('|') or not row.endswith('|'):
+                break
+            actual = len(row.strip('|').split('|'))
+            if actual != expected:
+                bad.append({'line': rowidx + 1, 'expected_columns': expected, 'actual_columns': actual})
+        if bad:
+            findings.append({'header_line': idx + 1, 'expected_columns': expected, 'malformed_rows': bad[:25]})
+    return findings[:8]
+
+
 class EvidencePackageBuilder:
     """Builds a bounded, reusable evidence package for a single review conversation.
 
@@ -109,7 +145,8 @@ class EvidencePackageBuilder:
         include_windows: bool = False,
     ) -> dict:
         path = artifact.get("path") or ""
-        content = artifact.get(content_field) or artifact.get("content_excerpt") or ""
+        primary_content = artifact.get(content_field)
+        content = primary_content if primary_content is not None else (artifact.get("content_excerpt") or "")
         if include_windows:
             later = [w for w in (artifact.get("analysis_windows") or [])[:1 if max_chars < 3000 else 2]
                      if isinstance(w, dict) and isinstance(w.get("text"), str)]
@@ -134,7 +171,9 @@ class EvidencePackageBuilder:
             hydration_status = "FOUND_BUT_UNINSPECTED"
         elif "sensitive_file" in disclosure.redactions:
             hydration_status = "FOUND_BUT_QUARANTINED"
-        elif artifact.get("quality") == "empty":
+        elif artifact.get("quality") == "empty" or (
+            artifact.get("size") == 0 and not content and artifact.get("quality") not in {"missing", "unknown"}
+        ):
             hydration_status = "FOUND_BUT_EMPTY"
         elif not content:
             hydration_status = "FOUND_BUT_UNAVAILABLE"
@@ -152,6 +191,12 @@ class EvidencePackageBuilder:
             "disclosure_status": disclosure_status,
             "disclosure_reasons": list(disclosure.redactions),
             "hydration_status": hydration_status,
+            "retrieval_state": (
+                "PRESENT_EMPTY" if hydration_status == "FOUND_BUT_EMPTY"
+                else "PRESENT_CONTENT" if hydration_status == "FOUND_AND_SUPPLIED"
+                else "PRESENT_NOT_SUPPLIED"
+            ),
+            "markdown_table_integrity": inspect_markdown_tables(content),
             "source_size": artifact.get("size", 0),
             "source_sha256": artifact.get("sha256", ""),
             "starter_lineage": artifact.get("starter_lineage", "unknown"),
@@ -212,6 +257,8 @@ class EvidencePackageBuilder:
                     "disclosure_status": "clear",
                     "disclosure_reasons": [],
                     "hydration_status": "PATH_NOT_IN_SNAPSHOT",
+                    "retrieval_state": "NOT_IN_SNAPSHOT",
+                    "markdown_table_integrity": [],
                     "source_size": 0,
                     "source_sha256": "",
                     "content_truncated": False,

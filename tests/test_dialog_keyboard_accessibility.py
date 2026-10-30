@@ -16,7 +16,8 @@ def test_every_existing_dialog_uses_keyboard_manager():
 def test_escape_routes_to_existing_close_and_cannot_submit_or_mutate():
     block = JS.split('// BEGIN STUDIO DIALOG KEYBOARD CONTRACT')[1].split('// END STUDIO DIALOG KEYBOARD CONTRACT')[0]
     assert 'event.isComposing' in block
-    assert "document.getElementById(studioDialogCloseButtons[dialog.id])?.click()" in block
+    assert "if(closeButton&&!closeButton.disabled)closeButton.click();" in block
+    assert "else closeStudioDialog(dialog.id);" in block
     assert "event.key!=='Tab'" in block
     for forbidden in ('fetch(', 'send(', 'finishReview(', 'submitEvidenceDispute', 'reasoning_state', 'finding.status'):
         assert forbidden not in block

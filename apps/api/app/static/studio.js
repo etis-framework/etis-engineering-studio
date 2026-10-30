@@ -60,7 +60,9 @@ document.addEventListener('keydown',event=>{
   if(!dialog||event.isComposing)return;
   if(event.key==='Escape'){
     event.preventDefault();event.stopPropagation();
-    document.getElementById(studioDialogCloseButtons[dialog.id])?.click();
+    const closeButton=document.getElementById(studioDialogCloseButtons[dialog.id]);
+    if(closeButton&&!closeButton.disabled)closeButton.click();
+    else closeStudioDialog(dialog.id);
     return;
   }
   if(event.key!=='Tab')return;
